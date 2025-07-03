@@ -1,0 +1,42 @@
+# Configuration for Ruff.
+[tool.ruff]
+exclude = [
+  ".git",
+  ".ipynb_checkpoints",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  "__pypackages__",
+]
+
+line-length = 80
+target-version = "py312"
+indent-width = 4
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = [
+    "E203",
+    "E501",
+    "E722",
+    "E741",
+    "F821",
+]
+
+[tool.ruff.lint.isort]
+# Force single line imports
+force-single-line = false
+# Split on trailing comma
+split-on-trailing-comma = true
+
+[tool.pytest.ini_options]
+filterwarnings = "ignore:greenlet.greenlet size changed"
+# 600s should be quite enough for a single test
+# If your test exceeds this time, first check if there is inappropriate sleep or infinite loop.
+# If your function do require a long time to run, please overide this by
+# adding "@pytest.mark.timeout(300)" to your test.
+# https://pypi.org/project/pytest-timeout/
+timeout = 600

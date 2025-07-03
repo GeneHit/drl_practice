@@ -1,0 +1,58 @@
+minimum_pre_commit_version: '4.0.1'
+default_stages: [pre-commit]
+repos:
+# A tool designed to strip output cells and metadata from Jupyter Notebook files.
+-   repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+    -   id: nbstripout
+        files: ".ipynb"
+        require_serial: true
+# Ruff is a linter and formatter that replaces flake8, isort, and black
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
+    hooks:
+    -   id: ruff  # Run the linter.
+        args: [--fix]
+    -   id: ruff-format  # Run the formatter.
+# Some out-of-the-box hooks for pre-commit.
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    -   id: check-ast
+        name: check-ast
+        description: Simply check whether files parse as valid python.
+    -   id: requirements-txt-fixer
+        name: requirements-txt-fixer
+        description: Sorts entries in requirements.txt
+    -   id: debug-statements
+        name: debug-statements
+        description: Check for debugger imports and py37+ breakpoint() calls in python source.
+    -   id: check-merge-conflict
+        name: check-merge-conflict
+        description: Check for files that contain merge conflict strings.
+    -   id: check-added-large-files
+        name: check-added-large-files
+        description: Prevent giant files from being committed.
+        args: ["--maxkb=1024"]
+    -   id: detect-private-key
+        name: detect-private-key
+        description: Checks for the existence of private keys
+    -   id: trailing-whitespace
+        name: trailing-whitespace
+        description: Removes trailing whitespace from files.
+    -   id: end-of-file-fixer
+        name: end-of-file-fixer
+        description: Ensures all files are either empty or end with a newline
+-   repo: local
+    hooks:
+    -   id: prevent-commit-main
+        name: Prevent commits on main
+        description: Ensure we don't commit directly to main
+        entry: ./scripts/prevent_commit_main.sh
+        language: script
+    -   id: mypy
+        name: Run mypy to check for type errors
+        description: Ensure there are no type errors in the code
+        entry: ./scripts/mypy.sh
+        language: script
