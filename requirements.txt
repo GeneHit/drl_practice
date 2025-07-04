@@ -1,5 +1,15 @@
 mypy==1.14.1
 pre-commit==4.0.1
-python==3.12.9
 torch==2.6.0
-tqdm==4.66.5
+
+gymnasium
+# pygame
+numpy
+
+huggingface_hub
+pickle5
+# pyyaml==6.0
+imageio
+imageio_ffmpeg
+# pyglet==1.5.1
+tqdm
