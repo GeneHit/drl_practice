@@ -1,5 +1,8 @@
+import argparse
+import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
@@ -9,6 +12,8 @@ from numpy.typing import NDArray
 
 from common.base import PolicyBase
 from common.evaluation_utils import evaluate_agent
+
+EXERCISE1_RESULT_DIR = Path("results/exercise1_q_learning/")
 
 
 def greedy_policy(q_table: NDArray[np.float32], state: int) -> int:
@@ -139,7 +144,12 @@ def train(
     raise NotImplementedError("Not implemented")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    # add a --model_pathname argument if provided, use the default value if not provided
+    parser.add_argument("--model_pathname", type=str, default="")
+    args = parser.parse_args()
+
     # Training parameters
     episodes = 10000  # Total training episodes
     learning_rate = 0.7  # Learning rate
@@ -161,9 +171,14 @@ if __name__ == "__main__":
     action_shape = env.action_space.shape
     assert state_shape == (1,)
     assert action_shape == (1,)
-    q_table = QTable(
-        QTableConfig(state_space=state_shape[0], action_space=action_shape[0])
-    )
+    if args.model_pathname:
+        q_table = QTable.load(args.model_pathname)
+    else:
+        q_table = QTable(
+            QTableConfig(
+                state_space=state_shape[0], action_space=action_shape[0]
+            )
+        )
     train(
         env=env,
         q_table=q_table,
@@ -175,6 +190,25 @@ if __name__ == "__main__":
         max_epsilon=max_epsilon,
         decay_rate=decay_rate,
     )
+
+    # Save the Q-table.
+    q_table.save(str(EXERCISE1_RESULT_DIR / "q_table.pkl"))
+    # save the hyperparameters
+    hyperparameters = {
+        "env_id": "FrozenLake-v1",
+        "map_name": "4x4",
+        "is_slippery": False,
+        "render_mode": "rgb_array",
+        "n_training_episodes": episodes,
+        "learning_rate": learning_rate,
+        "max_steps": max_steps,
+        "gamma": gamma,
+        "max_epsilon": max_epsilon,
+        "min_epsilon": min_epsilon,
+        "decay_rate": decay_rate,
+    }
+    with open(EXERCISE1_RESULT_DIR / "hyperparameters.json", "w") as f:
+        json.dump(hyperparameters, f)
 
     # Evaluation parameters
     eval_episodes = 100  # Total number of test episodes
@@ -188,6 +222,17 @@ if __name__ == "__main__":
         seed=eval_seed,
     )
     print(f"Mean reward: {mean_reward:.2f} +/- {std_reward:.2f}")
+    # save the eval result
+    eval_result = {
+        "mean_reward": mean_reward,
+        "std_reward": std_reward,
+        "eval_episodes": eval_episodes,
+        "eval_seed": eval_seed,
+        "max_steps": max_steps,
+    }
+    with open(EXERCISE1_RESULT_DIR / "eval_result.json", "w") as f:
+        json.dump(eval_result, f)
 
-    # Save the Q-table
-    q_table.save("results/q_table.pkl")
+
+if __name__ == "__main__":
+    main()
