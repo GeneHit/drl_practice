@@ -22,3 +22,12 @@ class PolicyBase(abc.ABC):
         self, state: int, action: int, next_state: int, reward: float
     ) -> None:
         """Update the policy."""
+
+    @abc.abstractmethod
+    def save(self, pathname: str) -> None:
+        """Save the policy."""
+
+    @abc.abstractmethod
+    @classmethod
+    def load(cls, pathname: str) -> "PolicyBase":
+        """Load the policy."""

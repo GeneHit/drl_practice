@@ -1,3 +1,5 @@
+import os
+from dataclasses import dataclass
 from typing import Any
 
 import gymnasium as gym
@@ -42,11 +44,28 @@ def epsilon_greedy_policy(
     raise NotImplementedError("Not implemented")
 
 
+@dataclass(kw_only=True, frozen=True)
+class QTableConfig:
+    state_space: int | None
+    action_space: int | None
+    q_table: NDArray[np.float32] | None = None
+
+
 class QTable(PolicyBase):
     """Q-table."""
 
-    def __init__(self, state_space: int, action_space: int):
-        self._q_table = np.zeros((state_space, action_space))
+    def __init__(self, config: QTableConfig):
+        if config.q_table is None:
+            assert (
+                config.state_space is not None
+                and config.action_space is not None
+            )
+            self._q_table: NDArray[Any] = np.zeros(
+                (config.state_space, config.action_space)
+            )
+        else:
+            self._q_table = config.q_table
+
         self._train_flag = False
 
     def set_train_flag(self, train_flag: bool) -> None:
@@ -62,6 +81,24 @@ class QTable(PolicyBase):
         self, state: int, action: int, next_state: int, reward: float
     ) -> None:
         raise NotImplementedError("Not implemented")
+
+    def save(self, pathname: str) -> None:
+        """Save the Q-table to a file."""
+        assert pathname.endswith(".pkl")
+        # ensure the directory exists
+        os.makedirs(os.path.dirname(pathname), exist_ok=True)
+        with open(pathname, "wb") as f:
+            pickle.dump(self._q_table, f)
+
+    @classmethod
+    def load(cls, pathname: str) -> "QTable":
+        """Load the Q-table from a file."""
+        assert pathname.endswith(".pkl")
+        with open(pathname, "rb") as f:
+            q_table = pickle.load(f)
+        return cls(
+            QTableConfig(action_space=None, state_space=None, q_table=q_table)
+        )
 
 
 def train(
@@ -124,7 +161,9 @@ if __name__ == "__main__":
     action_shape = env.action_space.shape
     assert state_shape == (1,)
     assert action_shape == (1,)
-    q_table = QTable(state_space=state_shape[0], action_space=action_shape[0])
+    q_table = QTable(
+        QTableConfig(state_space=state_shape[0], action_space=action_shape[0])
+    )
     train(
         env=env,
         q_table=q_table,
@@ -151,5 +190,4 @@ if __name__ == "__main__":
     print(f"Mean reward: {mean_reward:.2f} +/- {std_reward:.2f}")
 
     # Save the Q-table
-    with open("results/q_table.pkl", "wb") as f:
-        pickle.dump(q_table._q_table, f)
+    q_table.save("results/q_table.pkl")
