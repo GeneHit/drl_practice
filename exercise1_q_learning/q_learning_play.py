@@ -43,7 +43,7 @@ def push_q_table_to_hub(username: str) -> None:
             EXERCISE1_RESULT_DIR / "hyperparameters.json"
         ),
         eval_result_pathname=str(EXERCISE1_RESULT_DIR / "eval_result.json"),
-        video_pathname=str(EXERCISE1_RESULT_DIR / "q_learning_video.mp4"),
+        video_pathname=str(EXERCISE1_RESULT_DIR / "replay.mp4"),
         metadata=metadata,
         local_repo_path=str(EXERCISE1_RESULT_DIR / "hub"),
     )
@@ -71,9 +71,8 @@ def main() -> None:
     play_game_once(
         env=env,
         policy=q_table,
-        show_image=True,
         save_video=True,
-        video_pathname=str(EXERCISE1_RESULT_DIR / "q_learning_video.mp4"),
+        video_pathname=str(EXERCISE1_RESULT_DIR / "replay.mp4"),
     )
 
     if args.push_to_hub:

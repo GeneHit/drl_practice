@@ -9,6 +9,7 @@ import gymnasium as gym
 import numpy as np
 import pickle5 as pickle
 from numpy.typing import NDArray
+from tqdm import tqdm
 
 from common.base import PolicyBase
 from common.evaluation_utils import evaluate_agent
@@ -26,7 +27,7 @@ def greedy_policy(q_table: NDArray[np.float32], state: int) -> int:
     Returns:
         int: The action to take.
     """
-    raise NotImplementedError("Not implemented")
+    return int(np.argmax(q_table[state]))
 
 
 def epsilon_greedy_policy(
@@ -46,7 +47,10 @@ def epsilon_greedy_policy(
     Returns:
         int: The action to take.
     """
-    raise NotImplementedError("Not implemented")
+    if np.random.rand() < epsilon:
+        return int(np.random.randint(q_table.shape[1]))
+    else:
+        return int(np.argmax(q_table[state]))
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -60,6 +64,7 @@ class QTable(PolicyBase):
     """Q-table."""
 
     def __init__(self, config: QTableConfig):
+        self._config = config
         if config.q_table is None:
             assert (
                 config.state_space is not None
@@ -76,16 +81,29 @@ class QTable(PolicyBase):
     def set_train_flag(self, train_flag: bool) -> None:
         self._train_flag = train_flag
 
-    def action(
-        self, state: int | NDArray[np.float32]
-    ) -> int | NDArray[np.float32]:
+    def action(self, state: int, epsilon: float | None = None) -> int:
         assert isinstance(state, int)
-        raise NotImplementedError("Not implemented")
+        if self._train_flag:
+            assert epsilon is not None, (
+                "epsilon must be provided in training mode"
+            )
+            return epsilon_greedy_policy(self._q_table, state, epsilon)
+        else:
+            return greedy_policy(self._q_table, state)
 
-    def update(
-        self, state: int, action: int, next_state: int, reward: float
-    ) -> None:
-        raise NotImplementedError("Not implemented")
+    def get_score(self, state: int, action: int | None = None) -> float:
+        assert isinstance(state, int)
+        if action is None:
+            return float(max(self._q_table[state]))
+        else:
+            return float(self._q_table[state, action])
+
+    def update(self, state: int | None, action: int | None, score: Any) -> None:
+        assert state is not None
+        assert action is not None
+        assert isinstance(score, float)
+
+        self._q_table[state, action] = score
 
     def save(self, pathname: str) -> None:
         """Save the Q-table to a file."""
@@ -106,7 +124,7 @@ class QTable(PolicyBase):
         )
 
 
-def train(
+def q_table_train(
     env: gym.Env[Any, Any],
     q_table: QTable,
     episodes: int,
@@ -141,7 +159,31 @@ def train(
         max_epsilon (float): The maximum exploration rate.
         decay_rate (float): The decay rate of the exploration rate.
     """
-    raise NotImplementedError("Not implemented")
+    for episode in tqdm(range(episodes)):
+        epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(
+            -decay_rate * episode
+        )
+        state, _ = env.reset()
+        # TODO: see whether the rendering can check the machine is suitable for this-task reanding.
+        img_raw: Any = env.render()
+        assert img_raw is not None, (
+            "The image is None, please check the environment for rendering."
+        )
+
+        for _ in range(max_steps):
+            action = q_table.action(state=state, epsilon=epsilon)
+            next_state, reward, terminated, truncated, _ = env.step(action)
+            old_score = q_table.get_score(state=state, action=action)
+            new_score = old_score + lr * (
+                float(reward)
+                + gamma * q_table.get_score(state=next_state, action=None)
+                - old_score
+            )
+            q_table.update(state=state, action=action, score=new_score)
+
+            if terminated or truncated:
+                break
+            state = next_state
 
 
 def main() -> None:
@@ -179,7 +221,7 @@ def main() -> None:
                 state_space=state_shape[0], action_space=action_shape[0]
             )
         )
-    train(
+    q_table_train(
         env=env,
         q_table=q_table,
         episodes=episodes,
