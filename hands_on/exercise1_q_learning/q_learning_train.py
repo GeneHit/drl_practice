@@ -187,12 +187,7 @@ def q_table_train(
             state = next_state
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    # add a --model_pathname argument if provided, use the default value if not provided
-    parser.add_argument("--model_pathname", type=str, default="")
-    args = parser.parse_args()
-
+def main(env: gym.Env[Any, Any], model_pathname: str) -> None:
     # Training parameters
     episodes = 10000  # Total training episodes
     learning_rate = 0.7  # Learning rate
@@ -204,14 +199,8 @@ def main() -> None:
     min_epsilon = 0.05  # Minimum exploration probability
     decay_rate = 0.0005  # Exponential decay rate for exploration prob
 
-    env = gym.make(
-        "FrozenLake-v1",
-        map_name="4x4",
-        is_slippery=False,
-        render_mode="rgb_array",
-    )
-    if args.model_pathname:
-        q_table = QTable.load(args.model_pathname)
+    if model_pathname:
+        q_table = QTable.load(model_pathname)
     else:
         q_table = QTable(
             QTableConfig(
@@ -276,4 +265,18 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    # add a --model_pathname argument if provided, use the default value if not provided
+    parser.add_argument("--model_pathname", type=str, default="")
+    args = parser.parse_args()
+
+    env = gym.make(
+        "FrozenLake-v1",
+        map_name="4x4",
+        is_slippery=False,
+        render_mode="rgb_array",
+    )
+    try:
+        main(env=env, model_pathname=args.model_pathname)
+    finally:
+        env.close()

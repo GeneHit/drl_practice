@@ -2,11 +2,11 @@ import gymnasium as gym
 
 
 def main() -> None:
-    # First, we create our environment called LunarLander-v2
+    # First, create the environment
     # env = gym.make("FrozenLake-v1", map_name="4x4", is_slippery=False)
     env = gym.make("LunarLander-v3")
 
-    # Then we reset this environment
+    # Then reset this environment
     env.reset()
 
     for _ in range(20):

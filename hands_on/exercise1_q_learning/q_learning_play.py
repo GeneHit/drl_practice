@@ -74,12 +74,15 @@ def main() -> None:
         )
 
         # play the game
-        play_game_once(
-            env=env,
-            policy=q_table,
-            save_video=True,
-            video_pathname=str(EXERCISE1_RESULT_DIR / "replay.mp4"),
-        )
+        try:
+            play_game_once(
+                env=env,
+                policy=q_table,
+                save_video=True,
+                video_pathname=str(EXERCISE1_RESULT_DIR / "replay.mp4"),
+            )
+        finally:
+            env.close()
 
     if args.push_to_hub:
         push_q_table_to_hub(args.username)
