@@ -168,11 +168,6 @@ def q_table_train(
             -decay_rate * episode
         )
         state, _ = env.reset()
-        # TODO: see whether the rendering can check the machine is suitable for this-task reanding.
-        img_raw: Any = env.render()
-        assert img_raw is not None, (
-            "The image is None, please check the environment for rendering."
-        )
 
         for _ in range(max_steps):
             action = q_table.action(state=state, epsilon=epsilon)
