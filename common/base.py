@@ -53,7 +53,9 @@ class PolicyBase(abc.ABC):
     def save(self, pathname: str) -> None:
         """Save the policy."""
 
-    @abc.abstractmethod
     @classmethod
     def load(cls, pathname: str) -> "PolicyBase":
         """Load the policy."""
+        raise NotImplementedError(
+            "This method should be implemented by the subclass."
+        )

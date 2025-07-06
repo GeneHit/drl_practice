@@ -51,29 +51,32 @@ def push_q_table_to_hub(username: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--push_to_hub", type=bool, default=False)
+    # add a --push_to_hub argument if provided
+    parser.add_argument("--push_to_hub", action="store_true", default=False)
+    parser.add_argument("--skip_render", action="store_true", default=False)
     parser.add_argument("--username", type=str, default="")
     args = parser.parse_args()
 
     if args.push_to_hub:
         assert args.username != "", "Username is required when pushing to Hub"
 
-    # load the q_table from the file
-    q_table = QTable.load(str(EXERCISE1_RESULT_DIR / "q_table.pkl"))
-    env = gym.make(
-        "FrozenLake-v1",
-        map_name="4x4",
-        is_slippery=False,
-        render_mode="rgb_array",
-    )
+    if not args.skip_render:
+        # load the q_table from the file
+        q_table = QTable.load(str(EXERCISE1_RESULT_DIR / "q_table.pkl"))
+        env = gym.make(
+            "FrozenLake-v1",
+            map_name="4x4",
+            is_slippery=False,
+            render_mode="rgb_array",
+        )
 
-    # play the game
-    play_game_once(
-        env=env,
-        policy=q_table,
-        save_video=True,
-        video_pathname=str(EXERCISE1_RESULT_DIR / "replay.mp4"),
-    )
+        # play the game
+        play_game_once(
+            env=env,
+            policy=q_table,
+            save_video=True,
+            video_pathname=str(EXERCISE1_RESULT_DIR / "replay.mp4"),
+        )
 
     if args.push_to_hub:
         push_q_table_to_hub(args.username)

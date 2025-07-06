@@ -159,6 +159,7 @@ def q_table_train(
         max_epsilon (float): The maximum exploration rate.
         decay_rate (float): The decay rate of the exploration rate.
     """
+    q_table.set_train_flag(train_flag=True)
     for episode in tqdm(range(episodes)):
         epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(
             -decay_rate * episode
@@ -209,16 +210,14 @@ def main() -> None:
         is_slippery=False,
         render_mode="rgb_array",
     )
-    state_shape = env.observation_space.shape
-    action_shape = env.action_space.shape
-    assert state_shape == (1,)
-    assert action_shape == (1,)
     if args.model_pathname:
         q_table = QTable.load(args.model_pathname)
     else:
         q_table = QTable(
             QTableConfig(
-                state_space=state_shape[0], action_space=action_shape[0]
+                # the shape of observation and action doesn't work, n cann't pass mypy
+                state_space=env.observation_space.n,  # type: ignore
+                action_space=env.action_space.n,  # type: ignore
             )
         )
     q_table_train(
