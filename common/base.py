@@ -13,6 +13,8 @@ class PolicyBase(abc.ABC):
     def action(self, state: Any, epsilon: float | None = None) -> int:
         """Get the action for the given state.
 
+        TODO: support batch processing.
+
         Parameters
         ----------
         state : int
@@ -28,6 +30,8 @@ class PolicyBase(abc.ABC):
     @abc.abstractmethod
     def get_score(self, state: Any, action: Any | None = None) -> float:
         """Get the score for the given state and action.
+
+        TODO: support batch processing.
 
         If action is None, the score will be the maximum score for the given state.
 
@@ -45,9 +49,21 @@ class PolicyBase(abc.ABC):
 
     @abc.abstractmethod
     def update(
-        self, state: Any | None, action: Any | None, score: float
+        self, state: Any | None, action: Any | None, reward_target: Any
     ) -> None:
-        """Update the policy."""
+        """Update the policy.
+
+        Parameters
+        ----------
+        state : Any | None
+            The state to update the policy/model for.
+        action : Any | None
+            The action to update the policy/model for.
+        reward_target : Any
+            The reward target to update the policy/model for. Cases:
+            1. for q_table, it is the float TD score.
+            2. for dqn, it is the tensor TD target from the target network.
+        """
 
     @abc.abstractmethod
     def save(self, pathname: str) -> None:

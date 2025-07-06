@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -98,12 +99,14 @@ class QTable(PolicyBase):
         else:
             return float(self._q_table[state, action])
 
-    def update(self, state: int | None, action: int | None, score: Any) -> None:
+    def update(
+        self, state: int | None, action: int | None, reward_target: Any
+    ) -> None:
         assert state is not None
         assert action is not None
-        assert isinstance(score, float)
+        assert isinstance(reward_target, float)
 
-        self._q_table[state, action] = score
+        self._q_table[state, action] = reward_target
 
     def save(self, pathname: str) -> None:
         """Save the Q-table to a file."""
@@ -180,7 +183,7 @@ def q_table_train(
                 + gamma * q_table.get_score(state=next_state, action=None)
                 - old_score
             )
-            q_table.update(state=state, action=action, score=new_score)
+            q_table.update(state=state, action=action, reward_target=new_score)
 
             if terminated or truncated:
                 break
@@ -259,6 +262,7 @@ def main(env: gym.Env[Any, Any], model_pathname: str) -> None:
         "eval_episodes": eval_episodes,
         "eval_seed": eval_seed,
         "max_steps": max_steps,
+        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     with open(EXERCISE1_RESULT_DIR / "eval_result.json", "w") as f:
         json.dump(eval_result, f)

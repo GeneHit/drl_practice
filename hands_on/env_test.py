@@ -6,8 +6,14 @@ def main() -> None:
     # env = gym.make("FrozenLake-v1", map_name="4x4", is_slippery=False)
     env = gym.make("LunarLander-v3")
 
+    # print("Observation Space Shape", env.observation_space.shape)
+    # print("Sample observation", env.observation_space.sample())
+    # print("Action Space Shape", env.action_space.n)
+    # print("Sample action", env.action_space.sample())
+    # return
+
     # Then reset this environment
-    env.reset()
+    obs, _ = env.reset()
 
     for _ in range(20):
         # Take a random action

@@ -17,7 +17,7 @@ def evaluate_agent(
     episodes: int,
     seed: Sequence[int],
     stream_video: bool = False,
-    video_path: str = "",
+    video_folder: str = "./video",
 ) -> tuple[float, float]:
     """Evaluate the agent.
 
@@ -27,18 +27,17 @@ def evaluate_agent(
         max_steps (int): The maximum number of steps per episode.
         episodes (int): The number of episodes to evaluate.
         seed (Sequence[int]): The seed.
-        stream_video (bool): Whether to save the video on the file.
-        video_path (str): The path to save the video.
+        stream_video (bool): Whether to record videos during evaluation.
+        video_folder (str): The folder to save the videos.
 
     Returns:
         tuple[float, float]: The average and std of the reward.
     """
+    # Wrap the environment with RecordVideo if video recording is requested
     if stream_video:
-        assert video_path != "", (
-            "video_path must be provided if stream_video is True"
-        )
-        if not video_path.endswith("/"):
-            video_path = video_path + "/"
+        # Create the video folder if it doesn't exist
+        os.makedirs(video_folder, exist_ok=True)
+        env = gym.wrappers.RecordVideo(env, video_folder=video_folder)
 
     rewards = []
     policy.set_train_flag(train_flag=False)
@@ -47,36 +46,17 @@ def evaluate_agent(
             state, _ = env.reset(seed=seed[episode])
         else:
             state, _ = env.reset()
-        images: List[Any] = []
-        if stream_video:
-            img_raw: Any = env.render()
-            assert img_raw is not None, (
-                "The image is None, please check the environment for rendering."
-            )
-            images.append(img_raw)
 
         total_rewards_ep = 0.0
         for _ in range(max_steps):
             action = policy.action(state)
             state, reward, terminated, truncated, _ = env.step(action)
             total_rewards_ep += float(reward)
-            if stream_video:
-                img_raw = env.render()
-                assert img_raw is not None, (
-                    "The image is None, please check the environment for rendering."
-                )
-                images.append(img_raw)
             if terminated or truncated:
                 break
 
-        if stream_video:
-            imageio.mimsave(
-                video_path + f"episode_{episode}.mp4",
-                [np.array(img) for img in images],
-                fps=1,
-            )
-
         rewards.append(total_rewards_ep)
+
     return float(np.mean(rewards)), float(np.std(rewards))
 
 
