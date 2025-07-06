@@ -1,4 +1,4 @@
-# Configuration for Ruff.
+# ******************************Configuration for Ruff**************************
 [tool.ruff]
 exclude = [
   ".git",
@@ -32,11 +32,65 @@ force-single-line = false
 # Split on trailing comma
 split-on-trailing-comma = true
 
+# ******************************Configuration for Pytest************************
 [tool.pytest.ini_options]
 filterwarnings = "ignore:greenlet.greenlet size changed"
 # 600s should be quite enough for a single test
-# If your test exceeds this time, first check if there is inappropriate sleep or infinite loop.
+# If your test exceeds this time, first check if there is inappropriate sleep
+# or infinite loop.
 # If your function do require a long time to run, please overide this by
 # adding "@pytest.mark.timeout(300)" to your test.
 # https://pypi.org/project/pytest-timeout/
 timeout = 600
+
+# ******************************Configuration for mypy**************************
+[tool.mypy]
+# Specify the files and directories to be checked ** please keep sorted **
+files = [
+    "./common",
+    "./hands_on",
+]
+namespace_packages = true
+follow_imports = "silent"
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_any_generics = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_return_any = true
+strict_optional = true
+
+# list external modules with no typing below ** please keep sorted **
+[[tool.mypy.overrides]]
+module = "gymnasium.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "imageio.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "matplotlib.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pickle5.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pytest.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tqdm.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "torchvision.*"
+ignore_missing_imports = true
