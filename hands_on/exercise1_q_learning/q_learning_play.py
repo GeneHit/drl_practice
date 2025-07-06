@@ -4,7 +4,10 @@ import gymnasium as gym
 
 from common.evaluation_utils import play_game_once
 from common.hub_utils import push_to_hub
-from exercise1_q_learning.q_learning_train import EXERCISE1_RESULT_DIR, QTable
+from hands_on.exercise1_q_learning.q_learning_train import (
+    EXERCISE1_RESULT_DIR,
+    QTable,
+)
 
 ENV_ID = "FrozenLake-v1"
 

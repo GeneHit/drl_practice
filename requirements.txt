@@ -1,18 +1,16 @@
 
 gymnasium==1.2.0
+# required by the LunarLander-v3 environment
+gymnasium[box2d]
 huggingface_hub==0.33.2
-# pyyaml==6.0
 imageio==2.37.0
 matplotlib>=3.8.0
 mypy==1.14.1
-# pygame
 numpy==2.2.6
 pickle5==0.0.11
-pre-commit==4.0.1
-
-# required by gymnasium:
-pygame==2.6.1
+# required by gymnasium
+pre-commit==4.0.1pygame==2.6.1
+# required by gymnasium[box2d]
+swig==4.3.1
 torch==2.7.0
-# imageio_ffmpeg==0.6.0
-# pyglet==1.5.1
 tqdm>=4.66.5

@@ -1,5 +1,6 @@
 __pycache__
 .DS_Store
+.idea
 .ipynb_checkpoints
 *.mypy_cache
 .pytest_cache
