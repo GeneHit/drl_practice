@@ -4,7 +4,6 @@ gymnasium==1.2.0
 gymnasium[box2d]
 huggingface_hub==0.33.2
 imageio==2.37.0
-matplotlib>=3.8.0
 mypy==1.14.1
 numpy==2.2.6
 pickle5==0.0.11
