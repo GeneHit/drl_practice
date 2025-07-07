@@ -25,6 +25,28 @@ you can try (add project root to the python path):
 ```
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 ```
+### Good Code
+To ensure your code is high quality, please use the pre-commit:
+- when you submit a `git commit`:
+    - it will run a range of checks.
+    - include self-add mypy and pytest check.
+- commit will be submited when it passes all checks.
+
+Run below command in terminal to install the pre-commit for `git commit`.
+```
+pre-commit install
+```
+where you can uninstall it by `pre-commit unstall`.
+
+You also can run mypy and pytest seperately. Some commands:
+```
+mypy .
+mypy hands_on/exercise1_q_learning/q_learing_train.py
+pytest .
+pytest -s common/
+pytest -s $FOLDER$ -k $function_name$
+```
+
 ### Test a Specified env
 Change the env to what you want in the [env_test.py](./env_test.py) file,
 and run the below command to see whether your laptop work.
