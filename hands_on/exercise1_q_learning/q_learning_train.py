@@ -253,7 +253,6 @@ def main(env: gym.Env[Any, Any], model_pathname: str) -> None:
         episodes=eval_episodes,
         seed=eval_seed,
     )
-    print(f"Mean reward: {mean_reward:.2f} +/- {std_reward:.2f}")
     # save the eval result
     eval_result = {
         "mean_reward": mean_reward,
@@ -273,12 +272,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_pathname", type=str, default="")
     args = parser.parse_args()
 
-    env = gym.make(
-        "FrozenLake-v1",
-        map_name="4x4",
-        is_slippery=False,
-        render_mode="rgb_array",
-    )
+    env = gym.make(id="FrozenLake-v1", map_name="4x4", is_slippery=False)
     # env = gym.make("Taxi-v3", render_mode="rgb_array")
     try:
         main(env=env, model_pathname=args.model_pathname)

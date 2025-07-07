@@ -76,7 +76,7 @@ def main() -> None:
 
     env_id = "FrozenLake-v1"
     env = gym.make(
-        env_id,
+        id=env_id,
         map_name="4x4",
         is_slippery=False,
         render_mode="rgb_array",

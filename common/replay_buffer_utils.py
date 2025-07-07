@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import torch
 from numpy.typing import NDArray
 
 
@@ -14,15 +15,15 @@ class Experience:
     Usually be used for the network input, where the input is a batch of experiences.
     """
 
-    states: NDArray[np.floating[Any]]
+    states: torch.Tensor
     """The state of the environment at the start of the experience."""
-    actions: NDArray[np.integer[Any]]
+    actions: torch.Tensor
     """The action taken by the agent."""
-    rewards: NDArray[np.floating[Any]]
+    rewards: torch.Tensor
     """The reward received by the agent."""
-    next_states: NDArray[np.floating[Any]]
+    next_states: torch.Tensor
     """The state of the environment at the end of the experience."""
-    dones: NDArray[np.bool_]
+    dones: torch.Tensor
     """Whether the experience is terminal or truncated.
 
     2 Cases:
@@ -70,11 +71,11 @@ class ReplayBuffer:
         batch = random.sample(self.buffer, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
         return Experience(
-            states=np.array(states),
-            actions=np.array(actions),
-            rewards=np.array(rewards),
-            next_states=np.array(next_states),
-            dones=np.array(dones),
+            states=torch.tensor(states),
+            actions=torch.tensor(actions),
+            rewards=torch.tensor(rewards),
+            next_states=torch.tensor(next_states),
+            dones=torch.tensor(dones),
         )
 
     def __len__(self) -> int:

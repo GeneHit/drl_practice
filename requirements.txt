@@ -2,6 +2,7 @@
 gymnasium==1.2.0
 # required by the LunarLander-v3 environment
 gymnasium[box2d]
+gymnasium[other]
 huggingface_hub==0.33.2
 imageio==2.37.0
 mypy==1.14.1
