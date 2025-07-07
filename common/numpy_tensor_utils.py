@@ -4,12 +4,7 @@ import numpy as np
 import torch
 
 
-def change_state_to_tensor(state: Any) -> torch.Tensor:
-    if isinstance(state, np.ndarray):
-        if state.ndim == 1:
-            state = state.reshape(1, -1)
-        return torch.from_numpy(state).float()
-    elif isinstance(state, torch.Tensor):
-        return state
-    else:
-        raise ValueError("Invalid state type")
+def get_tensor_expanding_axis(
+    state: np.typing.NDArray[Any], axis: int = 0
+) -> torch.Tensor:
+    return torch.from_numpy(np.expand_dims(state, axis=axis)).float()

@@ -70,12 +70,21 @@ class ReplayBuffer:
     def sample(self, batch_size: int) -> Experience:
         batch = random.sample(self.buffer, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
+
+        # Convert to numpy arrays first, then to tensors for better performance
+        states_np = np.array(states)
+        # int64 for the gather() function
+        actions_np = np.array(actions, dtype=np.int64)
+        rewards_np = np.array(rewards, dtype=np.float32)
+        next_states_np = np.array(next_states)
+        dones_np = np.array(dones, dtype=np.bool_)
+
         return Experience(
-            states=torch.tensor(states),
-            actions=torch.tensor(actions),
-            rewards=torch.tensor(rewards),
-            next_states=torch.tensor(next_states),
-            dones=torch.tensor(dones),
+            states=torch.from_numpy(states_np),
+            actions=torch.from_numpy(actions_np),
+            rewards=torch.from_numpy(rewards_np),
+            next_states=torch.from_numpy(next_states_np),
+            dones=torch.from_numpy(dones_np),
         )
 
     def __len__(self) -> int:
