@@ -3,13 +3,6 @@ default_language_version:
 minimum_pre_commit_version: '4.0.1'
 default_stages: [pre-commit]
 repos:
-# A tool designed to strip output cells and metadata from Jupyter Notebook files.
--   repo: https://github.com/kynan/nbstripout
-    rev: 0.8.1
-    hooks:
-    -   id: nbstripout
-        files: ".ipynb"
-        require_serial: true
 # Ruff is a linter and formatter that replaces flake8, isort, and black
 -   repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.9.1
@@ -57,4 +50,9 @@ repos:
         name: Run mypy to check for type errors
         description: Ensure there are no type errors in the code
         entry: ./scripts/mypy.sh
+        language: script
+    -   id: pytest
+        name: Run pytest to check for test failures
+        description: Ensure there are no test failures in the code
+        entry: ./scripts/pytest.sh
         language: script
