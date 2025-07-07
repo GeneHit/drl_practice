@@ -17,6 +17,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
 # from torch.utils.tensorboard import SummaryWriter
@@ -280,15 +281,16 @@ def main(env: gym.Env[NDArray[Any], ActType], model_pathname: str) -> None:
     target_update_interval = 1000
     update_start_step = 800
 
-    obs, _ = env.reset(seed=0)
-    in_shape = tuple(obs.shape)
-    action_n: int = env.action_space.n  # type: ignore
-    assert isinstance(obs, np.ndarray)
-    if len(in_shape) == 1:
-        q_network: nn.Module = QNet1D(state_n=in_shape[0], action_n=action_n)
+    act_shape = env.action_space.shape
+    assert act_shape is not None
+    act_space = env.action_space
+    assert isinstance(act_space, Discrete)  # make mypy happy
+    action_n: int = int(act_space.n)
+    if len(act_shape) == 1:
+        q_network: nn.Module = QNet1D(state_n=act_shape[0], action_n=action_n)
     else:
-        assert len(in_shape) == 3, "The observation space must be 3D"
-        q_network = QNet2D(in_shape=in_shape, action_n=action_n)
+        assert len(act_shape) == 3, "The action space must be 3D"
+        q_network = QNet2D(in_shape=act_shape, action_n=action_n)
     if model_pathname:
         q_network.load_state_dict(torch.load(model_pathname))
 
@@ -379,41 +381,56 @@ def main(env: gym.Env[NDArray[Any], ActType], model_pathname: str) -> None:
 
 
 def make_env() -> tuple[gym.Env[NDArray[Any], ActType], dict[str, Any]]:
+    """Make the 2D environment.
+
+    env.action_space.n=np.int64(4)
+    env.observation_space.shape=(4, 84, 84)
+    """
     env = gym.make("LunarLander-v3", render_mode="rgb_array")
     env = gym.wrappers.AddRenderObservation(env, render_only=True)
     env = gym.wrappers.ResizeObservation(env, shape=(84, 84))
+    # -> [**shape, 3] -> [**shape, 1]
     env = gym.wrappers.GrayscaleObservation(env, keep_dim=True)
-    # shape: (**shape, num_stack) -> (num_stack, **shape)
-    # !!! the env.observation_space.shape is still (**shape, num_stack)
-    # shape: (84, 84, 4) -> (4, 84, 84)
+    # -> [**shape, 1] -> [4, **shape, 1]
+    env = gym.wrappers.FrameStackObservation(env, stack_size=4)
     transposed_space = gym.spaces.Box(
         low=0, high=255, shape=(4, 84, 84), dtype=np.uint8
     )
+    # -> [num_stack, **shape, 1] -> [num_stack, **shape]
     env = gym.wrappers.TransformObservation(
         env,
-        lambda obs: np.transpose(obs, (2, 0, 1)),
+        lambda obs: obs.squeeze(-1),
         observation_space=transposed_space,
     )
     # env = TransformObservation(env, lambda obs: np.transpose(obs, (2, 0, 1)))
     env = cast(gym.Env[NDArray[Any], ActType], env)  # make mypy happy
 
+    act_space = env.action_space
+    assert isinstance(act_space, Discrete)  # make mypy happy
     env_params = {
         "env_id": "LunarLander-v3",
         "render_mode": "rgb_array",
         "wrappers": describe_wrappers(env),
         "observation_space.shape": env.observation_space.shape,
-        "action_space": env.action_space.n,  # type: ignore
+        "action_space": act_space.n,
         "observation_shape": (4, 84, 84),
     }
     return env, env_params
 
 
 def make_1d_env() -> tuple[gym.Env[NDArray[Any], ActType], dict[str, Any]]:
+    """Make the 1D environment.
+
+    env.action_space.n=np.int64(4)
+    env.observation_space.shape=(8,)
+    """
     env = gym.make("LunarLander-v3")
+    act_space = env.action_space
+    assert isinstance(act_space, Discrete)  # make mypy happy
     env_params = {
         "env_id": "LunarLander-v3",
         "observation_space.shape": env.observation_space.shape,
-        "action_space": env.action_space.n,  # type: ignore
+        "action_space": act_space.n,
     }
     return env, env_params
 
@@ -425,11 +442,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env, env_params = make_env() if args.use_2d else make_1d_env()
-
-    obs, _ = env.reset(seed=0)
-    print(f"{obs.shape=}")
-    # print(f"{env.action_space.n=}")
-    print(f"{env.observation_space.shape=}")
 
     try:
         main(env=env, model_pathname=args.model_pathname)

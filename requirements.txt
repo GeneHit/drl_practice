@@ -1,7 +1,10 @@
 
 gymnasium==1.2.0
-# required by the LunarLander-v3 environment
+# required by the LunarLander-v3 environment: box2d, cv2
+# 1. Box2D
 gymnasium[box2d]
+# 2. Other: opencv-python, decorator, matplotlib, moviepy, pandas, proglog,
+#           python-dotenv, pytz, seaborn, tzdata
 gymnasium[other]
 huggingface_hub==0.33.2
 imageio==2.37.0
