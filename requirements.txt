@@ -11,8 +11,10 @@ imageio==2.37.0
 mypy==1.14.1
 numpy==2.2.6
 pickle5==0.0.11
+pre-commit==4.0.1
 # required by gymnasium
-pre-commit==4.0.1pygame==2.6.1
+pygame==2.6.1
+pytest==8.4.1
 # required by gymnasium[box2d]
 swig==4.3.1
 torch==2.7.0
