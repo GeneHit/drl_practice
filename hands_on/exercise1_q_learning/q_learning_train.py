@@ -224,9 +224,6 @@ def main(env: gym.Env[Any, Any], model_pathname: str) -> None:
     # save the hyperparameters
     hyperparameters = {
         "env_id": "FrozenLake-v1",
-        "map_name": "4x4",
-        "is_slippery": False,
-        "render_mode": "rgb_array",
         "n_training_episodes": episodes,
         "learning_rate": learning_rate,
         "max_steps": max_steps,
@@ -235,6 +232,13 @@ def main(env: gym.Env[Any, Any], model_pathname: str) -> None:
         "min_epsilon": min_epsilon,
         "decay_rate": decay_rate,
     }
+    if env.spec is not None:
+        if env.spec.kwargs.get("map_name"):
+            hyperparameters["map_name"] = env.spec.kwargs.get("map_name")
+        if not env.spec.kwargs.get("is_slippery", True):
+            hyperparameters["is_slippery"] = False
+        if env.spec.kwargs.get("render_mode"):
+            hyperparameters["render_mode"] = env.spec.kwargs.get("render_mode")
     with open(EXERCISE1_RESULT_DIR / "hyperparameters.json", "w") as f:
         json.dump(hyperparameters, f)
 
@@ -275,6 +279,7 @@ if __name__ == "__main__":
         is_slippery=False,
         render_mode="rgb_array",
     )
+    # env = gym.make("Taxi-v3", render_mode="rgb_array")
     try:
         main(env=env, model_pathname=args.model_pathname)
     finally:
