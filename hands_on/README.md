@@ -94,3 +94,9 @@ or
 ```
 python hands_on/exercise2_dqn/dqn_train.py --config hands_on/exercise2_dqn/obs_2d_config.json
 ```
+Train with multiprocessing multi envs:
+```
+python hands_on/exercise2_dqn/dqn_envs_train.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json
+
+python hands_on/exercise2_dqn/dqn_envs_train.py --config hands_on/exercise2_dqn/obs_2d_envs_config.json
+```

@@ -9,6 +9,7 @@ import argparse
 import copy
 import json
 import random
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -112,12 +113,12 @@ class DQNAgent(PolicyBase):
         self._train_flag = train_flag
         self._q_network.train(train_flag)
 
-    def action(self, state: Any, epsilon: float | None = None) -> int:
+    def action(self, state: Any, epsilon: float | None = None) -> ActType:
         if self._train_flag:
             assert epsilon is not None, "Epsilon is required in training mode"
             if random.random() < epsilon:
                 # Exploration: take a random action with probability epsilon.
-                return int(random.randint(0, self._action_n - 1))
+                return np.int32(random.randint(0, self._action_n - 1))
 
         # 2 case:
         # >> 1. need exploitation: take the action with the highest value.
@@ -125,7 +126,7 @@ class DQNAgent(PolicyBase):
         assert isinstance(state, np.ndarray), "State must be a numpy array"
         state_tensor = get_tensor_expanding_axis(state).to(self._device)
         probs = self._q_network(state_tensor).cpu()
-        return int(probs.argmax().item())
+        return np.int32(probs.argmax().item())
 
     def get_score(self, state: Any, action: int | None = None) -> float:
         assert isinstance(state, np.ndarray), "State must be a numpy array"
@@ -244,6 +245,7 @@ def dqn_train_loop(
             state = next_state
 
         episode_reward.append(rewards)
+    process_bar.close()
 
     return {"episode_reward": episode_reward}
 
@@ -282,12 +284,15 @@ def dqn_train_main(
     )
 
     # train the dqn_agent
+    start_time = time.time()
     train_result = dqn_train_loop(
         env=env,
         dqn_agent=dqn_agent,
         device=device,
         config=DQNTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
+    duration_min = (time.time() - start_time) / 60
+    train_result["duration_min"] = duration_min
 
     # save the result
     if cfg_data["output_params"].get("save_result", False):

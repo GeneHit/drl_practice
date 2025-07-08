@@ -11,11 +11,16 @@
         "batch_size": 32,
         "train_interval": 4,
         "target_update_interval": 1000,
-        "update_start_step": 10000
+        "update_start_step": 10000,
+        "num_envs": 6,
+        "use_multi_processing": true
     },
     "env_params": {
         "env_id": "LunarLander-v3",
-        "render_mode": "rgb_array"
+        "use_image": true,
+        "render_mode": "rgb_array",
+        "resize_shape": [84, 84],
+        "frame_stack_size": 4
     },
     "eval_params": {
         "eval_episodes": 100,
@@ -23,17 +28,18 @@
         "eval_seed": [465, 131, 72, 782, 153, 233, 639, 746, 366, 473, 103, 569, 842, 412, 688, 946, 450, 722, 45, 606, 343, 194, 231, 415, 393, 781, 774, 318, 263, 154, 198, 549, 429, 889, 442, 54, 730, 910, 171, 520, 489, 145, 229, 526, 566, 725, 384, 895, 581, 138, 757, 8, 454, 58, 976, 595, 325, 347, 671, 399, 753, 517, 104, 133, 12, 391, 910, 301, 220, 226, 668, 999, 211, 644, 209, 734, 138, 308, 601, 779, 247, 692, 626, 916, 874, 808, 151, 92, 412, 62, 878, 29, 741, 903, 703, 21, 351, 545, 292, 103]
     },
     "output_params": {
-        "output_dir": "results/exercise2_dqn/lunar_1d/",
+        "output_dir": "results/exercise2_dqn/lunar_2d_envs/",
         "save_result": true,
-        "model_filename": "dqn_1d_model.pth",
+        "model_filename": "dqn_2d_model.pth",
         "params_filename": "params.json",
         "train_result_filename": "train_result.json",
-        "eval_result_filename": "eval_result.json"
+        "eval_result_filename": "eval_result.json",
+        "replay_video_filename": "replay.mp4"
     },
     "hub_params": {
-        "repo_id": "dqn-1d-LunarLander-v3"
+        "repo_id": "dqn-2d-LunarLander-v3"
     },
     "_notes": [
-        "checkpoint_pathname: results/exercise2_dqn/lunar_1d/dqn_1d_model.pth"
+        "checkpoint_pathname: results/exercise2_dqn/lunar_2d_envs/dqn_2d_model.pth"
     ]
-  }
+}

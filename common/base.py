@@ -1,6 +1,10 @@
 import abc
 from typing import Any
 
+import numpy as np
+
+ActType = np.integer[Any]
+
 
 class PolicyBase(abc.ABC):
     """Base class for all policies."""
@@ -10,7 +14,7 @@ class PolicyBase(abc.ABC):
         """Set the train flag."""
 
     @abc.abstractmethod
-    def action(self, state: Any, epsilon: float | None = None) -> int:
+    def action(self, state: Any, epsilon: float | None = None) -> ActType | int:
         """Get the action for the given state.
 
         TODO: support batch processing.

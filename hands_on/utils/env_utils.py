@@ -1,11 +1,11 @@
-from typing import Any, Union, cast
+from typing import Any, cast
 
 import gymnasium as gym
 import numpy as np
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
-ActType = Union[np.integer[Any], int]
+from common.base import ActType
 
 
 def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:

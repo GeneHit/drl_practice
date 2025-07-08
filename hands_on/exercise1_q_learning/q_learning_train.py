@@ -16,8 +16,10 @@ from hands_on.exercise1_q_learning.config import QTableTrainConfig
 from hands_on.utils.config_utils import load_config_from_json
 from hands_on.utils.env_utils import make_discrete_env_with_kwargs
 
+ActType = int
 
-def greedy_policy(q_table: NDArray[np.float32], state: int) -> int:
+
+def greedy_policy(q_table: NDArray[np.float32], state: int) -> ActType:
     """Take the action with the highest state, action value.
 
     Args:
@@ -32,7 +34,7 @@ def greedy_policy(q_table: NDArray[np.float32], state: int) -> int:
 
 def epsilon_greedy_policy(
     q_table: NDArray[np.float32], state: int, epsilon: float
-) -> int:
+) -> ActType:
     """Take an action with the epsilon-greedy strategy.
 
     2 strategies:
@@ -48,7 +50,7 @@ def epsilon_greedy_policy(
         int: The action to take.
     """
     if np.random.rand() < epsilon:
-        return int(np.random.randint(q_table.shape[1]))
+        return np.random.randint(q_table.shape[1])
     else:
         return int(np.argmax(q_table[state]))
 
@@ -82,12 +84,10 @@ class QTable(PolicyBase):
             return float(self._q_table[state, action])
 
     def update(
-        self, state: int | None, action: int | None, reward_target: Any
+        self, state: int | None, action: int | None, reward_target: float
     ) -> None:
         assert state is not None
         assert action is not None
-        assert isinstance(reward_target, float)
-
         self._q_table[state, action] = reward_target
 
     def save(self, pathname: str) -> None:
@@ -106,7 +106,7 @@ class QTable(PolicyBase):
 
 
 def q_table_train_loop(
-    env: gym.Env[Any, Any],
+    env: gym.Env[ActType, ActType],
     q_table: QTable,
     q_config: QTableTrainConfig,
 ) -> dict[str, Any]:
@@ -162,7 +162,7 @@ def q_table_train_loop(
 
 
 def q_table_main(
-    env: gym.Env[Any, Any],
+    env: gym.Env[ActType, ActType],
     cfg_data: dict[str, Any],
 ) -> None:
     """Main Q-table training function that uses configuration data."""
