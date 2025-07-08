@@ -47,13 +47,20 @@ pytest -s common/
 pytest -s $FOLDER$ -k $function_name$
 ```
 
-### Test a Specified env
-Change the env to what you want in the [env_test.py](./env_test.py) file,
-and run the below command to see whether your laptop work.
-```
-python hands_on/env_test.py
-```
-It works if no error occur.
+### Sandbox
+Check the specified environment:
+1. Change the env to what you want in the [env_test.py](./sandbox/env_test.py) file
+2. run the below command to see whether your laptop work.
+    ```
+    python hands_on/sandbox/env_test.py
+    ```
+
+Plot the training rewards:
+1. change the file path in [plot_train_rewards.py](./sandbox/plot_train_rewards.py)
+2. run
+    ```
+    python hands_on/sanbox/plot_train_rewards.py
+    ```
 
 
 ### Exercise 1: Q Learning
