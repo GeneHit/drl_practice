@@ -2,6 +2,7 @@ from typing import Any, cast
 
 import gymnasium as gym
 import numpy as np
+import torch
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
@@ -93,3 +94,11 @@ def make_discrete_env_with_kwargs(
     }
 
     return env, env_info
+
+
+def get_device() -> torch.device:
+    """Get the device."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    return device

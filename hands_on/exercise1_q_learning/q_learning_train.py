@@ -1,7 +1,5 @@
 import argparse
-import json
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
@@ -12,9 +10,12 @@ from tqdm import tqdm
 
 from hands_on.base import PolicyBase
 from hands_on.exercise1_q_learning.config import QTableTrainConfig
-from hands_on.utils.config_utils import load_config_from_json
 from hands_on.utils.env_utils import make_discrete_env_with_kwargs
 from hands_on.utils.evaluation_utils import evaluate_agent
+from hands_on.utils.file_utils import (
+    load_config_from_json,
+    save_model_and_result,
+)
 
 ActType = int
 
@@ -186,25 +187,6 @@ def q_table_main(
         q_config=QTableTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
 
-    # Save the result
-    save_result = cfg_data["output_params"].get("save_result", False)
-    if save_result:
-        # create the output directory
-        output_params = cfg_data["output_params"]
-        out_dir = Path(output_params["output_dir"])
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save the Q-table
-        q_table.save(str(out_dir / output_params["model_filename"]))
-
-        # save the train result
-        with open(out_dir / output_params["train_result_filename"], "w") as f:
-            json.dump(train_data, f)
-
-        # save all the config data
-        with open(out_dir / output_params["params_filename"], "w") as f:
-            json.dump(cfg_data, f)
-
     # evaluate the agent
     eval_params = cfg_data["eval_params"]
     mean_reward, std_reward = evaluate_agent(
@@ -216,7 +198,8 @@ def q_table_main(
     )
     print(f"{mean_reward=}")
 
-    # save the eval result
+    # save the result
+    save_result = cfg_data["output_params"].get("save_result", False)
     if save_result:
         eval_result = {
             "mean_reward": mean_reward,
@@ -226,8 +209,7 @@ def q_table_main(
             "max_steps": eval_params["max_steps"],
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
-        with open(out_dir / output_params["eval_result_filename"], "w") as f:
-            json.dump(eval_result, f)
+        save_model_and_result(cfg_data, train_data, eval_result, agent=q_table)
 
 
 def main(cfg_data: dict[str, Any]) -> None:

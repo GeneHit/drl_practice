@@ -7,11 +7,9 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 
 import argparse
 import copy
-import json
 import random
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable, cast
 
 import gymnasium as gym
@@ -28,9 +26,12 @@ from numpy.typing import NDArray
 from hands_on.base import PolicyBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
 from hands_on.exercise2_dqn.dqn_train import QNet1D, QNet2D
-from hands_on.utils.config_utils import load_config_from_json
 from hands_on.utils.env_utils import make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import evaluate_agent
+from hands_on.utils.file_utils import (
+    load_config_from_json,
+    save_model_and_result,
+)
 from hands_on.utils_exercise.numpy_tensor_utils import get_tensor_expanding_axis
 from hands_on.utils_exercise.replay_buffer_utils import ReplayBuffer
 from hands_on.utils_exercise.scheduler_utils import LinearSchedule
@@ -344,29 +345,6 @@ def dqn_train_main_multi_envs(
     duration_min = (time.time() - start_time) / 60
     train_result["duration_min"] = duration_min
 
-    # Save results
-    save_result: bool = cfg_data["output_params"].get("save_result", False)
-    if save_result:
-        # Create output directory
-        output_params = cfg_data["output_params"]
-        out_dir = Path(output_params["output_dir"])
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save model
-        torch.save(
-            dqn_agent.q_network.state_dict(),
-            str(out_dir / output_params["model_filename"]),
-        )
-
-        # Save train result
-        with open(out_dir / output_params["train_result_filename"], "w") as f:
-            json.dump(train_result, f)
-
-        # Save config
-        cfg_data["env_params"].update({"device": str(device)})
-        with open(out_dir / output_params["params_filename"], "w") as f:
-            json.dump(cfg_data, f)
-
     # Evaluate the agent on a single environment
     dqn_agent.set_train_flag(False)
     eval_env = env_fn()
@@ -381,15 +359,18 @@ def dqn_train_main_multi_envs(
     finally:
         eval_env.close()
 
-    # Save evaluation result
+    # Save model and result
+    save_result: bool = cfg_data["output_params"].get("save_result", False)
     if save_result:
         eval_result = {
             "mean_reward": mean_reward,
             "std_reward": std_reward,
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
-        with open(out_dir / output_params["eval_result_filename"], "w") as f:
-            json.dump(eval_result, f)
+        cfg_data["env_params"].update({"device": str(device)})
+        save_model_and_result(
+            cfg_data, train_result, eval_result, agent=dqn_agent
+        )
 
 
 def main(cfg_data: dict[str, Any]) -> None:

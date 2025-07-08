@@ -3,9 +3,10 @@ from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
+import torch
 
-from hands_on.exercise1_q_learning.q_learning_train import QTable
-from hands_on.utils.env_utils import make_discrete_env_with_kwargs
+from hands_on.exercise2_dqn.dqn_train import DQNAgent
+from hands_on.utils.env_utils import get_device, make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import play_game_once
 from hands_on.utils.file_utils import load_config_from_json
 from hands_on.utils.hub_play_utils import (
@@ -14,30 +15,52 @@ from hands_on.utils.hub_play_utils import (
 )
 
 
-def push_q_table_to_hub(
+def create_dqn_agent_from_config(model_path: Path) -> DQNAgent:
+    """Create and load a DQN agent from config and model file."""
+    # Set device
+    device = get_device()
+
+    # Load the trained model directly
+    q_network = torch.load(model_path, map_location=device)
+    q_network = q_network.to(device)
+
+    # Create DQN agent with minimal requirements for inference
+    # We use a dummy optimizer since it won't be used for inference
+    dqn_agent = DQNAgent(q_network=q_network, optimizer=None, action_n=None)
+    dqn_agent.set_train_flag(False)  # Set to evaluation mode
+
+    return dqn_agent
+
+
+def push_dqn_to_hub(
     username: str,
     cfg_data: dict[str, Any],
     env: gym.Env[Any, Any],
 ) -> None:
-    """Push the Q-table to the Hub."""
+    """Push the DQN model to the Hub."""
     env_id = cfg_data["env_params"]["env_id"]
-    hub_params = cfg_data["hub_params"]
-    repo_id = f"{username}/{hub_params['repo_id']}"
-
     metadata = get_env_name_and_metadata(
-        env_id=env_id, env=env, algorithm_name="q-learning"
+        env_id=env_id,
+        env=env,
+        algorithm_name="dqn",
+        extra_tags=["deep-q-learning", "pytorch"],
     )
 
+    repo_id = f"{username}/{cfg_data['hub_params']['repo_id']}"
+
     model_card = f"""
-    # **Q-Learning** Agent playing **{env_id}**
-    This is a trained model of a **Q-Learning** agent playing **{env_id}** .
+    # **DQN** Agent playing **{env_id}**
+    This is a trained model of a **DQN** agent playing **{env_id}**.
 
     ## Usage
 
-    model = load_from_hub(repo_id="{repo_id}", filename="q-learning.pkl")
+    model = load_from_hub(repo_id="{repo_id}", filename="dqn.pth")
 
-    # Don't forget to check if you need to add additional attributes (is_slippery=False etc)
+    # Don't forget to check if you need to add additional wrapper to the
+    # environment for the image observation.
     env = gym.make(model["env_id"])
+    env = gym.wrappers.AddRenderObservation(env, render_only=True)
+    ...
     """
 
     push_model_to_hub(
@@ -51,12 +74,20 @@ def push_q_table_to_hub(
 def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
     """Main function that loads config and handles play/hub operations."""
     # Create environment from config
-    env, _ = make_discrete_env_with_kwargs(
-        env_id=cfg_data["env_params"]["env_id"],
-        kwargs=cfg_data["env_params"]["kwargs"],
-    )
+    env_params = cfg_data["env_params"]
+    if env_params.get("use_image", False):
+        env, _ = make_image_env(
+            env_id=env_params["env_id"],
+            render_mode=env_params["render_mode"],
+            resize_shape=tuple(env_params["resize_shape"]),
+            frame_stack_size=env_params["frame_stack_size"],
+        )
+    else:
+        env, _ = make_1d_env(
+            env_id=env_params["env_id"], render_mode=env_params["render_mode"]
+        )
 
-    # Load the trained Q-table
+    # Load the trained DQN model
     output_params = cfg_data["output_params"]
     output_dir = Path(output_params["output_dir"])
     model_path = output_dir / output_params["model_filename"]
@@ -65,7 +96,7 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
-        q_table = QTable.load(str(model_path))
+        dqn_agent = create_dqn_agent_from_config(model_path)
 
         # Play the game and save video
         video_filename = output_params.get(
@@ -76,7 +107,7 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
         try:
             play_game_once(
                 env=env,
-                policy=q_table,
+                policy=dqn_agent,
                 save_video=True,
                 video_pathname=str(video_path),
             )
@@ -87,19 +118,12 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
     if args.push_to_hub:
         if not args.username:
             raise ValueError("Username is required when pushing to Hub")
-        push_q_table_to_hub(
-            username=args.username,
-            cfg_data=cfg_data,
-            env=env,
-        )
-        print(
-            f"Model pushed to hub: {args.username}/{cfg_data['hub_params']['repo_id']}"
-        )
+        push_dqn_to_hub(username=args.username, cfg_data=cfg_data, env=env)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Play Q-learning agent and optionally push to hub"
+        description="Play DQN agent and optionally push to hub"
     )
     parser.add_argument(
         "--config",

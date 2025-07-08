@@ -7,11 +7,9 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 
 import argparse
 import copy
-import json
 import random
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
@@ -26,9 +24,12 @@ from numpy.typing import NDArray
 # from torch.utils.tensorboard import SummaryWriter
 from hands_on.base import PolicyBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
-from hands_on.utils.config_utils import load_config_from_json
 from hands_on.utils.env_utils import ActType, make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import evaluate_agent
+from hands_on.utils.file_utils import (
+    load_config_from_json,
+    save_model_and_result,
+)
 from hands_on.utils_exercise.numpy_tensor_utils import get_tensor_expanding_axis
 from hands_on.utils_exercise.replay_buffer_utils import ReplayBuffer
 from hands_on.utils_exercise.scheduler_utils import LinearSchedule
@@ -96,9 +97,18 @@ class DQNAgent(PolicyBase):
     def __init__(
         self,
         q_network: nn.Module,
-        optimizer: torch.optim.Optimizer,
-        action_n: int,
+        optimizer: torch.optim.Optimizer | None,
+        action_n: int | None,
     ) -> None:
+        """Initialize the DQN agent.
+
+        In the evaluation phase, the optimizer and action_n are not needed.
+
+        Args:
+            q_network: The Q network.
+            optimizer: The optimizer.
+            action_n: The number of actions.
+        """
         self._q_network = q_network
         self._optimizer = optimizer
         self._train_flag = False
@@ -116,6 +126,9 @@ class DQNAgent(PolicyBase):
     def action(self, state: Any, epsilon: float | None = None) -> ActType:
         if self._train_flag:
             assert epsilon is not None, "Epsilon is required in training mode"
+            assert self._action_n is not None, (
+                "Action number is required in training mode"
+            )
             if random.random() < epsilon:
                 # Exploration: take a random action with probability epsilon.
                 return np.int32(random.randint(0, self._action_n - 1))
@@ -147,6 +160,9 @@ class DQNAgent(PolicyBase):
         )
         assert isinstance(reward_target, torch.Tensor), "Score must be a tensor"
         assert reward_target.dim() == 1, "Score must be a 1D tensor"
+        assert self._optimizer is not None, (
+            "Optimizer is required in training mode"
+        )
 
         state_tensor = state.to(self._device)
         actions = action.view(-1, 1).to(self._device)
@@ -294,25 +310,6 @@ def dqn_train_main(
     duration_min = (time.time() - start_time) / 60
     train_result["duration_min"] = duration_min
 
-    # save the result
-    if cfg_data["output_params"].get("save_result", False):
-        # create the output directory
-        output_params = cfg_data["output_params"]
-        out_dir = Path(output_params["output_dir"])
-        out_dir.mkdir(parents=True, exist_ok=True)
-        # save the model
-        torch.save(
-            dqn_agent.q_network.state_dict(),
-            str(out_dir / output_params["model_filename"]),
-        )
-        # save the train result
-        with open(out_dir / output_params["train_result_filename"], "w") as f:
-            json.dump(train_result, f)
-        # save all the config data
-        cfg_data["env_params"].update({"device": str(device)})
-        with open(out_dir / output_params["params_filename"], "w") as f:
-            json.dump(cfg_data, f)
-
     # evaluate the agent
     mean_reward, std_reward = evaluate_agent(
         env=env,
@@ -321,15 +318,19 @@ def dqn_train_main(
         episodes=int(cfg_data["eval_params"]["eval_episodes"]),
         seed=tuple(cfg_data["eval_params"]["eval_seed"]),
     )
-    # save the eval result
-    if cfg_data["output_params"].get("save_result", False):
+
+    # save the result
+    save_result = cfg_data["output_params"].get("save_result", False)
+    if save_result:
         eval_result = {
             "mean_reward": mean_reward,
             "std_reward": std_reward,
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
-        with open(out_dir / output_params["eval_result_filename"], "w") as f:
-            json.dump(eval_result, f)
+        cfg_data["env_params"].update({"device": str(device)})
+        save_model_and_result(
+            cfg_data, train_result, eval_result, agent=dqn_agent
+        )
 
 
 def main(cfg_data: dict[str, Any]) -> None:

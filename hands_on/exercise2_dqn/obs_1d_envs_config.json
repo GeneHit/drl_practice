@@ -27,7 +27,7 @@
     "output_params": {
         "output_dir": "results/exercise2_dqn/lunar_1d_envs/",
         "save_result": true,
-        "model_filename": "dqn_1d_model.pth",
+        "model_filename": "dqn.pth",
         "params_filename": "params.json",
         "train_result_filename": "train_result.json",
         "eval_result_filename": "eval_result.json"
@@ -36,6 +36,6 @@
         "repo_id": "dqn-1d-LunarLander-v3"
     },
     "_notes": [
-        "checkpoint_pathname: results/exercise2_dqn/lunar_1d_envs/dqn_1d_model.pth"
+        "checkpoint_pathname: results/exercise2_dqn/lunar_1d_envs/dqn.pth"
     ]
   }
