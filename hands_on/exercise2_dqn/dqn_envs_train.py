@@ -151,15 +151,11 @@ class DQNAgent(PolicyBase):
         loss.backward()
         self._optimizer.step()
 
-    def save(self, pathname: str) -> None:
+    def only_save_model(self, pathname: str) -> None:
         """Save the DQN model."""
         # only save the q_network
-        torch.save(self._q_network.state_dict(), pathname)
-
-    @classmethod
-    def load(cls, pathname: str) -> "DQNAgent":
-        """Load the DQN model."""
-        raise NotImplementedError("")
+        assert pathname.endswith(".pth")
+        torch.save(self._q_network, pathname)
 
 
 def make_vector_env(

@@ -7,7 +7,10 @@ ActType = np.integer[Any]
 
 
 class PolicyBase(abc.ABC):
-    """Base class for all policies."""
+    """Base class for all policies-based or value-based agents.
+
+    It's attribute will have some network when necessary.
+    """
 
     @abc.abstractmethod
     def set_train_flag(self, train_flag: bool) -> None:
@@ -23,7 +26,7 @@ class PolicyBase(abc.ABC):
         ----------
         state : int
             The state to get the action for.
-        epsilon : float | None, optional
+        epsilon : float | None
             The epsilon value to use for the action in training mode.
 
         Returns
@@ -70,15 +73,8 @@ class PolicyBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def save(self, pathname: str) -> None:
+    def only_save_model(self, pathname: str) -> None:
         """Save the policy."""
-
-    @classmethod
-    def load(cls, pathname: str) -> "PolicyBase":
-        """Load the policy."""
-        raise NotImplementedError(
-            "This method should be implemented by the subclass."
-        )
 
 
 class ScheduleBase(abc.ABC):

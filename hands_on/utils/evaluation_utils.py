@@ -86,6 +86,7 @@ def play_game_once(
     if save_video:
         images.append(img_raw)
 
+    policy.set_train_flag(train_flag=False)
     terminated = truncated = False
     while not terminated and not truncated:
         # Take the action (index) that have the maximum expected future reward given that state

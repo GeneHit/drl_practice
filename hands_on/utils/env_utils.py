@@ -81,7 +81,13 @@ def make_1d_env(
 def make_discrete_env_with_kwargs(
     env_id: str, kwargs: dict[str, Any]
 ) -> tuple[gym.Env[Any, Any], dict[str, Any]]:
-    """Make the environment based on configuration."""
+    """Make the environment based on configuration.
+
+    observation:
+        type: numpy.int64, obs.dtype: int64, obs.shape: (), obs_n: int
+    action:
+        type: numpy.int64, act.dtype: int64, act.shape: (), act_n: int
+    """
     env = gym.make(id=env_id, **kwargs)
 
     act_space = env.action_space

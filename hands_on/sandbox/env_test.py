@@ -11,12 +11,14 @@ def main() -> None:
     # print(f"type(obs): {type(obs)}")
     # print(f"obs.dtype: {obs.dtype}")
     # print(f"obs.shape: {obs.shape}")
+    # print(f"obs_n: {env.observation_space.n}")
 
     # act = env.action_space.sample()
-    # print(f"Action Space Shape: {env.action_space.n}")
     # print("Sample action", act)
     # print(f"type(act): {type(act)}")
     # print(f"act.dtype: {act.dtype}")
+    # print(f"act.shape: {act.shape}")
+    # print(f"act_n: {env.action_space.n}")
     # return
 
     # Then reset this environment

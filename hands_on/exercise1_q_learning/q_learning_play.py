@@ -65,13 +65,12 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
-        q_table = QTable.load(str(model_path))
+        q_table = QTable.load_for_evaluation(str(model_path))
 
         # Play the game and save video
-        video_filename = output_params.get(
+        video_path = output_dir / output_params.get(
             "replay_video_filename", "replay.mp4"
         )
-        video_path = output_dir / video_filename
 
         try:
             play_game_once(
@@ -87,14 +86,7 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
     if args.push_to_hub:
         if not args.username:
             raise ValueError("Username is required when pushing to Hub")
-        push_q_table_to_hub(
-            username=args.username,
-            cfg_data=cfg_data,
-            env=env,
-        )
-        print(
-            f"Model pushed to hub: {args.username}/{cfg_data['hub_params']['repo_id']}"
-        )
+        push_q_table_to_hub(username=args.username, cfg_data=cfg_data, env=env)
 
 
 if __name__ == "__main__":

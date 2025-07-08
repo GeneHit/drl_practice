@@ -1,6 +1,6 @@
 import argparse
 from datetime import datetime
-from typing import Any
+from typing import Any, TypeAlias
 
 import gymnasium as gym
 import numpy as np
@@ -17,7 +17,9 @@ from hands_on.utils.file_utils import (
     save_model_and_result,
 )
 
-ActType = int
+# because q_table is use for the discrete action and observation space
+ActType: TypeAlias = int
+ObsType: TypeAlias = int
 
 
 def greedy_policy(q_table: NDArray[np.float32], state: int) -> ActType:
@@ -67,7 +69,7 @@ class QTable(PolicyBase):
     def set_train_flag(self, train_flag: bool) -> None:
         self._train_flag = train_flag
 
-    def action(self, state: int, epsilon: float | None = None) -> int:
+    def action(self, state: ObsType, epsilon: float | None = None) -> ActType:
         assert isinstance(state, int)
         if self._train_flag:
             assert epsilon is not None, (
@@ -77,7 +79,7 @@ class QTable(PolicyBase):
         else:
             return greedy_policy(self._q_table, state)
 
-    def get_score(self, state: int, action: int | None = None) -> float:
+    def get_score(self, state: ObsType, action: ActType | None = None) -> float:
         assert isinstance(state, int)
         if action is None:
             return float(max(self._q_table[state]))
@@ -85,20 +87,23 @@ class QTable(PolicyBase):
             return float(self._q_table[state, action])
 
     def update(
-        self, state: int | None, action: int | None, reward_target: float
+        self,
+        state: ObsType | None,
+        action: ActType | None,
+        reward_target: float,
     ) -> None:
         assert state is not None
         assert action is not None
         self._q_table[state, action] = reward_target
 
-    def save(self, pathname: str) -> None:
+    def only_save_model(self, pathname: str) -> None:
         """Save the Q-table to a file."""
         assert pathname.endswith(".pkl")
         with open(pathname, "wb") as f:
             pickle.dump(self._q_table, f)
 
     @classmethod
-    def load(cls, pathname: str) -> "QTable":
+    def load_for_evaluation(cls, pathname: str) -> "QTable":
         """Load the Q-table from a file."""
         assert pathname.endswith(".pkl")
         with open(pathname, "rb") as f:
@@ -107,7 +112,7 @@ class QTable(PolicyBase):
 
 
 def q_table_train_loop(
-    env: gym.Env[ActType, ActType],
+    env: gym.Env[ObsType, ActType],
     q_table: QTable,
     q_config: QTableTrainConfig,
 ) -> dict[str, Any]:
@@ -163,14 +168,14 @@ def q_table_train_loop(
 
 
 def q_table_main(
-    env: gym.Env[ActType, ActType],
+    env: gym.Env[ObsType, ActType],
     cfg_data: dict[str, Any],
 ) -> None:
     """Main Q-table training function that uses configuration data."""
     # Load or create Q-table
     checkpoint_pathname = cfg_data.get("checkpoint_pathname", None)
     if checkpoint_pathname:
-        q_table = QTable.load(checkpoint_pathname)
+        q_table = QTable.load_for_evaluation(checkpoint_pathname)
     else:
         obs_space = env.observation_space
         act_space = env.action_space

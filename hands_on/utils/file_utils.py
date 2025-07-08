@@ -35,7 +35,7 @@ def save_model_and_result(
     out_dir = Path(output_params["output_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
     # save the model
-    agent.save(str(out_dir / output_params["model_filename"]))
+    agent.only_save_model(str(out_dir / output_params["model_filename"]))
     # save the train result
     with open(out_dir / output_params["train_result_filename"], "w") as f:
         json.dump(train_result, f)
