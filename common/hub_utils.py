@@ -1,7 +1,7 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from huggingface_hub import HfApi, snapshot_download
 from huggingface_hub.repocard import metadata_eval_result, metadata_save
@@ -10,10 +10,8 @@ from huggingface_hub.repocard import metadata_eval_result, metadata_save
 def push_to_hub(
     repo_id: str,
     model_card: str,
-    model_pathname: str,
-    hyperparameters_pathname: str,
+    file_pathnames: Sequence[str],
     eval_result_pathname: str,
-    video_pathname: str,
     metadata: dict[str, Any],
     local_repo_path: str = "results/hub",
 ) -> None:
@@ -63,13 +61,12 @@ def push_to_hub(
     # Save our metrics to Readme metadata
     metadata_save(readme_path, metadata)
 
-    # Step 5: copy video, model, hyperparameters, eval_result. keep the original file name
-    shutil.copy(video_pathname, repo_local_path / video_pathname.split("/")[-1])
-    shutil.copy(model_pathname, repo_local_path / model_pathname.split("/")[-1])
-    shutil.copy(
-        hyperparameters_pathname,
-        repo_local_path / hyperparameters_pathname.split("/")[-1],
-    )
+    # Step 5: copy video, model, parameters, eval_result. keep the original file name
+    for file_pathname in file_pathnames:
+        shutil.copy(
+            file_pathname, repo_local_path / file_pathname.split("/")[-1]
+        )
+
     shutil.copy(
         eval_result_pathname,
         repo_local_path / eval_result_pathname.split("/")[-1],

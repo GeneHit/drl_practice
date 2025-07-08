@@ -1,9 +1,7 @@
 """Configuration dataclasses for DQN training."""
 
-import json
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 
 @dataclass
@@ -138,37 +136,3 @@ class DQNTrainConfig:
         # Validate update_start_step vs global_steps
         if params["update_start_step"] >= params["global_steps"]:
             raise ValueError("update_start_step should be < global_steps")
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert config to dictionary format suitable for dqn_train function.
-
-        Returns:
-            Dictionary with all parameters needed for dqn_train
-        """
-        return {
-            "global_steps": self.global_steps,
-            "max_steps": self.max_steps,
-            "start_epsilon": self.start_epsilon,
-            "end_epsilon": self.end_epsilon,
-            "exploration_fraction": self.exploration_fraction,
-            "replay_buffer_capacity": self.replay_buffer_capacity,
-            "batch_size": self.batch_size,
-            "gamma": self.gamma,
-            "train_interval": self.train_interval,
-            "target_update_interval": self.target_update_interval,
-            "update_start_step": self.update_start_step,
-        }
-
-
-def load_config_from_json(config_path: str | Path) -> dict[str, Any]:
-    """Load the DQN training configuration from a JSON file.
-
-    Args:
-        config_path: The path to the JSON configuration file
-
-    Returns:
-        dict[str, Any]: The configuration loaded from the JSON file
-    """
-    with open(config_path, "r") as f:
-        config_data = cast(dict[str, Any], json.load(f))
-    return config_data

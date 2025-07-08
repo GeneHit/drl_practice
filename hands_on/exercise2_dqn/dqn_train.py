@@ -27,8 +27,9 @@ from common.base import PolicyBase
 from common.evaluation_utils import evaluate_agent
 from common.replay_buffer_utils import ReplayBuffer
 from common.scheduler_utils import LinearSchedule
-from hands_on.exercise2_dqn.config import DQNTrainConfig, load_config_from_json
-from hands_on.utils.env_utils import ActType, make_1d_env, make_env
+from hands_on.exercise2_dqn.config import DQNTrainConfig
+from hands_on.utils.config_utils import load_config_from_json
+from hands_on.utils.env_utils import ActType, make_1d_env, make_image_env
 from hands_on.utils.numpy_tensor_utils import get_tensor_expanding_axis
 
 
@@ -319,7 +320,7 @@ def main(cfg_data: dict[str, Any]) -> None:
     # make the environment by the config
     env_params = cfg_data["env_params"]
     if env_params.get("use_image", False):
-        env, more_env_params = make_env(
+        env, more_env_params = make_image_env(
             env_id=env_params["env_id"],
             render_mode=env_params["render_mode"],
             resize_shape=tuple(env_params["resize_shape"]),

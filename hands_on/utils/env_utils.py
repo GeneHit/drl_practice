@@ -17,7 +17,7 @@ def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:
     return list(reversed(stack))
 
 
-def make_env(
+def make_image_env(
     env_id: str,
     render_mode: str,
     resize_shape: tuple[int, int],
@@ -50,13 +50,13 @@ def make_env(
 
     act_space = env.action_space
     assert isinstance(act_space, Discrete)  # make mypy happy
-    env_params = {
+    env_info = {
         "wrappers": describe_wrappers(env),
         "observation_space.shape": env.observation_space.shape,
         "action_space": int(act_space.n),
         "observation_shape": obs_shape,
     }
-    return env, env_params
+    return env, env_info
 
 
 def make_1d_env(
@@ -70,8 +70,26 @@ def make_1d_env(
     env = gym.make(env_id, render_mode=render_mode)
     act_space = env.action_space
     assert isinstance(act_space, Discrete)  # make mypy happy
-    env_params = {
+    env_info = {
         "observation_space.shape": env.observation_space.shape,
         "action_space": int(act_space.n),
     }
-    return env, env_params
+    return env, env_info
+
+
+def make_discrete_env_with_kwargs(
+    env_id: str, kwargs: dict[str, Any]
+) -> tuple[gym.Env[Any, Any], dict[str, Any]]:
+    """Make the environment based on configuration."""
+    env = gym.make(id=env_id, **kwargs)
+
+    act_space = env.action_space
+    obs_space = env.observation_space
+    assert isinstance(act_space, Discrete)  # make mypy happy
+    assert isinstance(obs_space, Discrete)  # make mypy happy
+    env_info = {
+        "observation_space_n": int(obs_space.n),
+        "action_space_n": int(act_space.n),
+    }
+
+    return env, env_info

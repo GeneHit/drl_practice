@@ -1,7 +1,5 @@
 import argparse
 import json
-import os
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -14,8 +12,9 @@ from tqdm import tqdm
 
 from common.base import PolicyBase
 from common.evaluation_utils import evaluate_agent
-
-EXERCISE1_RESULT_DIR = Path("results/exercise1_q_learning/")
+from hands_on.exercise1_q_learning.config import QTableTrainConfig
+from hands_on.utils.config_utils import load_config_from_json
+from hands_on.utils.env_utils import make_discrete_env_with_kwargs
 
 
 def greedy_policy(q_table: NDArray[np.float32], state: int) -> int:
@@ -54,28 +53,11 @@ def epsilon_greedy_policy(
         return int(np.argmax(q_table[state]))
 
 
-@dataclass(kw_only=True, frozen=True)
-class QTableConfig:
-    state_space: int | None
-    action_space: int | None
-    q_table: NDArray[np.float32] | None = None
-
-
 class QTable(PolicyBase):
     """Q-table."""
 
-    def __init__(self, config: QTableConfig):
-        self._config = config
-        if config.q_table is None:
-            assert (
-                config.state_space is not None
-                and config.action_space is not None
-            )
-            self._q_table: NDArray[Any] = np.zeros(
-                (config.state_space, config.action_space)
-            )
-        else:
-            self._q_table = config.q_table
+    def __init__(self, q_table: NDArray[np.float32]):
+        self._q_table = q_table
 
         self._train_flag = False
 
@@ -111,8 +93,6 @@ class QTable(PolicyBase):
     def save(self, pathname: str) -> None:
         """Save the Q-table to a file."""
         assert pathname.endswith(".pkl")
-        # ensure the directory exists
-        os.makedirs(os.path.dirname(pathname), exist_ok=True)
         with open(pathname, "wb") as f:
             pickle.dump(self._q_table, f)
 
@@ -122,22 +102,14 @@ class QTable(PolicyBase):
         assert pathname.endswith(".pkl")
         with open(pathname, "rb") as f:
             q_table = pickle.load(f)
-        return cls(
-            QTableConfig(action_space=None, state_space=None, q_table=q_table)
-        )
+        return cls(q_table=q_table)
 
 
-def q_table_train(
+def q_table_train_loop(
     env: gym.Env[Any, Any],
     q_table: QTable,
-    episodes: int,
-    max_steps: int,
-    lr: float,
-    gamma: float,
-    min_epsilon: float,
-    max_epsilon: float,
-    decay_rate: float,
-) -> None:
+    q_config: QTableTrainConfig,
+) -> dict[str, Any]:
     """Train the Q-table.
 
     For each episode:
@@ -154,28 +126,29 @@ def q_table_train(
     Args:
         env (gym.Env): The environment.
         q_table (QTable): The Q-table.
-        episodes (int): The number of episodes to train.
-        max_steps (int): The maximum number of steps per episode.
-        lr (float): The learning rate.
-        gamma (float): The discount factor.
-        min_epsilon (float): The minimum exploration rate.
-        max_epsilon (float): The maximum exploration rate.
-        decay_rate (float): The decay rate of the exploration rate.
+        q_config (QTableTrainConfig): The training configuration.
+
+    Returns:
+        dict[str, Any]: The training metadata.
     """
     q_table.set_train_flag(train_flag=True)
-    for episode in tqdm(range(episodes)):
-        epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(
-            -decay_rate * episode
-        )
+    episode_rewards = []
+    for episode in tqdm(range(q_config.episodes)):
+        rewards = 0.0
+        epsilon = q_config.min_epsilon + (
+            q_config.max_epsilon - q_config.min_epsilon
+        ) * np.exp(-q_config.decay_rate * episode)
         state, _ = env.reset()
 
-        for _ in range(max_steps):
+        for _ in range(q_config.max_steps):
             action = q_table.action(state=state, epsilon=epsilon)
             next_state, reward, terminated, truncated, _ = env.step(action)
+            rewards += float(reward)
             old_score = q_table.get_score(state=state, action=action)
-            new_score = old_score + lr * (
+            new_score = old_score + q_config.learning_rate * (
                 float(reward)
-                + gamma * q_table.get_score(state=next_state, action=None)
+                + q_config.gamma
+                * q_table.get_score(state=next_state, action=None)
                 - old_score
             )
             q_table.update(state=state, action=action, reward_target=new_score)
@@ -183,98 +156,100 @@ def q_table_train(
             if terminated or truncated:
                 break
             state = next_state
+        episode_rewards.append(rewards)
+
+    return {"episode_rewards": episode_rewards}
 
 
-def main(env: gym.Env[Any, Any], model_pathname: str) -> None:
-    # Training parameters
-    episodes = 10000  # Total training episodes
-    learning_rate = 0.7  # Learning rate
-    max_steps = 99  # Max steps per episode
-    gamma = 0.95  # Discounting rate
-
-    # Exploration parameters
-    max_epsilon = 1.0  # Exploration probability at start
-    min_epsilon = 0.05  # Minimum exploration probability
-    decay_rate = 0.0005  # Exponential decay rate for exploration prob
-
-    if model_pathname:
-        q_table = QTable.load(model_pathname)
+def q_table_main(
+    env: gym.Env[Any, Any],
+    cfg_data: dict[str, Any],
+) -> None:
+    """Main Q-table training function that uses configuration data."""
+    # Load or create Q-table
+    checkpoint_pathname = cfg_data.get("checkpoint_pathname", None)
+    if checkpoint_pathname:
+        q_table = QTable.load(checkpoint_pathname)
     else:
+        obs_space = env.observation_space
+        act_space = env.action_space
+        assert isinstance(obs_space, gym.spaces.Discrete)
+        assert isinstance(act_space, gym.spaces.Discrete)
         q_table = QTable(
-            QTableConfig(
-                # the shape of observation and action doesn't work, n cann't pass mypy
-                state_space=env.observation_space.n,  # type: ignore
-                action_space=env.action_space.n,  # type: ignore
-            )
+            q_table=np.zeros((obs_space.n, act_space.n), dtype=np.float32)
         )
-    q_table_train(
+
+    # Train the Q-table using config parameters
+    train_data = q_table_train_loop(
         env=env,
         q_table=q_table,
-        episodes=episodes,
-        max_steps=max_steps,
-        lr=learning_rate,
-        gamma=gamma,
-        min_epsilon=min_epsilon,
-        max_epsilon=max_epsilon,
-        decay_rate=decay_rate,
+        q_config=QTableTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
 
-    # Save the Q-table.
-    q_table.save(str(EXERCISE1_RESULT_DIR / "q_table.pkl"))
-    # save the hyperparameters
-    hyperparameters = {
-        "env_id": "FrozenLake-v1",
-        "n_training_episodes": episodes,
-        "learning_rate": learning_rate,
-        "max_steps": max_steps,
-        "gamma": gamma,
-        "max_epsilon": max_epsilon,
-        "min_epsilon": min_epsilon,
-        "decay_rate": decay_rate,
-    }
-    if env.spec is not None:
-        if env.spec.kwargs.get("map_name"):
-            hyperparameters["map_name"] = env.spec.kwargs.get("map_name")
-        if not env.spec.kwargs.get("is_slippery", True):
-            hyperparameters["is_slippery"] = False
-        if env.spec.kwargs.get("render_mode"):
-            hyperparameters["render_mode"] = env.spec.kwargs.get("render_mode")
-    with open(EXERCISE1_RESULT_DIR / "hyperparameters.json", "w") as f:
-        json.dump(hyperparameters, f)
+    # Save the result
+    save_result = cfg_data["output_params"].get("save_result", False)
+    if save_result:
+        # create the output directory
+        output_params = cfg_data["output_params"]
+        out_dir = Path(output_params["output_dir"])
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Evaluation parameters
-    eval_episodes = 100  # Total number of test episodes
-    eval_seed: list[int] = []  # The evaluation seed of the environment
+        # Save the Q-table
+        q_table.save(str(out_dir / output_params["model_filename"]))
 
+        # save the train result
+        with open(out_dir / output_params["train_result_filename"], "w") as f:
+            json.dump(train_data, f)
+
+        # save all the config data
+        with open(out_dir / output_params["params_filename"], "w") as f:
+            json.dump(cfg_data, f)
+
+    # evaluate the agent
+    eval_params = cfg_data["eval_params"]
     mean_reward, std_reward = evaluate_agent(
         env=env,
         policy=q_table,
-        max_steps=max_steps,
-        episodes=eval_episodes,
-        seed=eval_seed,
+        max_steps=eval_params["max_steps"],
+        episodes=eval_params["eval_episodes"],
+        seed=eval_params["eval_seed"],
     )
+    print(f"{mean_reward=}")
+
     # save the eval result
-    eval_result = {
-        "mean_reward": mean_reward,
-        "std_reward": std_reward,
-        "eval_episodes": eval_episodes,
-        "eval_seed": eval_seed,
-        "max_steps": max_steps,
-        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    with open(EXERCISE1_RESULT_DIR / "eval_result.json", "w") as f:
-        json.dump(eval_result, f)
+    if save_result:
+        eval_result = {
+            "mean_reward": mean_reward,
+            "std_reward": std_reward,
+            "eval_episodes": eval_params["eval_episodes"],
+            "eval_seed": eval_params["eval_seed"],
+            "max_steps": eval_params["max_steps"],
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        with open(out_dir / output_params["eval_result_filename"], "w") as f:
+            json.dump(eval_result, f)
+
+
+def main(cfg_data: dict[str, Any]) -> None:
+    """Main function that creates environment and calls training."""
+    # make the environment by the config
+    env, env_info = make_discrete_env_with_kwargs(
+        env_id=cfg_data["env_params"]["env_id"],
+        kwargs=cfg_data["env_params"]["kwargs"],
+    )
+    # Update the original cfg_data with the new environment parameters
+    cfg_data["env_params"].update(env_info)
+
+    try:
+        q_table_main(env=env, cfg_data=cfg_data)
+    finally:
+        env.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # add a --model_pathname argument if provided, use the default value if not provided
-    parser.add_argument("--model_pathname", type=str, default="")
+    parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()
 
-    env = gym.make(id="FrozenLake-v1", map_name="4x4", is_slippery=False)
-    # env = gym.make("Taxi-v3", render_mode="rgb_array")
-    try:
-        main(env=env, model_pathname=args.model_pathname)
-    finally:
-        env.close()
+    cfg_data = load_config_from_json(args.config)
+    main(cfg_data=cfg_data)

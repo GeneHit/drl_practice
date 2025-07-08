@@ -54,29 +54,43 @@ and run the below command to see whether your laptop work.
 python hands_on/env_test.py
 ```
 It works if no error occur.
+
+
 ### Exercise 1: Q Learning
 Train the q_table from zeros:
 ```
-python hands_on/exercise1_q_learning/q_learning_train.py
+python hands_on/exercise1_q_learning/q_learning_train.py --config hands_on/exercise1_q_learning/config_taxi.json
 ```
-Or train it from your previous checkpoint:
+or
 ```
-python hands_on/exercise1_q_learning/q_learning_train.py --model_pathname results/exercise1_q_learning/q_table.pkl
+python hands_on/exercise1_q_learning/q_learning_train.py --config hands_on/exercise1_q_learning/config_frozen_lake.json
 ```
-Generate a replay video only (to `results/exercise1_q_learning/` folder):
+You can change the configuration in the `json` file.
+
+Generate a replay video only (to `results/exercise1_q/` folder):
 ```
-python hands_on/exercise1_q_learning/q_learning_play.py
+python hands_on/exercise1_q_learning/q_learning_play.py --config hands_on/exercise1_q_learning/config_taxi.json
 ```
 Only push the model and result to HuggingFace hub:
 - login
     - run `huggingface-cli login` in terminal.
     - go to the HuggingFace website, copy your access token and paste it in terminal.
 ```
-python hands_on/exercise1_q_learning/q_learning_play.py --push_to_hub --skip_render --username $YOUR_USERNAMER$
+python hands_on/exercise1_q_learning/q_learning_play.py --config hands_on/exercise1_q_learning/config_taxi.json --push_to_hub --skip_play --username $YOUR_USERNAMER$
 ```
 where you need to replace `$YOUR_USERNAMER$` with your HuggingFace account name.
 
 Generate the video and push the model/result to the hub in the mean time:
 ```
-python hands_on/exercise1_q_learning/q_learning_play.py --push_to_hub --username $YOUR_USERNAMER$
+python hands_on/exercise1_q_learning/q_learning_play.py --config hands_on/exercise1_q_learning/config_taxi.json --push_to_hub --username $YOUR_USERNAMER$
+```
+
+### Exercise 2: DQN
+Train:
+```
+python hands_on/exercise2_dqn/dqn_train.py --config hands_on/exercise2_dqn/obs_1d_config.json
+```
+or
+```
+python hands_on/exercise2_dqn/dqn_train.py --config hands_on/exercise2_dqn/obs_2d_config.json
 ```
