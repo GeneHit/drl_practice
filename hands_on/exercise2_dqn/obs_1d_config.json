@@ -1,0 +1,39 @@
+{
+    "hyper_params": {
+        "global_steps": 100000,
+        "learning_rate": 1e-4,
+        "max_steps": 99,
+        "gamma": 0.99,
+        "start_epsilon": 1.0,
+        "end_epsilon": 0.01,
+        "exploration_fraction": 0.1,
+        "replay_buffer_capacity": 100000,
+        "batch_size": 32,
+        "train_interval": 4,
+        "target_update_interval": 1000,
+        "update_start_step": 10000
+    },
+    "env_params": {
+        "env_id": "LunarLander-v3",
+        "render_mode": "rgb_array"
+    },
+    "eval_params": {
+        "eval_episodes": 100,
+        "max_steps": 99,
+        "eval_seed": [465, 131, 72, 782, 153, 233, 639, 746, 366, 473, 103, 569, 842, 412, 688, 946, 450, 722, 45, 606, 343, 194, 231, 415, 393, 781, 774, 318, 263, 154, 198, 549, 429, 889, 442, 54, 730, 910, 171, 520, 489, 145, 229, 526, 566, 725, 384, 895, 581, 138, 757, 8, 454, 58, 976, 595, 325, 347, 671, 399, 753, 517, 104, 133, 12, 391, 910, 301, 220, 226, 668, 999, 211, 644, 209, 734, 138, 308, 601, 779, 247, 692, 626, 916, 874, 808, 151, 92, 412, 62, 878, 29, 741, 903, 703, 21, 351, 545, 292, 103]
+    },
+    "output_params": {
+        "output_dir": "results/exercise2_dqn/1d/",
+        "save_result": true,
+        "model_filename": "dqn_1d_model.pth",
+        "params_filename": "params.json",
+        "train_result_filename": "train_result.json",
+        "eval_result_filename": "eval_result.json"
+    },
+    "hub_params": {
+        "repo_id": "dqn-1d-LunarLander-v3"
+    },
+    "_notes": [
+        "checkpoint_pathname: results/exercise2_dqn/1d/dqn_1d_model.pth"
+    ]
+  }

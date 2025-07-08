@@ -6,11 +6,12 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 """
 
 import argparse
+import copy
 import json
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Union, cast
+from typing import Any
 
 import gymnasium as gym
 import numpy as np
@@ -24,14 +25,11 @@ from numpy.typing import NDArray
 # from torch.utils.tensorboard import SummaryWriter
 from common.base import PolicyBase
 from common.evaluation_utils import evaluate_agent
-from common.numpy_tensor_utils import get_tensor_expanding_axis
 from common.replay_buffer_utils import ReplayBuffer
 from common.scheduler_utils import LinearSchedule
-from hands_on.exercise2_dqn.utils import describe_wrappers
-
-EXERCISE2_RESULT_DIR = Path("results/exercise2_dqn/")
-
-ActType = Union[np.integer[Any], int]
+from hands_on.exercise2_dqn.config import DQNTrainConfig, load_config_from_json
+from hands_on.utils.env_utils import ActType, make_1d_env, make_env
+from hands_on.utils.numpy_tensor_utils import get_tensor_expanding_axis
 
 
 class QNet2D(nn.Module):
@@ -164,62 +162,37 @@ class DQNAgent(PolicyBase):
         )
 
 
-def dqn_train(
+def dqn_train_loop(
     env: gym.Env[NDArray[Any], ActType],
     dqn_agent: DQNAgent,
-    global_steps: int,
-    max_steps: int,
     device: torch.device,
-    start_epsilon: float,
-    end_epsilon: float,
-    exploration_fraction: float,
-    replay_buffer_capacity: int,
-    batch_size: int,
-    gamma: float,
-    train_interval: int,
-    target_update_interval: int,
-    update_start_step: int,
+    config: DQNTrainConfig,
 ) -> dict[str, Any]:
     """Train the DQN agent.
 
     Args:
         env (gym.Env): The environment.
-        agent (DQNAgent): The DQN agent.
-        global_step (int): The global step.
-        max_steps (int): The maximum number of steps.
+        dqn_agent (DQNAgent): The DQN agent.
         device (torch.device): The device.
-        start_epsilon (float): The start epsilon.
-        end_epsilon (float): The end epsilon.
-        exploration_fraction (float): The exploration fraction.
-        replay_buffer_capacity (int): The replay buffer capacity.
-        batch_size (int): The batch size.
-        gamma (float): The gamma.
-        train_interval (int): The train interval.
-        target_update_interval (int): The target update interval.
-        update_start_step (int): The update start step.
-
-    Returns:
-        dict[str, Any]: The metadata of the training.
+        train_config (DQNTrainConfig): The training configuration.
     """
-    import copy
-
     target_net = copy.deepcopy(dqn_agent.q_network).to(device)
     target_net.eval()
     epsilon_schedule = LinearSchedule(
-        start_e=start_epsilon,
-        end_e=end_epsilon,
-        duration=int(exploration_fraction * global_steps),
+        start_e=config.start_epsilon,
+        end_e=config.end_epsilon,
+        duration=int(config.exploration_fraction * config.global_steps),
     )
-    replay_buffer = ReplayBuffer(capacity=replay_buffer_capacity)
+    replay_buffer = ReplayBuffer(capacity=config.replay_buffer_capacity)
 
     episode_reward: list[float] = []
-    process_bar = tqdm.tqdm(range(global_steps))
+    process_bar = tqdm.tqdm(range(config.global_steps))
     step = 0
-    while step <= global_steps:
+    while step <= config.global_steps:
         epsilon = epsilon_schedule(step)
         state, _ = env.reset()
         rewards = 0.0
-        for _ in range(max_steps):
+        for _ in range(config.max_steps):
             step += 1
             process_bar.update(1)
             action = dqn_agent.action(state, epsilon)
@@ -229,9 +202,9 @@ def dqn_train(
                 state, action, float(reward), next_state, done
             )
             rewards += float(reward)
-            if step >= update_start_step:
-                if step % train_interval == 0:
-                    experiences = replay_buffer.sample(batch_size)
+            if step >= config.update_start_step:
+                if step % config.train_interval == 0:
+                    experiences = replay_buffer.sample(config.batch_size)
                     states_batch = experiences.states.to(device)
                     reward_batch = experiences.rewards.to(device)
                     dones_batch = experiences.dones.to(device)
@@ -239,7 +212,7 @@ def dqn_train(
                         target_max, _ = target_net(states_batch).max(dim=1)
                         td_target = (
                             reward_batch.flatten()
-                            + gamma
+                            + config.gamma
                             * target_max
                             * (1 - dones_batch.flatten().float())
                         )
@@ -251,7 +224,7 @@ def dqn_train(
                     # clean the temp variables
                     del states_batch, reward_batch, dones_batch
                     del target_max, td_target, experiences
-                if step % target_update_interval == 0:
+                if step % config.target_update_interval == 0:
                     # better: target = target * (1 - tau) + q_network * tau
                     target_net.load_state_dict(dqn_agent.q_network.state_dict())
             if done:
@@ -263,28 +236,11 @@ def dqn_train(
     return {"episode_reward": episode_reward}
 
 
-def main(
+def dqn_train_main(
     env: gym.Env[NDArray[Any], ActType],
-    model_pathname: str,
-    result_dir: Path,
+    cfg_data: dict[str, Any],
 ) -> None:
-    # Training parameters
-    global_steps = 1000  # the total steps to train
-    learning_rate = 1e-4  # Learning rate
-    max_steps = 99  # Max steps per episode
-    gamma = 0.99  # Discounting rate
-
-    # Exploration parameters
-    start_epsilon = 1.0  # Exploration probability at start
-    end_epsilon = 0.05  # Minimum exploration probability
-    # the fraction of `total-timesteps` it takes from start-e to go end-e
-    exploration_fraction = 0.3
-    replay_buffer_capacity = global_steps // 10
-    batch_size = 32
-    train_interval = 4
-    target_update_interval = 100
-    update_start_step = 80
-
+    # create the q_network, load the checkpoint if exists
     obs_shape = env.observation_space.shape
     assert obs_shape is not None
     act_space = env.action_space
@@ -295,166 +251,97 @@ def main(
     else:
         assert len(obs_shape) == 3, "The observation space must be 3D"
         q_network = QNet2D(in_shape=obs_shape, action_n=action_n)
-    if model_pathname:
-        q_network.load_state_dict(torch.load(model_pathname))
+    checkpoint_pathname = cfg_data.get("checkpoint_pathname", None)
+    if checkpoint_pathname:
+        q_network.load_state_dict(torch.load(checkpoint_pathname))
 
+    # set the device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # use mps if available
     if torch.backends.mps.is_available():
         device = torch.device("mps")
-
     q_network = q_network.to(device)
+
+    # create the dqn_agent
+    lr = float(cfg_data["hyper_params"]["learning_rate"])
     dqn_agent = DQNAgent(
         q_network=q_network,
-        optimizer=torch.optim.Adam(q_network.parameters(), lr=learning_rate),
+        optimizer=torch.optim.Adam(q_network.parameters(), lr=lr),
         action_n=action_n,
     )
 
-    train_result = dqn_train(
+    # train the dqn_agent
+    train_result = dqn_train_loop(
         env=env,
         dqn_agent=dqn_agent,
-        global_steps=global_steps,
-        max_steps=max_steps,
         device=device,
-        start_epsilon=start_epsilon,
-        end_epsilon=end_epsilon,
-        exploration_fraction=exploration_fraction,
-        replay_buffer_capacity=replay_buffer_capacity,
-        batch_size=batch_size,
-        gamma=gamma,
-        train_interval=train_interval,
-        target_update_interval=target_update_interval,
-        update_start_step=update_start_step,
+        config=DQNTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
 
-    # save the model
-    torch.save(
-        dqn_agent.q_network.state_dict(),
-        str(result_dir / "dqn_model.pth"),
-    )
+    # save the result
+    if cfg_data["output_params"].get("save_result", False):
+        # create the output directory
+        output_params = cfg_data["output_params"]
+        out_dir = Path(output_params["output_dir"])
+        out_dir.mkdir(parents=True, exist_ok=True)
+        # save the model
+        torch.save(
+            dqn_agent.q_network.state_dict(),
+            str(out_dir / output_params["model_filename"]),
+        )
+        # save the train result
+        with open(out_dir / output_params["train_result_filename"], "w") as f:
+            json.dump(train_result, f)
+        # save all the config data
+        cfg_data["env_params"].update({"device": str(device)})
+        with open(out_dir / output_params["params_filename"], "w") as f:
+            json.dump(cfg_data, f)
 
-    # save the hyperparameters
-    hyperparameters = {
-        "env_id": "FrozenLake-v1",
-        "global_training_steps": global_steps,
-        "learning_rate": learning_rate,
-        "max_steps": max_steps,
-        "gamma": gamma,
-        "start_epsilon": start_epsilon,
-        "end_epsilon": end_epsilon,
-        "exploration_fraction": exploration_fraction,
-        "replay_buffer_capacity": replay_buffer_capacity,
-        "batch_size": batch_size,
-        "train_interval": train_interval,
-        "target_update_interval": target_update_interval,
-        "update_start_step": update_start_step,
-        "device": str(device),
-    }
-    with open(result_dir / "hyperparameters.json", "w") as f:
-        json.dump(hyperparameters, f)
-
-    # Evaluation parameters
-    eval_episodes = 100  # Total number of test episodes
-    # The evaluation seed of the environment
-    eval_seed: list[int] = list(
-        random.randint(0, 1000000) for _ in range(eval_episodes)
-    )
-
+    # evaluate the agent
     mean_reward, std_reward = evaluate_agent(
         env=env,
         policy=dqn_agent,
-        max_steps=max_steps,
-        episodes=eval_episodes,
-        seed=eval_seed,
+        max_steps=int(cfg_data["hyper_params"]["max_steps"]),
+        episodes=int(cfg_data["eval_params"]["eval_episodes"]),
+        seed=tuple(cfg_data["eval_params"]["eval_seed"]),
     )
     # save the eval result
-    eval_result = {
-        "mean_reward": mean_reward,
-        "std_reward": std_reward,
-        "eval_episodes": eval_episodes,
-        "eval_seed": eval_seed,
-        "max_steps": max_steps,
-        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    result = {
-        "eval_result": eval_result,
-        "train_result": train_result,
-    }
-    with open(result_dir / "result.json", "w") as f:
-        json.dump(result, f)
+    if cfg_data["output_params"].get("save_result", False):
+        eval_result = {
+            "mean_reward": mean_reward,
+            "std_reward": std_reward,
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        with open(out_dir / output_params["eval_result_filename"], "w") as f:
+            json.dump(eval_result, f)
 
 
-def make_env() -> tuple[gym.Env[NDArray[Any], ActType], dict[str, Any]]:
-    """Make the 2D environment.
+def main(cfg_data: dict[str, Any]) -> None:
+    # make the environment by the config
+    env_params = cfg_data["env_params"]
+    if env_params.get("use_image", False):
+        env, more_env_params = make_env(
+            env_id=env_params["env_id"],
+            render_mode=env_params["render_mode"],
+            resize_shape=tuple(env_params["resize_shape"]),
+            frame_stack_size=env_params["frame_stack_size"],
+        )
+    else:
+        env, more_env_params = make_1d_env(
+            env_id=env_params["env_id"], render_mode=env_params["render_mode"]
+        )
+    # Update the original cfg_data with the new environment parameters
+    cfg_data["env_params"].update(more_env_params)
 
-    env.action_space.n=np.int64(4)
-    env.observation_space.shape=(4, 84, 84)
-    """
-    env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    env = gym.wrappers.AddRenderObservation(env, render_only=True)
-    env = gym.wrappers.ResizeObservation(env, shape=(84, 84))
-    # -> [**shape, 3] -> [**shape, 1]
-    env = gym.wrappers.GrayscaleObservation(env, keep_dim=True)
-    # -> [**shape, 1] -> [4, **shape, 1]
-    env = gym.wrappers.FrameStackObservation(env, stack_size=4)
-    transposed_space = gym.spaces.Box(
-        low=0, high=255, shape=(4, 84, 84), dtype=np.uint8
-    )
-    # -> [num_stack, **shape, 1] -> [num_stack, **shape]
-    env = gym.wrappers.TransformObservation(
-        env,
-        lambda obs: obs.squeeze(-1),
-        observation_space=transposed_space,
-    )
-    # env = TransformObservation(env, lambda obs: np.transpose(obs, (2, 0, 1)))
-    env = cast(gym.Env[NDArray[Any], ActType], env)  # make mypy happy
-
-    act_space = env.action_space
-    assert isinstance(act_space, Discrete)  # make mypy happy
-    env_params = {
-        "env_id": "LunarLander-v3",
-        "render_mode": "rgb_array",
-        "wrappers": describe_wrappers(env),
-        "observation_space.shape": env.observation_space.shape,
-        "action_space": int(act_space.n),
-        "observation_shape": (4, 84, 84),
-    }
-    return env, env_params
-
-
-def make_1d_env() -> tuple[gym.Env[NDArray[Any], ActType], dict[str, Any]]:
-    """Make the 1D environment.
-
-    env.action_space.n=np.int64(4)
-    env.observation_space.shape=(8,)
-    """
-    env = gym.make("LunarLander-v3", render_mode="rgb_array")
-    act_space = env.action_space
-    assert isinstance(act_space, Discrete)  # make mypy happy
-    env_params = {
-        "env_id": "LunarLander-v3",
-        "observation_space.shape": env.observation_space.shape,
-        "action_space": int(act_space.n),
-        "render_mode": "rgb_array",
-    }
-    return env, env_params
+    try:
+        dqn_train_main(env=env, cfg_data=cfg_data)
+    finally:
+        env.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_pathname", type=str, default="")
-    parser.add_argument("--use_2d", action="store_true")
+    parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()
-    sub_dir = "2d" if args.use_2d else "1d"
-    result_dir = EXERCISE2_RESULT_DIR / sub_dir
-    result_dir.mkdir(parents=True, exist_ok=True)
 
-    env, env_params = make_env() if args.use_2d else make_1d_env()
-
-    try:
-        main(env=env, model_pathname=args.model_pathname, result_dir=result_dir)
-        # save the env_params
-        with open(result_dir / "env_params.json", "w") as f:
-            json.dump(env_params, f)
-    finally:
-        env.close()
+    cfg_data = load_config_from_json(args.config)
+    main(cfg_data=cfg_data)
