@@ -4,11 +4,11 @@ from typing import Any
 
 import gymnasium as gym
 
-from common.evaluation_utils import play_game_once
-from common.hub_utils import push_to_hub
 from hands_on.exercise1_q_learning.q_learning_train import QTable
 from hands_on.utils.config_utils import load_config_from_json
 from hands_on.utils.env_utils import make_discrete_env_with_kwargs
+from hands_on.utils.evaluation_utils import play_game_once
+from hands_on.utils.hub_utils import push_to_hub
 
 
 def push_q_table_to_hub(

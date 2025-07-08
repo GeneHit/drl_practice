@@ -10,11 +10,11 @@ import pickle5 as pickle
 from numpy.typing import NDArray
 from tqdm import tqdm
 
-from common.base import PolicyBase
-from common.evaluation_utils import evaluate_agent
+from hands_on.base import PolicyBase
 from hands_on.exercise1_q_learning.config import QTableTrainConfig
 from hands_on.utils.config_utils import load_config_from_json
 from hands_on.utils.env_utils import make_discrete_env_with_kwargs
+from hands_on.utils.evaluation_utils import evaluate_agent
 
 ActType = int
 

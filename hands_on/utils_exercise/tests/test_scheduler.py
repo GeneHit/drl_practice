@@ -5,7 +5,10 @@ from typing import List, Tuple
 import numpy as np
 import pytest
 
-from common.scheduler_utils import ExponentialSchedule, LinearSchedule
+from hands_on.utils_exercise.scheduler_utils import (
+    ExponentialSchedule,
+    LinearSchedule,
+)
 
 
 class TestLinearSchedule:

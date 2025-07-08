@@ -1,6 +1,6 @@
 import numpy as np
 
-from common.base import ScheduleBase
+from hands_on.base import ScheduleBase
 
 
 class ConstantSchedule(ScheduleBase):

@@ -24,14 +24,14 @@ from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
 # from torch.utils.tensorboard import SummaryWriter
-from common.base import PolicyBase
-from common.evaluation_utils import evaluate_agent
-from common.replay_buffer_utils import ReplayBuffer
-from common.scheduler_utils import LinearSchedule
+from hands_on.base import PolicyBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
 from hands_on.utils.config_utils import load_config_from_json
 from hands_on.utils.env_utils import ActType, make_1d_env, make_image_env
-from hands_on.utils.numpy_tensor_utils import get_tensor_expanding_axis
+from hands_on.utils.evaluation_utils import evaluate_agent
+from hands_on.utils_exercise.numpy_tensor_utils import get_tensor_expanding_axis
+from hands_on.utils_exercise.replay_buffer_utils import ReplayBuffer
+from hands_on.utils_exercise.scheduler_utils import LinearSchedule
 
 
 class QNet2D(nn.Module):

@@ -5,7 +5,7 @@ import numpy as np
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
-from common.base import ActType
+from hands_on.base import ActType
 
 
 def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:

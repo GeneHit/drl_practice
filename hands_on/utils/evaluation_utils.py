@@ -7,7 +7,7 @@ import imageio
 import numpy as np
 from tqdm import tqdm
 
-from .base import PolicyBase
+from ..base import PolicyBase
 
 
 def evaluate_agent(
