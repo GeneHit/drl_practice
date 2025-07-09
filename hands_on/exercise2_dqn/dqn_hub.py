@@ -5,7 +5,7 @@ from typing import Any
 import gymnasium as gym
 import torch
 
-from hands_on.exercise2_dqn.dqn_exercise import DQNAgent
+from hands_on.exercise2_dqn.dqn_train import DQNAgent
 from hands_on.utils.env_utils import get_device, make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import play_game_once
 from hands_on.utils.hub_play_utils import (
@@ -25,7 +25,7 @@ def create_dqn_agent_from_config(model_path: Path) -> DQNAgent:
 
     # Create DQN agent with minimal requirements for inference
     # We use a dummy optimizer since it won't be used for inference
-    dqn_agent = DQNAgent(q_network=q_network, optimizer=None, action_n=None)
+    dqn_agent = DQNAgent(q_network=q_network)
     dqn_agent.set_train_flag(False)  # Set to evaluation mode
 
     return dqn_agent

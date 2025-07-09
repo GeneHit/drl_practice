@@ -14,7 +14,7 @@ from hands_on.exercise2_dqn.dqn_hub import (
     create_dqn_agent_from_config,
     push_dqn_to_hub,
 )
-from hands_on.exercise2_dqn.dqn_train_1 import main as train_main
+from hands_on.exercise2_dqn.dqn_train import main as train_main
 from hands_on.utils.env_utils import make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import play_game_once
 from hands_on.utils.file_utils import load_config_from_json
