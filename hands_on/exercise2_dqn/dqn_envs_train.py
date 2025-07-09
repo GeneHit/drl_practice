@@ -7,10 +7,9 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 
 import argparse
 import copy
-import random
 import time
 from datetime import datetime
-from typing import Any, Callable, cast
+from typing import Any, Callable, TypeAlias, Union, cast
 
 import gymnasium as gym
 import numpy as np
@@ -19,11 +18,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import tqdm
 from gymnasium.spaces import Discrete
-from gymnasium.vector import VectorEnv
 from numpy.typing import NDArray
 
 # from torch.utils.tensorboard import SummaryWriter
-from hands_on.base import PolicyBase
+from hands_on.base import ActType, PolicyBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
 from hands_on.exercise2_dqn.dqn_train import QNet1D, QNet2D
 from hands_on.utils.env_utils import make_1d_env, make_image_env
@@ -32,9 +30,15 @@ from hands_on.utils.file_utils import (
     load_config_from_json,
     save_model_and_result,
 )
-from hands_on.utils_exercise.numpy_tensor_utils import get_tensor_expanding_axis
 from hands_on.utils_exercise.replay_buffer_utils import ReplayBuffer
 from hands_on.utils_exercise.scheduler_utils import LinearSchedule
+
+ObsType: TypeAlias = Union[np.uint8, np.float32]
+ArrayType: TypeAlias = Union[np.bool_, np.float32]
+EnvType: TypeAlias = gym.Env[NDArray[ObsType], ActType]
+EnvsType: TypeAlias = gym.vector.VectorEnv[
+    NDArray[ObsType], ActType, NDArray[ArrayType]
+]
 
 
 class DQNAgent(PolicyBase):
@@ -44,6 +48,7 @@ class DQNAgent(PolicyBase):
         self,
         q_network: nn.Module,
         optimizer: torch.optim.Optimizer,
+        state_shape: tuple[int, ...],
         action_n: int,
     ) -> None:
         self._q_network = q_network
@@ -51,6 +56,7 @@ class DQNAgent(PolicyBase):
         self._train_flag = False
         self._device = next(q_network.parameters()).device
         self._action_n = action_n
+        self._state_shape = state_shape
 
     @property
     def q_network(self) -> nn.Module:
@@ -60,81 +66,98 @@ class DQNAgent(PolicyBase):
         self._train_flag = train_flag
         self._q_network.train(train_flag)
 
-    def action(self, state: Any, epsilon: float | None = None) -> int:
-        if self._train_flag:
-            assert epsilon is not None, "Epsilon is required in training mode"
-            if random.random() < epsilon:
-                # Exploration: take a random action with probability epsilon.
-                return int(random.randint(0, self._action_n - 1))
+    def only_save_model(self, pathname: str) -> None:
+        """Save the DQN model."""
+        # only save the q_network
+        assert pathname.endswith(".pth")
+        torch.save(self._q_network, pathname)
 
-        # 2 case:
-        # >> 1. need exploitation: take the action with the highest value.
-        # >> 2. in the test phase, take the action with the highest value.
-        assert isinstance(state, np.ndarray), "State must be a numpy array"
-        state_tensor = get_tensor_expanding_axis(state).to(self._device)
-        probs = self._q_network(state_tensor).cpu()
-        return int(probs.argmax().item())
+    def action(
+        self, state: NDArray[ObsType], epsilon: float | None = None
+    ) -> NDArray[ActType]:
+        """Get action(s) for state(s).
 
-    def action_batch(
-        self, states: NDArray[Any], epsilon: float | None = None
-    ) -> NDArray[np.int64]:
-        """Get actions for a batch of states from multiple environments."""
-        if self._train_flag:
-            assert epsilon is not None, "Epsilon is required in training mode"
-            # Handle epsilon-greedy for batch
-            batch_size = states.shape[0]
-            actions = np.zeros(batch_size, dtype=np.int64)
+        Args:
+            state: Single state or batch of states
+            epsilon: Exploration rate for epsilon-greedy policy
 
-            # Random mask for exploration
-            random_mask = np.random.random(batch_size) < epsilon
+        Returns:
+            actions: NDArray[ActType]
+                Single action or batch of actions depending on input shape.
+                If the input is a single state, output a (1, ) array, making
+                the output type consistent.
+        """
+        # Check if input is a single state or batch of states
+        is_single = len(state.shape) == len(self._state_shape)
+        state_batch = state if not is_single else state.reshape(1, *state.shape)
 
-            # Random actions for exploration
-            num_random = int(np.sum(random_mask))
-            actions[random_mask] = np.random.randint(
-                0, self._action_n, size=num_random, dtype=np.int64
-            )
-
-            # Greedy actions for exploitation
-            if not np.all(random_mask):
-                exploit_states = states[~random_mask]
-                if len(exploit_states) > 0:
-                    state_tensor = torch.from_numpy(exploit_states).to(
-                        self._device
-                    )
-                    with torch.no_grad():
-                        q_values = self._q_network(state_tensor).cpu()
-                        greedy_actions = (
-                            q_values.argmax(dim=1).numpy().astype(np.int64)
-                        )
-                        actions[~random_mask] = greedy_actions
-
-            return actions
-        else:
+        if not self._train_flag:
             # Test phase: always greedy
-            state_tensor = torch.from_numpy(states).to(self._device)
+            state_tensor = torch.from_numpy(state_batch).to(self._device)
             with torch.no_grad():
                 q_values = self._q_network(state_tensor).cpu()
-                greedy_actions = q_values.argmax(dim=1).numpy().astype(np.int64)
-                return cast(NDArray[np.int64], greedy_actions)
+                actions = q_values.argmax(dim=1).numpy().astype(ActType)
+            return cast(NDArray[ActType], actions)
 
-    def get_score(self, state: Any, action: int | None = None) -> float:
-        assert isinstance(state, np.ndarray), "State must be a numpy array"
-        state_tensor = get_tensor_expanding_axis(state).to(self._device)
-        probs = self._q_network(state_tensor).cpu()
-        if action is None:
-            return float(probs.max().item())
-        return float(probs[0, action].item())
+        # Training phase: epsilon-greedy
+        assert epsilon is not None, "Epsilon is required in training mode"
+        batch_size = state_batch.shape[0]
+        actions = np.zeros(batch_size, dtype=ActType)
+
+        # Random mask for exploration
+        random_mask = np.random.random(batch_size) < epsilon
+
+        # Random actions for exploration
+        num_random = int(np.sum(random_mask))
+        actions[random_mask] = np.random.randint(
+            0, self._action_n, size=num_random, dtype=ActType
+        )
+
+        # Greedy actions for exploitation
+        if not np.all(random_mask):
+            exploit_states = state_batch[~random_mask]
+            state_tensor = torch.from_numpy(exploit_states).to(self._device)
+            with torch.no_grad():
+                q_values = self._q_network(state_tensor).cpu()
+                greedy_actions = q_values.argmax(dim=1).numpy().astype(ActType)
+                actions[~random_mask] = greedy_actions
+
+        return cast(NDArray[ActType], actions)
+
+    def get_score(
+        self, state: torch.Tensor, action: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        """Get Q-value score(s) for state(s) and action(s).
+
+        Args:
+            state: Single state or batch of states as tensor
+            action: Optional single action or batch of actions as tensor.
+                    If None, returns max Q-value(s)
+
+        Returns:
+            Single score (float) or batch of scores (tensor)
+        """
+        # Check if input is a single state or batch of states
+        is_single = len(state.shape) == len(self._state_shape)
+        state_batch = state if not is_single else state.unsqueeze(0)
+        assert action is None, "not implemented"
+
+        # Move to device if needed
+        state_batch = state_batch.to(self._device)
+        # Get Q-values for all actions
+        with torch.no_grad():
+            scores = self._q_network(state_batch).max(dim=1)[0]
+
+        return cast(torch.Tensor, scores)
 
     def update(
-        self, state: Any | None, action: Any | None, reward_target: Any
+        self,
+        state: torch.Tensor | None,
+        action: torch.Tensor | None,
+        reward_target: torch.Tensor,
     ) -> None:
-        assert isinstance(state, torch.Tensor), (
-            "State must be a numpy array or torch tensor"
-        )
-        assert isinstance(action, torch.Tensor), (
-            "Action must be a numpy array or torch tensor"
-        )
-        assert isinstance(reward_target, torch.Tensor), "Score must be a tensor"
+        assert state is not None, "State must be provided"
+        assert action is not None, "Action must be provided"
         assert reward_target.dim() == 1, "Score must be a 1D tensor"
 
         state_tensor = state.to(self._device)
@@ -151,18 +174,12 @@ class DQNAgent(PolicyBase):
         loss.backward()
         self._optimizer.step()
 
-    def only_save_model(self, pathname: str) -> None:
-        """Save the DQN model."""
-        # only save the q_network
-        assert pathname.endswith(".pth")
-        torch.save(self._q_network, pathname)
-
 
 def make_vector_env(
-    env_fn: Callable[[], gym.Env[NDArray[Any], np.integer[Any]]],
+    env_fn: Callable[[], EnvType],
     num_envs: int,
     use_multi_processing: bool = False,
-) -> VectorEnv[NDArray[Any], np.integer[Any], NDArray[Any]]:
+) -> EnvsType:
     """Create a vector environment."""
     if use_multi_processing and num_envs > 1:
         return gym.vector.AsyncVectorEnv([env_fn for _ in range(num_envs)])
@@ -171,19 +188,12 @@ def make_vector_env(
 
 
 def dqn_train_loop_multi_envs(
-    envs: VectorEnv[NDArray[Any], np.integer[Any], NDArray[Any]],
+    envs: EnvsType,
     dqn_agent: DQNAgent,
     device: torch.device,
     config: DQNTrainConfig,
 ) -> dict[str, Any]:
-    """Train the DQN agent with multiple environments.
-
-    Args:
-        envs (gym.vector.VectorEnv): The vector environment.
-        dqn_agent (DQNAgent): The DQN agent.
-        device (torch.device): The device.
-        config (DQNTrainConfig): The training configuration.
-    """
+    """Train the DQN agent with multiple environments."""
     target_net = copy.deepcopy(dqn_agent.q_network).to(device)
     target_net.eval()
     epsilon_schedule = LinearSchedule(
@@ -202,7 +212,9 @@ def dqn_train_loop_multi_envs(
     num_envs = envs.num_envs
     episode_rewards: list[float] = []
     episode_counts = np.zeros(num_envs, dtype=np.int32)
-    current_episode_rewards = np.zeros(num_envs, dtype=np.float32)
+    current_episode_rewards: NDArray[np.float32] = np.zeros(
+        (num_envs,), dtype=np.float32
+    )
 
     # Initialize environments
     states, _ = envs.reset()
@@ -213,27 +225,19 @@ def dqn_train_loop_multi_envs(
         epsilon = epsilon_schedule(step)
 
         # Get actions for all environments
-        actions = dqn_agent.action_batch(states, epsilon)
+        actions = dqn_agent.action(states, epsilon)
+        assert isinstance(actions, np.ndarray), (
+            "Actions must be numpy array for batch"
+        )
 
         # Step all environments
         next_states, rewards, terminated, truncated, _ = envs.step(
             actions.tolist()
         )
-        assert isinstance(next_states, np.ndarray), (
-            "Next states must be numpy array"
-        )
-        assert isinstance(rewards, np.ndarray), "Rewards must be numpy array"
-        assert isinstance(terminated, np.ndarray), (
-            "Terminated must be numpy array"
-        )
-        assert isinstance(truncated, np.ndarray), (
-            "Truncated must be numpy array"
-        )
 
-        dones = terminated | truncated
-
+        dones = np.logical_or(terminated, truncated, dtype=np.bool_)
         # Update episode rewards
-        current_episode_rewards += rewards
+        current_episode_rewards = current_episode_rewards + rewards
 
         # Add experiences to replay buffer
         for i in range(num_envs):
@@ -289,8 +293,8 @@ def dqn_train_loop_multi_envs(
 
 
 def dqn_train_main_multi_envs(
-    envs: gym.vector.VectorEnv[NDArray[Any], np.integer[Any], NDArray[Any]],
-    env_fn: Callable[[], gym.Env[NDArray[Any], np.integer[Any]]],
+    envs: EnvsType,
+    env_fn: Callable[[], EnvType],
     cfg_data: dict[str, Any],
 ) -> None:
     """Main training function for multi-environment DQN."""
@@ -324,6 +328,7 @@ def dqn_train_main_multi_envs(
     dqn_agent = DQNAgent(
         q_network=q_network,
         optimizer=torch.optim.Adam(q_network.parameters(), lr=lr),
+        state_shape=obs_shape,
         action_n=action_n,
     )
 
@@ -373,7 +378,7 @@ def main(cfg_data: dict[str, Any]) -> None:
     env_params = cfg_data["env_params"]
     use_image: bool = env_params.get("use_image", False)
 
-    def env_fn() -> gym.Env[NDArray[Any], np.integer[Any]]:
+    def env_fn() -> EnvType:
         if use_image:
             env, _ = make_image_env(
                 env_id=env_params["env_id"],
@@ -381,9 +386,10 @@ def main(cfg_data: dict[str, Any]) -> None:
                 resize_shape=tuple(env_params["resize_shape"]),
                 frame_stack_size=env_params["frame_stack_size"],
             )
+            return cast(EnvType, env)
         else:
             env, _ = make_1d_env(env_id=env_params["env_id"])
-        return env
+            return cast(EnvType, env)
 
     # Create vector environment
     num_envs: int = cfg_data["hyper_params"]["num_envs"]

@@ -8,7 +8,7 @@ import pickle5 as pickle
 from numpy.typing import NDArray
 from tqdm import tqdm
 
-from hands_on.base import PolicyBase
+from hands_on.base import ActType, PolicyBase
 from hands_on.exercise1_q_learning.config import QTableTrainConfig
 from hands_on.utils.env_utils import make_discrete_env_with_kwargs
 from hands_on.utils.evaluation_utils import evaluate_agent
@@ -18,8 +18,7 @@ from hands_on.utils.file_utils import (
 )
 
 # because q_table is use for the discrete action and observation space
-ActType: TypeAlias = int
-ObsType: TypeAlias = int
+ObsType: TypeAlias = np.int64
 
 
 def greedy_policy(q_table: NDArray[np.float32], state: int) -> ActType:
@@ -32,7 +31,7 @@ def greedy_policy(q_table: NDArray[np.float32], state: int) -> ActType:
     Returns:
         int: The action to take.
     """
-    return int(np.argmax(q_table[state]))
+    return np.argmax(q_table[state])
 
 
 def epsilon_greedy_policy(
@@ -53,9 +52,9 @@ def epsilon_greedy_policy(
         int: The action to take.
     """
     if np.random.rand() < epsilon:
-        return np.random.randint(q_table.shape[1])
+        return np.random.randint(q_table.shape[1], dtype=ActType)
     else:
-        return int(np.argmax(q_table[state]))
+        return np.argmax(q_table[state])
 
 
 class QTable(PolicyBase):

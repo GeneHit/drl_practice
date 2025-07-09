@@ -37,18 +37,22 @@ class ReplayBuffer:
         capacity: int,
         state_shape: tuple[int, ...],
         state_dtype: type[np.floating[Any]] = np.float32,
-        action_dtype: type[np.signedinteger[Any]] = np.int64,
-    ):
-        self.capacity = capacity
-        self.ptr = 0  # current write pointer
-        self.size = 0  # current valid data size
+        action_dtype: type[np.integer[Any]] = np.int64,
+    ) -> None:
+        self._capacity = capacity
+        self._ptr = 0  # current write pointer
+        self._size = 0  # current valid data size
+        self._printed_warning = False
+        self._state_type = state_dtype
 
         # pre-allocate continuous memory
-        self.states = np.empty((capacity, *state_shape), dtype=state_dtype)
-        self.actions = np.empty(capacity, dtype=action_dtype)
-        self.rewards = np.empty(capacity, dtype=np.float32)
-        self.next_states = np.empty((capacity, *state_shape), dtype=state_dtype)
-        self.dones = np.empty(capacity, dtype=np.bool_)
+        self._states = np.empty((capacity, *state_shape), dtype=state_dtype)
+        self._actions = np.empty(capacity, dtype=action_dtype)
+        self._rewards = np.empty(capacity, dtype=np.float32)
+        self._next_states = np.empty(
+            (capacity, *state_shape), dtype=state_dtype
+        )
+        self._dones = np.empty(capacity, dtype=np.bool_)
 
     def add_one(
         self,
@@ -58,16 +62,18 @@ class ReplayBuffer:
         next_state: NDArray[Any],
         done: bool,
     ) -> None:
+        self._warn_if_necessary(state)
+
         # overwrite old data
-        self.states[self.ptr] = state
-        self.actions[self.ptr] = action
-        self.rewards[self.ptr] = reward
-        self.next_states[self.ptr] = next_state
-        self.dones[self.ptr] = done
+        self._states[self._ptr] = state
+        self._actions[self._ptr] = action
+        self._rewards[self._ptr] = reward
+        self._next_states[self._ptr] = next_state
+        self._dones[self._ptr] = done
 
         # update pointer and count
-        self.ptr = (self.ptr + 1) % self.capacity
-        self.size = min(self.size + 1, self.capacity)
+        self._ptr = (self._ptr + 1) % self._capacity
+        self._size = min(self._size + 1, self._capacity)
 
     def add_batch(
         self,
@@ -75,18 +81,19 @@ class ReplayBuffer:
         actions: NDArray[Any],
         rewards: NDArray[Any],
         next_states: NDArray[Any],
-        dones: NDArray[Any],
+        dones: NDArray[np.bool_],
     ) -> None:
+        self._warn_if_necessary(states)
         batch_size = len(states)
-        if self.ptr + batch_size <= self.capacity:
+        if self._ptr + batch_size <= self._capacity:
             # no wrap-around writing
             indices: Union[slice, list[slice]] = slice(
-                self.ptr, self.ptr + batch_size
+                self._ptr, self._ptr + batch_size
             )
         else:
             # segment writing (wrap-around case)
-            head_size = self.capacity - self.ptr
-            indices = [slice(self.ptr, None), slice(0, batch_size - head_size)]
+            head_size = self._capacity - self._ptr
+            indices = [slice(self._ptr, None), slice(0, batch_size - head_size)]
 
         # batch writing
         for i, data in enumerate(
@@ -108,22 +115,22 @@ class ReplayBuffer:
                 )[indices] = data
 
         # update pointer and count
-        self.ptr = (self.ptr + batch_size) % self.capacity
-        self.size = min(self.size + batch_size, self.capacity)
+        self._ptr = (self._ptr + batch_size) % self._capacity
+        self._size = min(self._size + batch_size, self._capacity)
 
     def sample(self, batch_size: int) -> Experience:
         # ensure not sampling empty data
-        assert self.size > batch_size, "the buffer size should > batch_size"
+        assert self._size > batch_size, "the buffer size should > batch_size"
 
         # generate unique random indices
-        indices = np.random.choice(self.size, batch_size, replace=False)
+        indices = np.random.choice(self._size, batch_size, replace=False)
 
         # batch extract data (avoid loop)
-        states = self.states[indices]
-        actions = self.actions[indices]
-        rewards = self.rewards[indices]
-        next_states = self.next_states[indices]
-        dones = self.dones[indices]
+        states = self._states[indices]
+        actions = self._actions[indices]
+        rewards = self._rewards[indices]
+        next_states = self._next_states[indices]
+        dones = self._dones[indices]
 
         # convert to tensor (keep data sharing without copying)
         return Experience(
@@ -135,4 +142,12 @@ class ReplayBuffer:
         )
 
     def __len__(self) -> int:
-        return self.size
+        return self._size
+
+    def _warn_if_necessary(self, state: NDArray[Any]) -> None:
+        if state.dtype != self._state_type and not self._printed_warning:
+            print(
+                f"Warning: state dtype mismatch, expected {self._state_type}, "
+                f"got {state.dtype}"
+            )
+            self._printed_warning = True

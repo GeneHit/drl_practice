@@ -22,9 +22,9 @@ from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
 # from torch.utils.tensorboard import SummaryWriter
-from hands_on.base import PolicyBase
+from hands_on.base import ActType, PolicyBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
-from hands_on.utils.env_utils import ActType, make_1d_env, make_image_env
+from hands_on.utils.env_utils import make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import evaluate_agent
 from hands_on.utils.file_utils import (
     load_config_from_json,
@@ -131,15 +131,16 @@ class DQNAgent(PolicyBase):
             )
             if random.random() < epsilon:
                 # Exploration: take a random action with probability epsilon.
-                return np.int32(random.randint(0, self._action_n - 1))
+                return ActType(random.randint(0, self._action_n - 1))
 
         # 2 case:
         # >> 1. need exploitation: take the action with the highest value.
         # >> 2. in the test phase, take the action with the highest value.
         assert isinstance(state, np.ndarray), "State must be a numpy array"
         state_tensor = get_tensor_expanding_axis(state).to(self._device)
-        probs = self._q_network(state_tensor).cpu()
-        return np.int32(probs.argmax().item())
+        with torch.no_grad():
+            probs = self._q_network(state_tensor).cpu()
+        return ActType(probs.argmax().item())
 
     def get_score(self, state: Any, action: int | None = None) -> float:
         assert isinstance(state, np.ndarray), "State must be a numpy array"

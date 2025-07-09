@@ -6,8 +6,6 @@ import torch
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
-from hands_on.base import ActType
-
 
 def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:
     stack = []
@@ -23,7 +21,7 @@ def make_image_env(
     render_mode: str,
     resize_shape: tuple[int, int],
     frame_stack_size: int,
-) -> tuple[gym.Env[NDArray[Any], ActType], dict[str, Any]]:
+) -> tuple[gym.Env[NDArray[Any], np.int64], dict[str, Any]]:
     """Make the 2D environment.
 
     env.action_space.n=np.int64(4)
@@ -47,7 +45,7 @@ def make_image_env(
         observation_space=transposed_space,
     )
     # env = TransformObservation(env, lambda obs: np.transpose(obs, (2, 0, 1)))
-    env = cast(gym.Env[NDArray[Any], ActType], env)  # make mypy happy
+    env = cast(gym.Env[NDArray[Any], np.int64], env)  # make mypy happy
 
     act_space = env.action_space
     assert isinstance(act_space, Discrete)  # make mypy happy
@@ -62,7 +60,7 @@ def make_image_env(
 
 def make_1d_env(
     env_id: str, render_mode: str | None = None
-) -> tuple[gym.Env[NDArray[Any], ActType], dict[str, Any]]:
+) -> tuple[gym.Env[NDArray[Any], np.int64], dict[str, Any]]:
     """Make the 1D environment.
 
     env.action_space.n=np.int64(4)
@@ -80,7 +78,7 @@ def make_1d_env(
 
 def make_discrete_env_with_kwargs(
     env_id: str, kwargs: dict[str, Any]
-) -> tuple[gym.Env[Any, Any], dict[str, Any]]:
+) -> tuple[gym.Env[np.int64, np.int64], dict[str, Any]]:
     """Make the environment based on configuration.
 
     observation:

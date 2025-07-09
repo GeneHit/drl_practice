@@ -1,13 +1,15 @@
 import abc
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 
-ActType = np.integer[Any]
+ActType: TypeAlias = np.int64
 
 
 class PolicyBase(abc.ABC):
     """Base class for all policies-based or value-based agents.
+
+    !! Have to replace the Any type with the actual type in the subclass.
 
     It's attribute will have some network when necessary.
     """
@@ -17,7 +19,7 @@ class PolicyBase(abc.ABC):
         """Set the train flag."""
 
     @abc.abstractmethod
-    def action(self, state: Any, epsilon: float | None = None) -> ActType | int:
+    def action(self, state: Any, epsilon: float | None = None) -> Any:
         """Get the action for the given state.
 
         TODO: support batch processing.
@@ -35,7 +37,7 @@ class PolicyBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_score(self, state: Any, action: Any | None = None) -> float:
+    def get_score(self, state: Any, action: Any | None = None) -> Any:
         """Get the score for the given state and action.
 
         TODO: support batch processing.
