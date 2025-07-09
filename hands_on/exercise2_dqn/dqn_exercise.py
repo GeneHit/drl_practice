@@ -30,9 +30,11 @@ from hands_on.utils.file_utils import (
     load_config_from_json,
     save_model_and_result,
 )
-from hands_on.utils_exercise.numpy_tensor_utils import get_tensor_expanding_axis
-from hands_on.utils_exercise.replay_buffer_utils import ReplayBuffer
-from hands_on.utils_exercise.scheduler_utils import LinearSchedule
+from hands_on.utils_for_coding.numpy_tensor_utils import (
+    get_tensor_expanding_axis,
+)
+from hands_on.utils_for_coding.replay_buffer_utils import ReplayBuffer
+from hands_on.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 class QNet2D(nn.Module):
