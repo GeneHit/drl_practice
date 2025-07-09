@@ -24,7 +24,7 @@ from torch import Tensor
 # from torch.utils.tensorboard import SummaryWriter
 from hands_on.base import ActType, PolicyBase, ScheduleBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
-from hands_on.exercise2_dqn.dqn_train import QNet1D, QNet2D
+from hands_on.exercise2_dqn.dqn_exercise import QNet1D, QNet2D
 from hands_on.utils.env_utils import make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import evaluate_agent
 from hands_on.utils.file_utils import (

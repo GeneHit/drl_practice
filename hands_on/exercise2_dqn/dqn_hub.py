@@ -5,10 +5,9 @@ from typing import Any
 import gymnasium as gym
 import torch
 
-from hands_on.exercise2_dqn.dqn_train import DQNAgent
+from hands_on.exercise2_dqn.dqn_exercise import DQNAgent
 from hands_on.utils.env_utils import get_device, make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import play_game_once
-from hands_on.utils.file_utils import load_config_from_json
 from hands_on.utils.hub_play_utils import (
     get_env_name_and_metadata,
     push_model_to_hub,
@@ -119,37 +118,3 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
         if not args.username:
             raise ValueError("Username is required when pushing to Hub")
         push_dqn_to_hub(username=args.username, cfg_data=cfg_data, env=env)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Play DQN agent and optionally push to hub"
-    )
-    parser.add_argument(
-        "--config",
-        type=str,
-        required=True,
-        help="Path to configuration JSON file",
-    )
-    parser.add_argument(
-        "--push_to_hub",
-        action="store_true",
-        default=False,
-        help="Push model to Hugging Face Hub",
-    )
-    parser.add_argument(
-        "--username",
-        type=str,
-        default="",
-        help="Hugging Face username (required for --push_to_hub)",
-    )
-    parser.add_argument(
-        "--skip_play",
-        action="store_true",
-        default=False,
-        help="Skip playing the game",
-    )
-    args = parser.parse_args()
-
-    cfg_data = load_config_from_json(args.config)
-    main(cfg_data=cfg_data, args=args)
