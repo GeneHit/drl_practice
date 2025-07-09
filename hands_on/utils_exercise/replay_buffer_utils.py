@@ -102,16 +102,34 @@ class ReplayBuffer:
             if isinstance(indices, list):
                 getattr(
                     self,
-                    ["states", "actions", "rewards", "next_states", "dones"][i],
+                    [
+                        "_states",
+                        "_actions",
+                        "_rewards",
+                        "_next_states",
+                        "_dones",
+                    ][i],
                 )[indices[0]] = data[:head_size]
                 getattr(
                     self,
-                    ["states", "actions", "rewards", "next_states", "dones"][i],
+                    [
+                        "_states",
+                        "_actions",
+                        "_rewards",
+                        "_next_states",
+                        "_dones",
+                    ][i],
                 )[indices[1]] = data[head_size:]
             else:
                 getattr(
                     self,
-                    ["states", "actions", "rewards", "next_states", "dones"][i],
+                    [
+                        "_states",
+                        "_actions",
+                        "_rewards",
+                        "_next_states",
+                        "_dones",
+                    ][i],
                 )[indices] = data
 
         # update pointer and count
