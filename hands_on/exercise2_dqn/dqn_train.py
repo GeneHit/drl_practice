@@ -204,14 +204,15 @@ def dqn_train_loop(
     epsilon_schedule = LinearSchedule(
         start_e=config.start_epsilon,
         end_e=config.end_epsilon,
-        duration=int(config.exploration_fraction * config.global_steps),
+        duration=int(config.exploration_fraction * config.timesteps),
     )
     replay_buffer = ReplayBuffer(capacity=config.replay_buffer_capacity)
+    assert config.max_steps is not None
 
-    episode_reward: list[float] = []
-    process_bar = tqdm.tqdm(range(config.global_steps))
+    episode_rewards: list[float] = []
+    process_bar = tqdm.tqdm(range(config.timesteps))
     step = 0
-    while step <= config.global_steps:
+    while step <= config.timesteps:
         epsilon = epsilon_schedule(step)
         state, _ = env.reset()
         rewards = 0.0
@@ -254,10 +255,10 @@ def dqn_train_loop(
                 break
             state = next_state
 
-        episode_reward.append(rewards)
+        episode_rewards.append(rewards)
     process_bar.close()
 
-    return {"episode_reward": episode_reward}
+    return {"episode_rewards": episode_rewards}
 
 
 def dqn_train_main(
@@ -308,7 +309,7 @@ def dqn_train_main(
     mean_reward, std_reward = evaluate_agent(
         env=env,
         policy=dqn_agent,
-        max_steps=int(cfg_data["hyper_params"]["max_steps"]),
+        max_steps=cfg_data["eval_params"].get("max_steps", None),
         episodes=int(cfg_data["eval_params"]["eval_episodes"]),
         seed=tuple(cfg_data["eval_params"]["eval_seed"]),
     )

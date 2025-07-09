@@ -189,7 +189,7 @@ def dqn_train_loop_multi_envs(
     epsilon_schedule = LinearSchedule(
         start_e=config.start_epsilon,
         end_e=config.end_epsilon,
-        duration=int(config.exploration_fraction * config.global_steps),
+        duration=int(config.exploration_fraction * config.timesteps),
     )
     replay_buffer = ReplayBuffer(capacity=config.replay_buffer_capacity)
 
@@ -198,16 +198,12 @@ def dqn_train_loop_multi_envs(
     episode_counts = np.zeros(num_envs, dtype=np.int32)
     current_episode_rewards = np.zeros(num_envs, dtype=np.float32)
 
-    process_bar = tqdm.tqdm(range(config.global_steps))
-    step = 0
-
     # Initialize environments
     states, _ = envs.reset()
     assert isinstance(states, np.ndarray), "States must be numpy array"
-
     dqn_agent.set_train_flag(True)
 
-    while step <= config.global_steps:
+    for step in tqdm.tqdm(range(config.timesteps)):
         epsilon = epsilon_schedule(step)
 
         # Get actions for all environments
@@ -249,9 +245,6 @@ def dqn_train_loop_multi_envs(
                 current_episode_rewards[i] = 0.0
                 episode_counts[i] += 1
 
-        step += num_envs  # Each step processes num_envs environments
-        process_bar.update(num_envs)
-
         # Training updates
         if step >= config.update_start_step:
             if step % config.train_interval == 0:
@@ -286,8 +279,7 @@ def dqn_train_loop_multi_envs(
 
         states = next_states
 
-    process_bar.close()
-    return {"episode_reward": episode_rewards}
+    return {"episode_rewards": episode_rewards}
 
 
 def dqn_train_main_multi_envs(
@@ -348,7 +340,7 @@ def dqn_train_main_multi_envs(
         mean_reward, std_reward = evaluate_agent(
             env=eval_env,
             policy=dqn_agent,
-            max_steps=int(cfg_data["hyper_params"]["max_steps"]),
+            max_steps=cfg_data["eval_params"].get("max_steps", None),
             episodes=int(cfg_data["eval_params"]["eval_episodes"]),
             seed=tuple(cfg_data["eval_params"]["eval_seed"]),
         )
@@ -384,10 +376,7 @@ def main(cfg_data: dict[str, Any]) -> None:
                 frame_stack_size=env_params["frame_stack_size"],
             )
         else:
-            env, _ = make_1d_env(
-                env_id=env_params["env_id"],
-                render_mode=env_params["render_mode"],
-            )
+            env, _ = make_1d_env(env_id=env_params["env_id"])
         return env
 
     # Create vector environment
@@ -406,9 +395,7 @@ def main(cfg_data: dict[str, Any]) -> None:
             frame_stack_size=env_params["frame_stack_size"],
         )
         if use_image
-        else make_1d_env(
-            env_id=env_params["env_id"], render_mode=env_params["render_mode"]
-        )
+        else make_1d_env(env_id=env_params["env_id"])
     )
     temp_env.close()
     cfg_data["env_params"].update(more_env_info)

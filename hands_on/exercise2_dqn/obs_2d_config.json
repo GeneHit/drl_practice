@@ -1,6 +1,6 @@
 {
     "hyper_params": {
-        "global_steps": 100000,
+        "timesteps": 100000,
         "learning_rate": 1e-4,
         "max_steps": 99,
         "gamma": 0.99,

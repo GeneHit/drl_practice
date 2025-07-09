@@ -51,17 +51,18 @@ def push_q_table_to_hub(
 def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
     """Main function that loads config and handles play/hub operations."""
     # Create environment from config
+    kwargs = cfg_data["env_params"]["kwargs"]
+    kwargs["render_mode"] = "rgb_array"  # use rgb_array for video recording
     env, _ = make_discrete_env_with_kwargs(
         env_id=cfg_data["env_params"]["env_id"],
-        kwargs=cfg_data["env_params"]["kwargs"],
+        kwargs=kwargs,
     )
 
-    # Load the trained Q-table
-    output_params = cfg_data["output_params"]
-    output_dir = Path(output_params["output_dir"])
-    model_path = output_dir / output_params["model_filename"]
-
     if not args.skip_play:
+        # Load the trained Q-table
+        output_params = cfg_data["output_params"]
+        output_dir = Path(output_params["output_dir"])
+        model_path = output_dir / output_params["model_filename"]
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 

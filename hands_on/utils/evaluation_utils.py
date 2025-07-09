@@ -13,7 +13,7 @@ from ..base import PolicyBase
 def evaluate_agent(
     env: gym.Env[Any, Any],
     policy: PolicyBase,
-    max_steps: int,
+    max_steps: int | None,
     episodes: int,
     seed: Sequence[int],
     stream_video: bool = False,
@@ -48,12 +48,21 @@ def evaluate_agent(
             state, _ = env.reset()
 
         total_rewards_ep = 0.0
-        for _ in range(max_steps):
+
+        def step() -> bool:
+            nonlocal state, total_rewards_ep
             action = policy.action(state)
             state, reward, terminated, truncated, _ = env.step(action)
             total_rewards_ep += float(reward)
-            if terminated or truncated:
-                break
+            return terminated or truncated
+
+        if max_steps is None:
+            while not step():
+                pass
+        else:
+            for _ in range(max_steps):
+                if step():
+                    break
 
         rewards.append(total_rewards_ep)
 
@@ -66,6 +75,7 @@ def play_game_once(
     save_video: bool = False,
     video_pathname: str = "",
     fps: int = 1,
+    seed: int = random.randint(0, 500),
 ) -> None:
     """Play the game once with the random seed.
 
@@ -78,7 +88,7 @@ def play_game_once(
     """
     images: List[Any] = []
     policy.set_train_flag(train_flag=False)
-    state, _ = env.reset(seed=random.randint(0, 500))
+    state, _ = env.reset(seed=seed)
     img_raw: Any = env.render()
     assert img_raw is not None, (
         "The image is None, please check the environment for rendering."

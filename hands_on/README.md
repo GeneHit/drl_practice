@@ -96,14 +96,27 @@ python hands_on/exercise1_q_learning/q_learning_play.py --config hands_on/exerci
 Train:
 ```
 python hands_on/exercise2_dqn/dqn_train.py --config hands_on/exercise2_dqn/obs_1d_config.json
-```
+
 or
-```
+
 python hands_on/exercise2_dqn/dqn_train.py --config hands_on/exercise2_dqn/obs_2d_config.json
 ```
+
 Train with multiprocessing multi envs:
 ```
 python hands_on/exercise2_dqn/dqn_envs_train.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json
 
 python hands_on/exercise2_dqn/dqn_envs_train.py --config hands_on/exercise2_dqn/obs_2d_envs_config.json
 ```
+
+Comands for video and hub:
+```
+python hands_on/exercise2_dqn/dqn_play.py --config hands_on/exercise2_dqn/obs_1d_config.json
+
+python hands_on/exercise2_dqn/dqn_play.py --config hands_on/exercise2_dqn/obs_2d_config.json
+
+python hands_on/exercise2_dqn/dqn_play.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json
+
+python hands_on/exercise2_dqn/dqn_play.py --config hands_on/exercise2_dqn/obs_2d_envs_config.json
+```
+hub: `--push_to_hub --skip_play --username`

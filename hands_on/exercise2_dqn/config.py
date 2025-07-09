@@ -9,8 +9,8 @@ class DQNTrainConfig:
     """Configuration for DQN training that matches dqn_train function parameters."""
 
     # Training hyperparameters
-    global_steps: int
-    max_steps: int
+    timesteps: int
+    max_steps: int | None
     start_epsilon: float
     end_epsilon: float
     exploration_fraction: float
@@ -38,8 +38,7 @@ class DQNTrainConfig:
         """
         # Validate required parameters
         required_params = {
-            "global_steps",
-            "max_steps",
+            "timesteps",
             "start_epsilon",
             "end_epsilon",
             "exploration_fraction",
@@ -62,8 +61,8 @@ class DQNTrainConfig:
         cls._validate_parameters(config_dict)
 
         return cls(
-            global_steps=config_dict["global_steps"],
-            max_steps=config_dict["max_steps"],
+            timesteps=config_dict["timesteps"],
+            max_steps=config_dict.get("max_steps", None),
             start_epsilon=config_dict["start_epsilon"],
             end_epsilon=config_dict["end_epsilon"],
             exploration_fraction=config_dict["exploration_fraction"],
@@ -88,8 +87,7 @@ class DQNTrainConfig:
         """
         # Validate positive integers
         positive_int_params = {
-            "global_steps",
-            "max_steps",
+            "timesteps",
             "replay_buffer_capacity",
             "batch_size",
             "train_interval",
@@ -133,6 +131,6 @@ class DQNTrainConfig:
                 "start_epsilon should be >= end_epsilon for exploration decay"
             )
 
-        # Validate update_start_step vs global_steps
-        if params["update_start_step"] >= params["global_steps"]:
-            raise ValueError("update_start_step should be < global_steps")
+        # Validate update_start_step vs timesteps
+        if params["update_start_step"] >= params["timesteps"]:
+            raise ValueError("update_start_step should be < timesteps")

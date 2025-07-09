@@ -61,7 +61,7 @@ def make_image_env(
 
 
 def make_1d_env(
-    env_id: str, render_mode: str
+    env_id: str, render_mode: str | None = None
 ) -> tuple[gym.Env[NDArray[Any], ActType], dict[str, Any]]:
     """Make the 1D environment.
 

@@ -21,7 +21,7 @@ def create_dqn_agent_from_config(model_path: Path) -> DQNAgent:
     device = get_device()
 
     # Load the trained model directly
-    q_network = torch.load(model_path, map_location=device)
+    q_network = torch.load(model_path, map_location=device, weights_only=False)
     q_network = q_network.to(device)
 
     # Create DQN agent with minimal requirements for inference
@@ -78,31 +78,29 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
     if env_params.get("use_image", False):
         env, _ = make_image_env(
             env_id=env_params["env_id"],
-            render_mode=env_params["render_mode"],
+            render_mode="rgb_array",  # use rgb_array for video recording
             resize_shape=tuple(env_params["resize_shape"]),
             frame_stack_size=env_params["frame_stack_size"],
         )
     else:
         env, _ = make_1d_env(
-            env_id=env_params["env_id"], render_mode=env_params["render_mode"]
+            env_id=env_params["env_id"], render_mode="rgb_array"
         )
 
-    # Load the trained DQN model
-    output_params = cfg_data["output_params"]
-    output_dir = Path(output_params["output_dir"])
-    model_path = output_dir / output_params["model_filename"]
-
     if not args.skip_play:
+        # Load the trained DQN model
+        output_params = cfg_data["output_params"]
+        output_dir = Path(output_params["output_dir"])
+        model_path = output_dir / output_params["model_filename"]
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
         dqn_agent = create_dqn_agent_from_config(model_path)
 
         # Play the game and save video
-        video_filename = output_params.get(
+        video_path = output_dir / output_params.get(
             "replay_video_filename", "replay.mp4"
         )
-        video_path = output_dir / video_filename
 
         try:
             play_game_once(
@@ -110,6 +108,8 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
                 policy=dqn_agent,
                 save_video=True,
                 video_pathname=str(video_path),
+                fps=10,
+                seed=10,
             )
             print(f"Game replay saved to: {video_path}")
         finally:
