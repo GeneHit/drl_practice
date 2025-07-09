@@ -191,7 +191,13 @@ def dqn_train_loop_multi_envs(
         end_e=config.end_epsilon,
         duration=int(config.exploration_fraction * config.timesteps),
     )
-    replay_buffer = ReplayBuffer(capacity=config.replay_buffer_capacity)
+
+    # Get state shape from environment
+    obs_shape = envs.single_observation_space.shape
+    assert obs_shape is not None
+    replay_buffer = ReplayBuffer(
+        capacity=config.replay_buffer_capacity, state_shape=obs_shape
+    )
 
     num_envs = envs.num_envs
     episode_rewards: list[float] = []
@@ -233,7 +239,7 @@ def dqn_train_loop_multi_envs(
         for i in range(num_envs):
             replay_buffer.add_one(
                 states[i],
-                actions[i],
+                int(actions[i]),
                 float(rewards[i]),
                 next_states[i],
                 dones[i],

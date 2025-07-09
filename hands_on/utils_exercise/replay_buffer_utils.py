@@ -1,7 +1,5 @@
-import random
-from collections import deque
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -34,58 +32,107 @@ class Experience:
 
 
 class ReplayBuffer:
-    def __init__(self, capacity: int = 10000) -> None:
-        # the buffer srore the tuple (state, action, reward, next_state, done)
-        self.buffer: deque[
-            tuple[
-                NDArray[Any],
-                int | np.integer[Any],
-                float | np.floating[Any],
-                NDArray[Any],
-                bool | np.bool_,
-            ]
-        ] = deque(maxlen=capacity)
+    def __init__(
+        self,
+        capacity: int,
+        state_shape: tuple[int, ...],
+        state_dtype: type[np.floating[Any]] = np.float32,
+        action_dtype: type[np.signedinteger[Any]] = np.int64,
+    ):
+        self.capacity = capacity
+        self.ptr = 0  # current write pointer
+        self.size = 0  # current valid data size
+
+        # pre-allocate continuous memory
+        self.states = np.empty((capacity, *state_shape), dtype=state_dtype)
+        self.actions = np.empty(capacity, dtype=action_dtype)
+        self.rewards = np.empty(capacity, dtype=np.float32)
+        self.next_states = np.empty((capacity, *state_shape), dtype=state_dtype)
+        self.dones = np.empty(capacity, dtype=np.bool_)
 
     def add_one(
         self,
         state: NDArray[Any],
-        action: int | np.integer[Any],
-        reward: float | np.floating[Any],
+        action: int,
+        reward: float,
         next_state: NDArray[Any],
-        done: bool | np.bool_,
+        done: bool,
     ) -> None:
-        self.buffer.append((state, action, reward, next_state, done))
+        # overwrite old data
+        self.states[self.ptr] = state
+        self.actions[self.ptr] = action
+        self.rewards[self.ptr] = reward
+        self.next_states[self.ptr] = next_state
+        self.dones[self.ptr] = done
+
+        # update pointer and count
+        self.ptr = (self.ptr + 1) % self.capacity
+        self.size = min(self.size + 1, self.capacity)
 
     def add_batch(
         self,
         states: NDArray[Any],
-        actions: NDArray[np.integer[Any]],
-        rewards: NDArray[np.floating[Any]],
+        actions: NDArray[Any],
+        rewards: NDArray[Any],
         next_states: NDArray[Any],
-        dones: NDArray[np.bool_],
+        dones: NDArray[Any],
     ) -> None:
-        for s, a, r, ns, d in zip(states, actions, rewards, next_states, dones):
-            self.add_one(s, a, r, ns, d)
+        batch_size = len(states)
+        if self.ptr + batch_size <= self.capacity:
+            # no wrap-around writing
+            indices: Union[slice, list[slice]] = slice(
+                self.ptr, self.ptr + batch_size
+            )
+        else:
+            # segment writing (wrap-around case)
+            head_size = self.capacity - self.ptr
+            indices = [slice(self.ptr, None), slice(0, batch_size - head_size)]
+
+        # batch writing
+        for i, data in enumerate(
+            [states, actions, rewards, next_states, dones]
+        ):
+            if isinstance(indices, list):
+                getattr(
+                    self,
+                    ["states", "actions", "rewards", "next_states", "dones"][i],
+                )[indices[0]] = data[:head_size]
+                getattr(
+                    self,
+                    ["states", "actions", "rewards", "next_states", "dones"][i],
+                )[indices[1]] = data[head_size:]
+            else:
+                getattr(
+                    self,
+                    ["states", "actions", "rewards", "next_states", "dones"][i],
+                )[indices] = data
+
+        # update pointer and count
+        self.ptr = (self.ptr + batch_size) % self.capacity
+        self.size = min(self.size + batch_size, self.capacity)
 
     def sample(self, batch_size: int) -> Experience:
-        batch = random.sample(self.buffer, batch_size)
-        states, actions, rewards, next_states, dones = zip(*batch)
+        # ensure not sampling empty data
+        assert self.size > batch_size, "the buffer size should > batch_size"
 
-        # Convert to numpy arrays first, then to tensors for better performance
-        states_np = np.array(states)
-        # int64 for the gather() function
-        actions_np = np.array(actions, dtype=np.int64)
-        rewards_np = np.array(rewards, dtype=np.float32)
-        next_states_np = np.array(next_states)
-        dones_np = np.array(dones, dtype=np.bool_)
+        # generate unique random indices
+        indices = np.random.choice(self.size, batch_size, replace=False)
 
+        # batch extract data (avoid loop)
+        states = self.states[indices]
+        actions = self.actions[indices]
+        rewards = self.rewards[indices]
+        next_states = self.next_states[indices]
+        dones = self.dones[indices]
+
+        # convert to tensor (keep data sharing without copying)
         return Experience(
-            states=torch.from_numpy(states_np),
-            actions=torch.from_numpy(actions_np),
-            rewards=torch.from_numpy(rewards_np),
-            next_states=torch.from_numpy(next_states_np),
-            dones=torch.from_numpy(dones_np),
+            states=torch.as_tensor(states),
+            actions=torch.as_tensor(actions),
+            rewards=torch.as_tensor(rewards),
+            next_states=torch.as_tensor(next_states),
+            dones=torch.as_tensor(dones),
         )
 
     def __len__(self) -> int:
-        return len(self.buffer)
+        return self.size

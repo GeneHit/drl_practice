@@ -206,7 +206,13 @@ def dqn_train_loop(
         end_e=config.end_epsilon,
         duration=int(config.exploration_fraction * config.timesteps),
     )
-    replay_buffer = ReplayBuffer(capacity=config.replay_buffer_capacity)
+
+    # Get state shape from environment
+    obs_shape = env.observation_space.shape
+    assert obs_shape is not None
+    replay_buffer = ReplayBuffer(
+        capacity=config.replay_buffer_capacity, state_shape=obs_shape
+    )
     assert config.max_steps is not None
 
     episode_rewards: list[float] = []
@@ -223,7 +229,7 @@ def dqn_train_loop(
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
             replay_buffer.add_one(
-                state, action, float(reward), next_state, done
+                state, int(action), float(reward), next_state, done
             )
             rewards += float(reward)
             if step >= config.update_start_step:
