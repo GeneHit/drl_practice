@@ -10,12 +10,10 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from hands_on.exercise2_dqn.dqn_hub import (
-    create_dqn_agent_from_config,
-    push_dqn_to_hub,
-)
+from hands_on.exercise2_dqn.dqn_exercise import DQNAgent
+from hands_on.exercise2_dqn.dqn_hub import push_dqn_to_hub
 from hands_on.exercise2_dqn.dqn_train import main as train_main
-from hands_on.utils.env_utils import make_1d_env, make_image_env
+from hands_on.utils.env_utils import get_device, make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import play_game_once
 from hands_on.utils.file_utils import load_config_from_json
 
@@ -90,7 +88,9 @@ def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
     if not model_path.exists():
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
-    dqn_agent = create_dqn_agent_from_config(model_path)
+    dqn_agent = DQNAgent.load_from_checkpoint(
+        str(model_path), device=get_device()
+    )
 
     # Play the game and save video
     video_path = output_dir / output_params.get(

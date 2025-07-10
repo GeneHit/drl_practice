@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
-import torch
 
 from hands_on.exercise2_dqn.dqn_train import DQNAgent
 from hands_on.utils.env_utils import get_device, make_1d_env, make_image_env
@@ -12,23 +11,6 @@ from hands_on.utils.hub_play_utils import (
     get_env_name_and_metadata,
     push_model_to_hub,
 )
-
-
-def create_dqn_agent_from_config(model_path: Path) -> DQNAgent:
-    """Create and load a DQN agent from config and model file."""
-    # Set device
-    device = get_device()
-
-    # Load the trained model directly
-    q_network = torch.load(model_path, map_location=device, weights_only=False)
-    q_network = q_network.to(device)
-
-    # Create DQN agent with minimal requirements for inference
-    # We use a dummy optimizer since it won't be used for inference
-    dqn_agent = DQNAgent(q_network=q_network)
-    dqn_agent.set_train_flag(False)  # Set to evaluation mode
-
-    return dqn_agent
 
 
 def push_dqn_to_hub(
@@ -94,7 +76,9 @@ def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
-        dqn_agent = create_dqn_agent_from_config(model_path)
+        dqn_agent = DQNAgent.load_from_checkpoint(
+            model_path, device=get_device()
+        )
 
         # Play the game and save video
         video_path = output_dir / output_params.get(

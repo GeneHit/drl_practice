@@ -7,12 +7,12 @@ import imageio
 import numpy as np
 from tqdm import tqdm
 
-from ..base import PolicyBase
+from ..base import AgentBase
 
 
 def evaluate_agent(
     env: gym.Env[Any, Any],
-    policy: PolicyBase,
+    policy: AgentBase,
     max_steps: int | None,
     episodes: int,
     seed: Sequence[int],
@@ -23,7 +23,7 @@ def evaluate_agent(
 
     Args:
         env (gym.Env): The environment.
-        policy (PolicyBase): The policy.
+        policy (AgentBase): The policy.
         max_steps (int): The maximum number of steps per episode.
         episodes (int): The number of episodes to evaluate.
         seed (Sequence[int]): The seed.
@@ -40,7 +40,6 @@ def evaluate_agent(
         env = gym.wrappers.RecordVideo(env, video_folder=video_folder)
 
     rewards = []
-    policy.set_train_flag(train_flag=False)
     for episode in tqdm(range(episodes)):
         if seed:
             state, _ = env.reset(seed=seed[episode])
@@ -71,7 +70,7 @@ def evaluate_agent(
 
 def play_game_once(
     env: gym.Env[Any, Any],
-    policy: PolicyBase,
+    policy: AgentBase,
     save_video: bool = False,
     video_pathname: str = "",
     fps: int = 1,
@@ -81,13 +80,12 @@ def play_game_once(
 
     Args:
         env (gym.Env): The environment.
-        policy (PolicyBase): The policy.
+        policy (AgentBase): The policy.
         save_video (bool): Whether to save the video.
         video_pathname (str): The path and name of the video.
         fps (int): The fps of the video.
     """
     images: List[Any] = []
-    policy.set_train_flag(train_flag=False)
     state, _ = env.reset(seed=seed)
     img_raw: Any = env.render()
     assert img_raw is not None, (
@@ -96,7 +94,6 @@ def play_game_once(
     if save_video:
         images.append(img_raw)
 
-    policy.set_train_flag(train_flag=False)
     terminated = truncated = False
     while not terminated and not truncated:
         # Take the action (index) that have the maximum expected future reward given that state

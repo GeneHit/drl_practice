@@ -19,7 +19,7 @@ from numpy.typing import NDArray
 from torch import Tensor
 
 # from torch.utils.tensorboard import SummaryWriter
-from hands_on.base import ActType, PolicyBase, ScheduleBase
+from hands_on.base import ActType, AgentBase, ScheduleBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
 from hands_on.utils_for_coding.numpy_tensor_utils import (
     get_tensor_expanding_axis,
@@ -94,7 +94,7 @@ class QNet1D(nn.Module):
         return y
 
 
-class DQNAgent(PolicyBase):
+class DQNAgent(AgentBase):
     """DQN agent for evaluation/gameplay.
 
     This agent is focused on action selection using a trained Q-network.
@@ -105,16 +105,7 @@ class DQNAgent(PolicyBase):
         self._q_network = q_network
         self._device = next(q_network.parameters()).device
 
-    def set_train_flag(self, train_flag: bool) -> None:
-        """Set whether the agent is in training mode.
-
-        TODO: delete this method
-        """
-        pass
-
-    def action(
-        self, state: NDArray[ObsType], epsilon: float | None = None
-    ) -> ActType:
+    def action(self, state: NDArray[ObsType]) -> ActType:
         """Get action for single state."""
         # take the action with the highest value.
         self._q_network.eval()
@@ -123,26 +114,21 @@ class DQNAgent(PolicyBase):
             probs = self._q_network(state_tensor).cpu()
         return ActType(probs.argmax().item())
 
-    def get_score(
-        self, state: NDArray[ObsType], action: ActType | None = None
-    ) -> float:
-        """Get Q-value score for a single state-action pair."""
-        raise NotImplementedError("DQNAgent does not implement get_score")
-
-    def update(self, state: Any, action: Any, reward_target: Any) -> None:
-        """Not implemented for evaluation agent."""
-        raise NotImplementedError("DQNAgent does not implement update")
-
     def only_save_model(self, pathname: str) -> None:
         """Save the DQN model."""
         assert pathname.endswith(".pth")
         torch.save(self._q_network, pathname)
 
     @classmethod
-    def load_model(cls, pathname: str) -> "DQNAgent":
+    def load_from_checkpoint(
+        cls, pathname: str, device: torch.device | None
+    ) -> "DQNAgent":
         """Load the DQN model."""
         assert pathname.endswith(".pth")
-        q_network = torch.load(pathname)
+        q_network = torch.load(
+            pathname, map_location=device, weights_only=False
+        )
+        q_network = q_network.to(device)
         return cls(q_network=q_network)
 
 

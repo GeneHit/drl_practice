@@ -90,7 +90,7 @@ def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
     if not model_path.exists():
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
-    q_table = QTable.load_for_evaluation(str(model_path))
+    q_table = QTable.load_from_checkpoint(str(model_path), device=None)
 
     # Play the game and save video
     video_path = output_dir / output_params.get(

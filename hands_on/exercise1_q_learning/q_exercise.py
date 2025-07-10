@@ -3,10 +3,11 @@ from typing import Any, TypeAlias
 import gymnasium as gym
 import numpy as np
 import pickle5 as pickle
+import torch
 from numpy.typing import NDArray
 from tqdm import tqdm
 
-from hands_on.base import ActType, PolicyBase, ScheduleBase
+from hands_on.base import ActType, AgentBase, ScheduleBase
 from hands_on.exercise1_q_learning.config import QTableTrainConfig
 from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 
@@ -50,7 +51,7 @@ def epsilon_greedy_policy(
         return np.argmax(q_table[state])
 
 
-class QTable(PolicyBase):
+class QTable(AgentBase):
     """Q-table for evaluation/gameplay.
 
     This class is focused on action selection using a trained Q-table.
@@ -60,33 +61,10 @@ class QTable(PolicyBase):
     def __init__(self, q_table: NDArray[np.float32]):
         self._q_table = q_table
 
-    def set_train_flag(self, train_flag: bool) -> None:
-        """Set whether the agent is in training mode.
-
-        TODO: delete this method
-        """
-        pass
-
-    def action(self, state: ObsType, epsilon: float | None = None) -> ActType:
+    def action(self, state: ObsType) -> ActType:
         assert isinstance(state, int)
         # Always use greedy policy for evaluation
         return greedy_policy(self._q_table, state)
-
-    def get_score(self, state: ObsType, action: ActType | None = None) -> float:
-        assert isinstance(state, int)
-        if action is None:
-            return float(max(self._q_table[state]))
-        else:
-            return float(self._q_table[state, action])
-
-    def update(
-        self,
-        state: ObsType | None,
-        action: ActType | None,
-        reward_target: float,
-    ) -> None:
-        """Not implemented for evaluation agent."""
-        raise NotImplementedError("QTable does not implement update")
 
     def only_save_model(self, pathname: str) -> None:
         """Save the Q-table to a file."""
@@ -95,9 +73,10 @@ class QTable(PolicyBase):
             pickle.dump(self._q_table, f)
 
     @classmethod
-    def load_for_evaluation(cls, pathname: str) -> "QTable":
+    def load_from_checkpoint(
+        cls, pathname: str, device: torch.device | None
+    ) -> "QTable":
         """Load the Q-table from a file."""
-        assert pathname.endswith(".pkl")
         with open(pathname, "rb") as f:
             q_table = pickle.load(f)
         return cls(q_table=q_table)

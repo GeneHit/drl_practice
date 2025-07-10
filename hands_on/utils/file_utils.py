@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from hands_on.base import PolicyBase
+from hands_on.base import AgentBase
 
 
 def load_config_from_json(config_path: str | Path) -> dict[str, Any]:
@@ -23,7 +23,7 @@ def save_model_and_result(
     cfg_data: dict[str, Any],
     train_result: dict[str, Any],
     eval_result: dict[str, Any],
-    agent: PolicyBase,
+    agent: AgentBase,
 ) -> None:
     """Save the model, parameters and the result to the JSON file."""
     save_result = cfg_data["output_params"].get("save_result", False)
