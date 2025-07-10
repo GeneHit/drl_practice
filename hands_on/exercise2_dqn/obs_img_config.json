@@ -1,17 +1,17 @@
 {
     "hyper_params": {
-        "timesteps": 100000,
+        "timesteps": 20000,
         "learning_rate": 1e-4,
         "gamma": 0.99,
         "start_epsilon": 1.0,
         "end_epsilon": 0.01,
         "exploration_fraction": 0.1,
-        "replay_buffer_capacity": 1000000,
-        "batch_size": 32,
+        "replay_buffer_capacity": 12000,
+        "batch_size": 64,
         "train_interval": 1,
-        "target_update_interval": 250,
+        "target_update_interval": 500,
         "update_start_step": 8000,
-        "num_envs": 12,
+        "num_envs": 6,
         "use_multi_processing": true,
         "max_steps": null
     },

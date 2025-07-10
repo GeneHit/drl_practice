@@ -37,17 +37,14 @@ def create_env_from_config(
 
 
 def train_mode(cfg_data: dict[str, Any], skip_play: bool = False) -> None:
-    """Train the DQN model, optionally play game and generate video."""
-    print("=== Training DQN Model ===")
-    # Run the training
+    """Train the DQN model, optionally play game and generate video."""  # Run the training
     train_main(cfg_data=cfg_data)
 
-    if not skip_play:
-        print("=== Training Complete, Playing Game and Generating Video ===")
+    if skip_play:
+        print("=== Training Complete (Skipping Play/Video Generation) ===")
+    else:
         # After training, play the game and generate video
         play_and_generate_video(cfg_data=cfg_data)
-    else:
-        print("=== Training Complete (Skipping Play/Video Generation) ===")
 
 
 def push_to_hub_mode(
@@ -55,7 +52,6 @@ def push_to_hub_mode(
 ) -> None:
     """Push model to hub, optionally play game and generate video."""
     if not skip_play:
-        print("=== Playing Game and Generating Video ===")
         play_and_generate_video(cfg_data=cfg_data)
 
     print("=== Pushing Model to Hub ===")
@@ -64,19 +60,18 @@ def push_to_hub_mode(
 
     try:
         push_dqn_to_hub(username=username, cfg_data=cfg_data, env=env)
-        print(f"Model successfully pushed to hub for user: {username}")
     finally:
         env.close()
 
 
 def play_only_mode(cfg_data: dict[str, Any]) -> None:
     """Only play game and generate video."""
-    print("=== Playing Game and Generating Video ===")
     play_and_generate_video(cfg_data=cfg_data)
 
 
 def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
     """Play the game using trained model and generate video."""
+    print("=== Playing Game and Generating Video ===")
     # Create environment from config
     env = create_env_from_config(cfg_data["env_params"])
 
@@ -104,6 +99,7 @@ def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
             save_video=True,
             video_pathname=str(video_path),
             fps=10,
+            seed=99,
         )
         print(f"Game replay saved to: {video_path}")
     finally:
@@ -180,10 +176,13 @@ def main() -> None:
 
     # Execute based on mode
     if args.mode == "train":
+        print(f"=== Training DQN Model with config: {args.config} ===")
         train_mode(cfg_data, args.skip_play)
     elif args.mode == "push_to_hub":
+        print(f"=== Pushing DQN Model to Hub with config: {args.config} ===")
         push_to_hub_mode(cfg_data, args.username, args.skip_play)
     elif args.mode == "play_only":
+        print(f"=== Playing DQN Model with config: {args.config} ===")
         play_only_mode(cfg_data)
 
 

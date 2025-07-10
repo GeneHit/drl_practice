@@ -81,9 +81,9 @@ class QNet1D(nn.Module):
     def __init__(self, state_n: int, action_n: int) -> None:
         super().__init__()
         self.network = nn.Sequential(
-            nn.Linear(state_n, 512),
+            nn.Linear(state_n, 256),
             nn.ReLU(),
-            nn.Linear(512, 256),
+            nn.Linear(256, 256),
             nn.ReLU(),
             nn.Linear(256, action_n),
         )
@@ -106,13 +106,13 @@ class DQNAgent(AgentBase):
         self._device = next(q_network.parameters()).device
 
     def action(self, state: NDArray[ObsType]) -> ActType:
-        """Get action for single state."""
-        # take the action with the highest value.
+        """Get action for single state using greedy policy."""
+        # Always use greedy policy for trained agent evaluation
         self._q_network.eval()
         state_tensor = get_tensor_expanding_axis(state).to(self._device)
         with torch.no_grad():
-            probs = self._q_network(state_tensor).cpu()
-        return ActType(probs.argmax().item())
+            q_values = self._q_network(state_tensor).cpu()
+        return ActType(q_values.argmax().item())
 
     def only_save_model(self, pathname: str) -> None:
         """Save the DQN model."""
@@ -167,6 +167,7 @@ class DQNTrainer:
         Args:
             state: Single state or batch of states
             step: Current step in the training process
+            eval: If True, use greedy policy (epsilon=0)
 
         Returns:
             actions: NDArray[ActType]
@@ -179,7 +180,7 @@ class DQNTrainer:
         state_batch = state if not is_single else state.reshape(1, *state.shape)
 
         if eval:
-            # Test phase: always greedy
+            # Evaluation phase: always greedy
             state_tensor = torch.from_numpy(state_batch).to(self._device)
             with torch.no_grad():
                 q_values = self._q_network(state_tensor).cpu()
@@ -292,11 +293,8 @@ def dqn_train_loop(
         action_dtype=np.int64,
     )
 
-    num_envs = envs.num_envs
     episode_rewards: list[float] = []
-    current_episode_rewards: NDArray[np.float32] = np.zeros(
-        (num_envs,), dtype=np.float32
-    )
+    episode_lengths: list[int] = []
 
     # Initialize environments
     states, _ = envs.reset()
@@ -305,35 +303,61 @@ def dqn_train_loop(
     for step in tqdm.tqdm(range(config.timesteps)):
         # Get actions for all environments using trainer's epsilon-greedy action method
         actions = trainer.action(states, step)
-        assert isinstance(actions, np.ndarray), (
-            "Actions must be numpy array for batch"
-        )
 
         # Step all environments
-        next_states, rewards, terminated, truncated, _ = envs.step(
-            actions.tolist()
-        )
+        next_states, rewards, terms, truncs, infos = envs.step(actions.tolist())
 
-        dones = np.logical_or(terminated, truncated, dtype=np.bool_)
-        # Update episode rewards
-        current_episode_rewards = current_episode_rewards + rewards
+        # met mypy error when use dones = terms | truncs
+        dones = np.logical_or(terms, truncs, dtype=np.bool_)
+        # Handle terminal observations and create proper training transitions
+        real_next_states = next_states.copy()
+        # valid_transitions = np.ones(len(dones), dtype=bool)
+        use_bootstrap_for_terminals = np.zeros(len(dones), dtype=bool)
 
-        # Add experiences to replay buffer in batch
+        if "terminal_observation" in infos:
+            # We have terminal observations - use them for episodes that ended
+            for idx, done in enumerate(dones):
+                if done:
+                    real_next_states[idx] = infos["terminal_observation"][idx]
+        else:
+            # No terminal observations available - use bootstrap approach for terminals
+            # Keep the reset states but mark them for special TD target handling
+            for idx, done in enumerate(dones):
+                if done:
+                    use_bootstrap_for_terminals[idx] = True
+                    # real_next_states[idx] already contains reset state
+
+        # Store all transitions, including terminal ones
         replay_buffer.add_batch(
             states=states,
             actions=actions,
             rewards=rewards,
-            next_states=next_states.copy(),
+            next_states=real_next_states,
             dones=dones,
         )
 
-        # Handle episode completion
-        done_indices = np.where(dones)[0]
-        if len(done_indices) > 0:
-            episode_rewards.extend(
-                float(current_episode_rewards[i]) for i in done_indices
-            )
-            current_episode_rewards[done_indices] = 0.0
+        # Store additional metadata for bootstrap handling if needed
+        if np.any(use_bootstrap_for_terminals):
+            # This could be extended to store bootstrap flags in replay buffer
+            # For now, we rely on the done flag in TD target calculation
+            pass
+
+        # get the episode rewards from RecordEpisodeStatistics wrapper
+        # The wrapper provides episode data in vectorized format as numpy arrays
+        if "episode" in infos:
+            # Extract episode rewards and lengths for completed episodes
+            if (
+                "_r" in infos["episode"]
+            ):  # _r marks which environments completed episodes
+                completed_mask = infos["episode"]["_r"]
+                if np.any(completed_mask):
+                    # Get rewards and lengths for completed episodes
+                    completed_rewards = infos["episode"]["r"][completed_mask]
+                    completed_lengths = infos["episode"]["l"][completed_mask]
+
+                    # Convert numpy arrays to Python lists and extend our episode lists
+                    episode_rewards.extend(completed_rewards.tolist())
+                    episode_lengths.extend(completed_lengths.tolist())
 
         # Training updates
         if step >= config.update_start_step:
@@ -345,4 +369,7 @@ def dqn_train_loop(
 
         states = next_states
 
-    return {"episode_rewards": episode_rewards}
+    return {
+        "episode_rewards": episode_rewards,
+        "episode_lengths": episode_lengths,
+    }

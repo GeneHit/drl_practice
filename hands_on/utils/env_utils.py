@@ -28,6 +28,10 @@ def make_image_env(
     env.observation_space.shape=(4, 84, 84)
     """
     env = gym.make(env_id, render_mode=render_mode)
+    # Add episode statistics tracking - tracks cumulative rewards and episode lengths
+    env = gym.wrappers.RecordEpisodeStatistics(env)
+    # Add auto-reset wrapper - provides terminal_observation for final observations
+    env = gym.wrappers.Autoreset(env)
     env = gym.wrappers.AddRenderObservation(env, render_only=True)
     env = gym.wrappers.ResizeObservation(env, shape=resize_shape)
     # -> [**shape, 3] -> [**shape, 1]
@@ -67,6 +71,10 @@ def make_1d_env(
     env.observation_space.shape=(8,), np.int
     """
     env = gym.make(env_id, render_mode=render_mode)
+    # Add episode statistics tracking - tracks cumulative rewards and episode lengths
+    env = gym.wrappers.RecordEpisodeStatistics(env)
+    # Add auto-reset wrapper - provides terminal_observation for final observations
+    env = gym.wrappers.Autoreset(env)
     act_space = env.action_space
     assert isinstance(act_space, Discrete)  # make mypy happy
     env_info = {

@@ -73,7 +73,7 @@ def play_game_once(
     save_video: bool = False,
     video_pathname: str = "",
     fps: int = 1,
-    seed: int = 10,
+    seed: int = 100,
 ) -> None:
     """Play the game once with the random seed.
 
