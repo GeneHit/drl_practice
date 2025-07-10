@@ -5,6 +5,7 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import pickle5 as pickle
+from numpy.typing import NDArray
 
 from hands_on.base import ActType
 from hands_on.exercise1_q_learning.config import QTableTrainConfig
@@ -30,7 +31,7 @@ def q_table_train(
     checkpoint_pathname = cfg_data.get("checkpoint_pathname", None)
     if checkpoint_pathname:
         with open(checkpoint_pathname, "rb") as f:
-            q_table = pickle.load(f)
+            q_table: NDArray[np.float32] = pickle.load(f)
     else:
         obs_space = env.observation_space
         act_space = env.action_space
@@ -67,7 +68,7 @@ def q_table_train(
             "std_reward": std_reward,
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
-        save_model_and_result(cfg_data, train_data, eval_result, agent=q_table)
+        save_model_and_result(cfg_data, train_data, eval_result, agent=q_agent)
 
 
 def main(cfg_data: dict[str, Any]) -> None:

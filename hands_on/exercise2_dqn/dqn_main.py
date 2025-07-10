@@ -104,7 +104,6 @@ def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
             save_video=True,
             video_pathname=str(video_path),
             fps=10,
-            seed=10,
         )
         print(f"Game replay saved to: {video_path}")
     finally:
