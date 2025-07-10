@@ -299,6 +299,8 @@ def dqn_train_loop(
     # Initialize environments
     states, _ = envs.reset()
     assert isinstance(states, np.ndarray), "States must be numpy array"
+    # Track previous step terminal status to avoid invalid transitions
+    prev_dones: NDArray[np.bool_] = np.zeros(envs.num_envs, dtype=np.bool_)
 
     for step in tqdm.tqdm(range(config.timesteps)):
         # Get actions for all environments using trainer's epsilon-greedy action method
@@ -307,40 +309,34 @@ def dqn_train_loop(
         # Step all environments
         next_states, rewards, terms, truncs, infos = envs.step(actions.tolist())
 
-        # met mypy error when use dones = terms | truncs
-        dones = np.logical_or(terms, truncs, dtype=np.bool_)
         # Handle terminal observations and create proper training transitions
-        real_next_states = next_states.copy()
-        # valid_transitions = np.ones(len(dones), dtype=bool)
-        use_bootstrap_for_terminals = np.zeros(len(dones), dtype=bool)
+        dones = np.logical_or(terms, truncs, dtype=np.bool_)
 
-        if "terminal_observation" in infos:
-            # We have terminal observations - use them for episodes that ended
-            for idx, done in enumerate(dones):
-                if done:
-                    real_next_states[idx] = infos["terminal_observation"][idx]
-        else:
-            # No terminal observations available - use bootstrap approach for terminals
-            # Keep the reset states but mark them for special TD target handling
-            for idx, done in enumerate(dones):
-                if done:
-                    use_bootstrap_for_terminals[idx] = True
-                    # real_next_states[idx] already contains reset state
+        # Only store transitions for states that were not terminal in the previous step
+        # When an episode ends, the next state is a reset state from autoreset wrapper,
+        # which creates invalid transitions that shouldn't be learned from
+        pre_non_terminal_mask = ~prev_dones
+        if np.any(pre_non_terminal_mask):
+            # Only store transitions where the previous step didn't end an episode
+            replay_buffer.add_batch(
+                states=states[pre_non_terminal_mask],
+                actions=actions[pre_non_terminal_mask],
+                rewards=rewards[pre_non_terminal_mask],
+                next_states=next_states[pre_non_terminal_mask].copy(),
+                dones=dones[pre_non_terminal_mask],
+            )
 
-        # Store all transitions, including terminal ones
-        replay_buffer.add_batch(
-            states=states,
-            actions=actions,
-            rewards=rewards,
-            next_states=real_next_states,
-            dones=dones,
-        )
+        # Update state and previous done status for next iteration
+        states = next_states
+        prev_dones = dones
 
-        # Store additional metadata for bootstrap handling if needed
-        if np.any(use_bootstrap_for_terminals):
-            # This could be extended to store bootstrap flags in replay buffer
-            # For now, we rely on the done flag in TD target calculation
-            pass
+        # Training updates
+        if step >= config.update_start_step:
+            if step % config.train_interval == 0:
+                experiences = replay_buffer.sample(config.batch_size)
+                trainer.update(experiences)
+            if step % config.target_update_interval == 0:
+                trainer.sync_target_net()
 
         # get the episode rewards from RecordEpisodeStatistics wrapper
         # The wrapper provides episode data in vectorized format as numpy arrays
@@ -358,16 +354,6 @@ def dqn_train_loop(
                     # Convert numpy arrays to Python lists and extend our episode lists
                     episode_rewards.extend(completed_rewards.tolist())
                     episode_lengths.extend(completed_lengths.tolist())
-
-        # Training updates
-        if step >= config.update_start_step:
-            if step % config.train_interval == 0:
-                experiences = replay_buffer.sample(config.batch_size)
-                trainer.update(experiences)
-            if step % config.target_update_interval == 0:
-                trainer.sync_target_net()
-
-        states = next_states
 
     return {
         "episode_rewards": episode_rewards,

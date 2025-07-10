@@ -9,8 +9,8 @@
         "replay_buffer_capacity": 12000,
         "batch_size": 64,
         "train_interval": 1,
-        "target_update_interval": 500,
-        "update_start_step": 8000,
+        "target_update_interval": 250,
+        "update_start_step": 100,
         "num_envs": 6,
         "use_multi_processing": true,
         "max_steps": null

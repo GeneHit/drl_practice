@@ -11,6 +11,10 @@ The things you need to do:
 4. [Optional] generate the video and push the video/result to the HuggingFace.
 
 
+## Exercises
+1. q_learning: q_table with taxi and frozen_lake.
+2. dqn: Deep Q Network with 1D/img LunarLander-v3.
+
 ## Reference
 I implement this repo after I study the HuggingFace's
 [DRL course](https://huggingface.co/learn/deep-rl-course/unit0/introduction),

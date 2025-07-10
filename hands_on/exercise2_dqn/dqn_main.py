@@ -54,7 +54,6 @@ def push_to_hub_mode(
     if not skip_play:
         play_and_generate_video(cfg_data=cfg_data)
 
-    print("=== Pushing Model to Hub ===")
     # Create environment for hub operations
     env = create_env_from_config(cfg_data["env_params"])
 
