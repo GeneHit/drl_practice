@@ -1,12 +1,7 @@
-import argparse
-from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
 
-from hands_on.exercise2_dqn.dqn_train import DQNAgent
-from hands_on.utils.env_utils import get_device, make_1d_env, make_image_env
-from hands_on.utils.evaluation_utils import play_game_once
 from hands_on.utils.hub_play_utils import (
     get_env_name_and_metadata,
     push_model_to_hub,
@@ -50,55 +45,3 @@ def push_dqn_to_hub(
         model_card=model_card,
         metadata=metadata,
     )
-
-
-def main(cfg_data: dict[str, Any], args: argparse.Namespace) -> None:
-    """Main function that loads config and handles play/hub operations."""
-    # Create environment from config
-    env_params = cfg_data["env_params"]
-    if env_params.get("use_image", False):
-        env, _ = make_image_env(
-            env_id=env_params["env_id"],
-            render_mode="rgb_array",  # use rgb_array for video recording
-            resize_shape=tuple(env_params["resize_shape"]),
-            frame_stack_size=env_params["frame_stack_size"],
-        )
-    else:
-        env, _ = make_1d_env(
-            env_id=env_params["env_id"], render_mode="rgb_array"
-        )
-
-    if not args.skip_play:
-        # Load the trained DQN model
-        output_params = cfg_data["output_params"]
-        output_dir = Path(output_params["output_dir"])
-        model_path = output_dir / output_params["model_filename"]
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-
-        dqn_agent = DQNAgent.load_from_checkpoint(
-            model_path, device=get_device()
-        )
-
-        # Play the game and save video
-        video_path = output_dir / output_params.get(
-            "replay_video_filename", "replay.mp4"
-        )
-
-        try:
-            play_game_once(
-                env=env,
-                policy=dqn_agent,
-                save_video=True,
-                video_pathname=str(video_path),
-                fps=10,
-                seed=10,
-            )
-            print(f"Game replay saved to: {video_path}")
-        finally:
-            env.close()
-
-    if args.push_to_hub:
-        if not args.username:
-            raise ValueError("Username is required when pushing to Hub")
-        push_dqn_to_hub(username=args.username, cfg_data=cfg_data, env=env)
