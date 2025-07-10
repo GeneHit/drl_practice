@@ -85,6 +85,9 @@ def dqn_train_with_multi_envs(
         config=DQNTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
     envs.close()
+    assert "episode_rewards" in train_result, (
+        "episode_rewards must be in train_result"
+    )
     duration_min = (time.time() - start_time) / 60
     train_result["duration_min"] = duration_min
 

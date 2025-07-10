@@ -65,7 +65,8 @@ Plot the training rewards:
 
 ### Exercise 1: Q Learning
 
-#### Using the unified main script (recommended):
+The unified main script for `taxi` (can change to `frozen_lake`).
+
 Train the q_table from zeros:
 ```
 python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json
@@ -95,9 +96,7 @@ Push model to HuggingFace hub (without video generation):
 python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
-**Note:**:
-1. Replace `$YOUR_USERNAME$` with your HuggingFace account name.
-2. can change `taxi` to `frozen_lake` to try another env.
+**Note:**:Replace `$YOUR_USERNAME$` with your HuggingFace account name.
 
 For hub operations, you need to login first:
 - run `huggingface-cli login` in terminal.
@@ -106,7 +105,8 @@ For hub operations, you need to login first:
 
 ### Exercise 2: DQN
 
-#### Using the unified main script (recommended):
+The unified main script for `img` (change to `1d` for the discre observation).
+
 Train:
 ```
 python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_img_config.json
@@ -136,6 +136,4 @@ Push model to HuggingFace hub (without video generation):
 python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_img_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
-**Note:**
-1. Replace `$YOUR_USERNAME$` with your HuggingFace account name.
-2. Can change `img` to `1d` for the discre observation training.
+**Note:** Replace `$YOUR_USERNAME$` with your HuggingFace account name.

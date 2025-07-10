@@ -17,7 +17,7 @@ class AgentBase(abc.ABC):
     """
 
     @abc.abstractmethod
-    def action(self, state: Any) -> Any:
+    def action(self, state: Any) -> ActType:
         """Get the action for the given single state.
 
         # TODO: have a better type for action output.

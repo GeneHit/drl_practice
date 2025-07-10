@@ -248,7 +248,13 @@ def dqn_train_loop(
     device: torch.device,
     config: DQNTrainConfig,
 ) -> dict[str, Any]:
-    """Train the DQN agent with multiple environments."""
+    """Train the DQN agent with multiple environments.
+
+    Returns
+    -------
+        the training result: dict[str, Any]
+            - episode_rewards: list[float]. Have to include this key.
+    """
     # Get environment info
     obs_shape = envs.single_observation_space.shape
     act_space = envs.single_action_space

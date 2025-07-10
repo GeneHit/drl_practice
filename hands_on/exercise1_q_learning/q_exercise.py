@@ -150,6 +150,7 @@ def q_table_train_loop(
 
     Returns:
         dict[str, Any]: The training metadata.
+            - episode_rewards: list[float]. Have to include this key.
     """
     trainer = QTableTrainer(
         q_table=q_table,

@@ -44,6 +44,9 @@ def q_table_train(
         q_table=q_table,
         q_config=QTableTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
+    assert "episode_rewards" in train_data, (
+        "episode_rewards must be in train_data"
+    )
 
     # evaluate the agent
     q_agent = QTable(q_table=q_table)
