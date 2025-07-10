@@ -30,6 +30,13 @@ from hands_on.utils_for_coding.replay_buffer_utils import (
 )
 from hands_on.utils_for_coding.scheduler_utils import LinearSchedule
 
+ObsType: TypeAlias = Union[np.uint8, np.float32]
+ArrayType: TypeAlias = Union[np.bool_, np.float32]
+EnvType: TypeAlias = gym.Env[NDArray[ObsType], ActType]
+EnvsType: TypeAlias = gym.vector.VectorEnv[
+    NDArray[ObsType], ActType, NDArray[ArrayType]
+]
+
 
 class QNet2D(nn.Module):
     """Q network with 2D convolution."""
@@ -85,14 +92,6 @@ class QNet1D(nn.Module):
         y = self.network(x)
         assert isinstance(y, torch.Tensor)  # make mypy happy
         return y
-
-
-ObsType: TypeAlias = Union[np.uint8, np.float32]
-ArrayType: TypeAlias = Union[np.bool_, np.float32]
-EnvType: TypeAlias = gym.Env[NDArray[ObsType], ActType]
-EnvsType: TypeAlias = gym.vector.VectorEnv[
-    NDArray[ObsType], ActType, NDArray[ArrayType]
-]
 
 
 class DQNAgent(PolicyBase):
