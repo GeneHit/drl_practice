@@ -95,97 +95,47 @@ Push model to HuggingFace hub (without video generation):
 python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
-#### Using individual scripts (alternative):
-Train the q_table from zeros:
-```
-python hands_on/exercise1_q_learning/q_train.py --config hands_on/exercise1_q_learning/config_taxi.json
-```
-or
-```
-python hands_on/exercise1_q_learning/q_train.py --config hands_on/exercise1_q_learning/config_frozen_lake.json
-```
+**Note:**:
+1. Replace `$YOUR_USERNAME$` with your HuggingFace account name.
+2. can change `taxi` to `frozen_lake` to try another env.
 
-Generate a replay video only (to `results/exercise1_q/` folder):
-```
-python hands_on/exercise1_q_learning/q_play.py --config hands_on/exercise1_q_learning/config_taxi.json
-```
+For hub operations, you need to login first:
+- run `huggingface-cli login` in terminal.
+- go to the HuggingFace website, copy your access token and paste it in terminal.
 
-Only push the model and result to HuggingFace hub:
-- login
-    - run `huggingface-cli login` in terminal.
-    - go to the HuggingFace website, copy your access token and paste it in terminal.
-```
-python hands_on/exercise1_q_learning/q_play.py --config hands_on/exercise1_q_learning/config_taxi.json --push_to_hub --skip_play --username $YOUR_USERNAME$
-```
-
-Generate the video and push the model/result to the hub in the mean time:
-```
-python hands_on/exercise1_q_learning/q_play.py --config hands_on/exercise1_q_learning/config_taxi.json --push_to_hub --username $YOUR_USERNAME$
-```
 
 ### Exercise 2: DQN
 
 #### Using the unified main script (recommended):
 Train:
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json
+python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_img_config.json
 ```
 or
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_2d_envs_config.json
+python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_1d_config.json
 ```
 
 Train without playing/video generation:
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json --skip_play
+python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_img_config.json --skip_play
 ```
 
 Generate a replay video only:
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json --mode play_only
+python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_img_config.json --mode play_only
 ```
 
 Push model to HuggingFace hub (with video generation):
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json --mode push_to_hub --username $YOUR_USERNAME$
+python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_img_config.json --mode push_to_hub --username $YOUR_USERNAME$
 ```
 
 Push model to HuggingFace hub (without video generation):
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
+python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_img_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
-#### Using individual scripts (alternative):
-Train:
-```
-python hands_on/exercise2_dqn/dqn_train.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json
-```
-or
-```
-python hands_on/exercise2_dqn/dqn_train.py --config hands_on/exercise2_dqn/obs_2d_envs_config.json
-```
-
-Train with multiprocessing multi envs:
-```
-python hands_on/exercise2_dqn/dqn_envs_train.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json
-```
-or
-```
-python hands_on/exercise2_dqn/dqn_envs_train.py --config hands_on/exercise2_dqn/obs_2d_envs_config.json
-```
-
-Commands for video and hub:
-```
-python hands_on/exercise2_dqn/dqn_play.py --config hands_on/exercise2_dqn/obs_1d_envs_config.json
-```
-or
-```
-python hands_on/exercise2_dqn/dqn_play.py --config hands_on/exercise2_dqn/obs_2d_envs_config.json
-```
-
-For hub operations, add: `--push_to_hub --username $YOUR_USERNAME$`
-To skip video generation, add: `--skip_play`
-
-**Note:** Replace `$YOUR_USERNAME$` with your HuggingFace account name. For hub operations, you need to login first:
-- run `huggingface-cli login` in terminal.
-- go to the HuggingFace website, copy your access token and paste it in terminal.
+**Note:**
+1. Replace `$YOUR_USERNAME$` with your HuggingFace account name.
+2. Can change `img` to `1d` for the discre observation training.
