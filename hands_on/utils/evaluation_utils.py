@@ -15,8 +15,8 @@ def evaluate_agent(
     max_steps: int | None,
     episodes: int,
     seed: Sequence[int],
-    stream_video: bool = False,
-    video_folder: str = "./video",
+    record_video: bool = False,
+    video_dir: str = "./video",
 ) -> tuple[float, float]:
     """Evaluate the agent.
 
@@ -26,17 +26,23 @@ def evaluate_agent(
         max_steps (int): The maximum number of steps per episode.
         episodes (int): The number of episodes to evaluate.
         seed (Sequence[int]): The seed.
-        stream_video (bool): Whether to record videos during evaluation.
-        video_folder (str): The folder to save the videos.
+        record_video (bool): Whether to record videos during evaluation.
+        video_dir (str): The directory to save the videos.
 
     Returns:
         tuple[float, float]: The average and std of the reward.
     """
     # Wrap the environment with RecordVideo if video recording is requested
-    if stream_video:
+    if record_video:
         # Create the video folder if it doesn't exist
-        os.makedirs(video_folder, exist_ok=True)
-        env = gym.wrappers.RecordVideo(env, video_folder=video_folder)
+        os.makedirs(video_dir, exist_ok=True)
+        trigger_step = episodes // 10
+        env = gym.wrappers.RecordVideo(
+            env,
+            video_folder=video_dir,
+            episode_trigger=lambda x: x % trigger_step == 0,
+            disable_logger=True,
+        )
 
     rewards = []
     for episode in tqdm(range(episodes)):

@@ -435,7 +435,7 @@ class TestHubPush:
         # Verify model card has minimal usage instructions
         call_args = mock_push_model.call_args
         model_card = call_args[1]["model_card"]
-        assert 'env = gym.make(model["env_id"])' in model_card
+        assert 'env = gym.make("TestEnv-v0")' in model_card
 
 
 class TestModeHandler:

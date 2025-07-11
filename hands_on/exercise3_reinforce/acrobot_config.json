@@ -8,7 +8,7 @@
         "use_multi_processing": true
     },
     "env_params": {
-        "env_id": "CartPole-v1",
+        "env_id": "Acrobot-v1",
         "max_steps": 1000
     },
     "eval_params": {
@@ -16,7 +16,7 @@
         "eval_seed": [1, 55, 44, 23, 12, 34, 86, 78, 90, 100, 166, 127, 134, 145, 151, 115, 178, 189, 190, 200]
     },
     "output_params": {
-        "output_dir": "results/exercise3_reinforce/cartpole/",
+        "output_dir": "results/exercise3_reinforce/acrobot/",
         "save_result": true,
         "model_filename": "reinforce.pth",
         "params_filename": "params.json",
@@ -24,9 +24,9 @@
         "eval_result_filename": "eval_result.json"
     },
     "hub_params": {
-        "repo_id": "Reinforce-CartPole"
+        "repo_id": "Reinforce-Acrobot"
     },
     "_notes": [
-        "checkpoint_pathname: results/exercise3_reinforce/cartpole/reinforce.pth"
+        "checkpoint_pathname: results/exercise3_reinforce/acrobot/reinforce.pth"
     ]
   }

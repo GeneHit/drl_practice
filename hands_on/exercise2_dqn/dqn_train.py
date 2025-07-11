@@ -6,6 +6,7 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 """
 
 import argparse
+import os
 import time
 from datetime import datetime
 from typing import Any, Callable, cast
@@ -93,6 +94,7 @@ def dqn_train_with_multi_envs(
 
     # Evaluate the agent on a single environment
     dqn_agent = DQNAgent(q_network=q_network)
+    out_dir = cfg_data["output_params"]["output_dir"]
     eval_env = env_fn()
     try:
         mean_reward, std_reward = evaluate_agent(
@@ -101,6 +103,8 @@ def dqn_train_with_multi_envs(
             max_steps=cfg_data["eval_params"].get("max_steps", None),
             episodes=int(cfg_data["eval_params"]["eval_episodes"]),
             seed=tuple(cfg_data["eval_params"]["eval_seed"]),
+            record_video=cfg_data["eval_params"].get("record_video", False),
+            video_dir=os.path.join(out_dir, "video"),
         )
     finally:
         eval_env.close()

@@ -223,7 +223,7 @@ def push_to_hub_generic(
     model = load_from_hub(repo_id="{repo_id}", filename="{model_filename}")
 
     {usage_instructions}
-    env = gym.make(model["env_id"])
+    env = gym.make("{env_id}")
     ...
     """
 

@@ -29,7 +29,7 @@ def push_to_hub_wrapper(cfg_data: dict[str, Any], username: str) -> None:
         algorithm_name="REINFORCE",
         model_filename="reinforce.pth",
         extra_tags=["policy-gradient", "pytorch"],
-        usage_instructions="# Don't forget to check if you need to add additional wrapper to the\n    # environment for the observation.",
+        usage_instructions="",
     )
 
 

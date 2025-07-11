@@ -1,3 +1,4 @@
+import os
 import time
 from datetime import datetime
 from typing import Any, Callable, cast
@@ -71,12 +72,17 @@ def reinforce_train_with_envs(
 
     try:
         eval_params = cfg_data["eval_params"]
+
         mean_reward, std_reward = evaluate_agent(
             env=eval_env,
             policy=agent,
             max_steps=eval_params.get("max_steps"),
             episodes=eval_params["eval_episodes"],
             seed=eval_params["eval_seed"],
+            record_video=eval_params.get("record_video", False),
+            video_dir=os.path.join(
+                cfg_data["output_params"]["output_dir"], "video"
+            ),
         )
     finally:
         eval_env.close()
