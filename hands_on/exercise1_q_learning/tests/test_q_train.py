@@ -91,9 +91,7 @@ class TestQTraining:
         """Test basic Q-table training flow without file operations."""
         # Update config to use temp directory
         test_config["output_params"]["output_dir"] = str(temp_output_dir)
-        test_config["output_params"]["save_result"] = (
-            False  # Skip file saving for this test
-        )
+        test_config["output_params"]["save_result"] = False  # Skip file saving for this test
 
         # Create environment
         env, env_info = make_discrete_env_with_kwargs(
@@ -134,32 +132,18 @@ class TestQTraining:
             output_dir = Path(test_config["output_params"]["output_dir"])
             assert output_dir.exists(), "Output directory should be created"
 
-            model_file = (
-                output_dir / test_config["output_params"]["model_filename"]
-            )
-            assert model_file.exists(), (
-                f"Model file should be saved: {model_file}"
-            )
+            model_file = output_dir / test_config["output_params"]["model_filename"]
+            assert model_file.exists(), f"Model file should be saved: {model_file}"
 
-            params_file = (
-                output_dir / test_config["output_params"]["params_filename"]
-            )
-            assert params_file.exists(), (
-                f"Params file should be saved: {params_file}"
-            )
+            params_file = output_dir / test_config["output_params"]["params_filename"]
+            assert params_file.exists(), f"Params file should be saved: {params_file}"
 
-            train_result_file = (
-                output_dir
-                / test_config["output_params"]["train_result_filename"]
-            )
+            train_result_file = output_dir / test_config["output_params"]["train_result_filename"]
             assert train_result_file.exists(), (
                 f"Training result file should be saved: {train_result_file}"
             )
 
-            eval_result_file = (
-                output_dir
-                / test_config["output_params"]["eval_result_filename"]
-            )
+            eval_result_file = output_dir / test_config["output_params"]["eval_result_filename"]
             assert eval_result_file.exists(), (
                 f"Evaluation result file should be saved: {eval_result_file}"
             )
@@ -217,9 +201,7 @@ class TestQTraining:
         # Verify output files were created
         output_dir = Path(test_config["output_params"]["output_dir"])
         model_file = output_dir / test_config["output_params"]["model_filename"]
-        assert model_file.exists(), (
-            "Model file should be created by main function"
-        )
+        assert model_file.exists(), "Model file should be created by main function"
 
     def test_main_function_with_config_file(
         self, test_config: dict[str, Any], temp_output_dir: Path
@@ -235,9 +217,7 @@ class TestQTraining:
 
         # Mock command line arguments and run
         with patch("sys.argv", ["q_train.py", "--config", str(config_file)]):
-            with patch(
-                "hands_on.exercise1_q_learning.q_train.load_config_from_json"
-            ) as mock_load:
+            with patch("hands_on.exercise1_q_learning.q_train.load_config_from_json") as mock_load:
                 mock_load.return_value = test_config
 
                 # Import and run the main section
@@ -247,9 +227,7 @@ class TestQTraining:
 
                 # Verify output files were created
                 output_dir = Path(test_config["output_params"]["output_dir"])
-                model_file = (
-                    output_dir / test_config["output_params"]["model_filename"]
-                )
+                model_file = output_dir / test_config["output_params"]["model_filename"]
                 assert model_file.exists(), "Model file should be created"
 
     def test_training_produces_valid_results(
@@ -281,15 +259,9 @@ class TestQTraining:
                 q_table = pickle.load(f)
 
             # Validate Q-table shape and type
-            assert isinstance(q_table, np.ndarray), (
-                "Q-table should be numpy array"
-            )
-            assert q_table.shape == (16, 4), (
-                "Q-table should have shape (16, 4) for 4x4 FrozenLake"
-            )
-            assert q_table.dtype == np.float32, (
-                "Q-table should have float32 dtype"
-            )
+            assert isinstance(q_table, np.ndarray), "Q-table should be numpy array"
+            assert q_table.shape == (16, 4), "Q-table should have shape (16, 4) for 4x4 FrozenLake"
+            assert q_table.dtype == np.float32, "Q-table should have float32 dtype"
 
             # Load and validate evaluation results
             eval_result_file = (
@@ -300,15 +272,9 @@ class TestQTraining:
                 eval_result = json.load(f)
 
             # Validate evaluation results structure
-            assert "mean_reward" in eval_result, (
-                "Evaluation should include mean_reward"
-            )
-            assert "std_reward" in eval_result, (
-                "Evaluation should include std_reward"
-            )
-            assert "datetime" in eval_result, (
-                "Evaluation should include datetime"
-            )
+            assert "mean_reward" in eval_result, "Evaluation should include mean_reward"
+            assert "std_reward" in eval_result, "Evaluation should include std_reward"
+            assert "datetime" in eval_result, "Evaluation should include datetime"
             assert isinstance(eval_result["mean_reward"], (int, float)), (
                 "mean_reward should be numeric"
             )
@@ -326,17 +292,13 @@ class TestQTraining:
         # Test with high learning rate
         test_config_high_lr = test_config.copy()
         test_config_high_lr["hyper_params"]["learning_rate"] = 0.9
-        test_config_high_lr["output_params"]["output_dir"] = str(
-            temp_output_dir / "high_lr"
-        )
+        test_config_high_lr["output_params"]["output_dir"] = str(temp_output_dir / "high_lr")
         test_config_high_lr["output_params"]["save_result"] = False
 
         # Test with low learning rate
         test_config_low_lr = test_config.copy()
         test_config_low_lr["hyper_params"]["learning_rate"] = 0.1
-        test_config_low_lr["output_params"]["output_dir"] = str(
-            temp_output_dir / "low_lr"
-        )
+        test_config_low_lr["output_params"]["output_dir"] = str(temp_output_dir / "low_lr")
         test_config_low_lr["output_params"]["save_result"] = False
 
         for config in [test_config_high_lr, test_config_low_lr]:
@@ -363,15 +325,11 @@ class TestQTraining:
         from unittest.mock import patch
 
         # Mock the evaluation step to raise an exception after training starts
-        with patch(
-            "hands_on.exercise1_q_learning.q_train.evaluate_agent"
-        ) as mock_eval:
+        with patch("hands_on.exercise1_q_learning.q_train.evaluate_and_save_results") as mock_eval:
             mock_eval.side_effect = RuntimeError("Simulated evaluation error")
 
             # Should raise the exception but environment should still be cleaned up properly
-            with pytest.raises(
-                RuntimeError, match="Simulated evaluation error"
-            ):
+            with pytest.raises(RuntimeError, match="Simulated evaluation error"):
                 main(cfg_data=test_config)
 
             # If we get here, it means the finally block worked correctly

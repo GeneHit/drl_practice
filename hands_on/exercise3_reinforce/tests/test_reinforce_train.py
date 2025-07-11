@@ -88,9 +88,7 @@ def temp_output_dir() -> Generator[Path, None, None]:
 class TestReinforceTraining:
     """Test REINFORCE training functionality."""
 
-    def test_vector_env_creation_sync(
-        self, test_config: dict[str, Any]
-    ) -> None:
+    def test_vector_env_creation_sync(self, test_config: dict[str, Any]) -> None:
         """Test synchronous vector environment creation."""
         import gymnasium as gym
 
@@ -106,18 +104,12 @@ class TestReinforceTraining:
 
         try:
             assert envs.num_envs == 2, "Should create 2 environments"
-            assert hasattr(envs, "single_observation_space"), (
-                "Should have observation space"
-            )
-            assert hasattr(envs, "single_action_space"), (
-                "Should have action space"
-            )
+            assert hasattr(envs, "single_observation_space"), "Should have observation space"
+            assert hasattr(envs, "single_action_space"), "Should have action space"
         finally:
             envs.close()
 
-    def test_vector_env_creation_async(
-        self, test_config: dict[str, Any]
-    ) -> None:
+    def test_vector_env_creation_async(self, test_config: dict[str, Any]) -> None:
         """Test asynchronous vector environment creation."""
         import gymnasium as gym
 
@@ -133,12 +125,8 @@ class TestReinforceTraining:
 
         try:
             assert envs.num_envs == 2, "Should create 2 environments"
-            assert hasattr(envs, "single_observation_space"), (
-                "Should have observation space"
-            )
-            assert hasattr(envs, "single_action_space"), (
-                "Should have action space"
-            )
+            assert hasattr(envs, "single_observation_space"), "Should have observation space"
+            assert hasattr(envs, "single_action_space"), "Should have action space"
         finally:
             envs.close()
 
@@ -150,9 +138,7 @@ class TestReinforceTraining:
 
         # Update config to use temp directory
         test_config["output_params"]["output_dir"] = str(temp_output_dir)
-        test_config["output_params"]["save_result"] = (
-            False  # Skip file saving for this test
-        )
+        test_config["output_params"]["save_result"] = False  # Skip file saving for this test
 
         # Create environment factory function
         def env_fn() -> EnvType:
@@ -169,9 +155,7 @@ class TestReinforceTraining:
 
         try:
             # Run training
-            reinforce_train_with_envs(
-                envs=envs, env_fn=env_fn, cfg_data=test_config
-            )
+            reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training completed successfully"
@@ -206,40 +190,24 @@ class TestReinforceTraining:
 
         try:
             # Run training
-            reinforce_train_with_envs(
-                envs=envs, env_fn=env_fn, cfg_data=test_config
-            )
+            reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Check that output files were created
             output_dir = Path(test_config["output_params"]["output_dir"])
             assert output_dir.exists(), "Output directory should be created"
 
-            model_file = (
-                output_dir / test_config["output_params"]["model_filename"]
-            )
-            assert model_file.exists(), (
-                f"Model file should be saved: {model_file}"
-            )
+            model_file = output_dir / test_config["output_params"]["model_filename"]
+            assert model_file.exists(), f"Model file should be saved: {model_file}"
 
-            params_file = (
-                output_dir / test_config["output_params"]["params_filename"]
-            )
-            assert params_file.exists(), (
-                f"Params file should be saved: {params_file}"
-            )
+            params_file = output_dir / test_config["output_params"]["params_filename"]
+            assert params_file.exists(), f"Params file should be saved: {params_file}"
 
-            train_result_file = (
-                output_dir
-                / test_config["output_params"]["train_result_filename"]
-            )
+            train_result_file = output_dir / test_config["output_params"]["train_result_filename"]
             assert train_result_file.exists(), (
                 f"Training result file should be saved: {train_result_file}"
             )
 
-            eval_result_file = (
-                output_dir
-                / test_config["output_params"]["eval_result_filename"]
-            )
+            eval_result_file = output_dir / test_config["output_params"]["eval_result_filename"]
             assert eval_result_file.exists(), (
                 f"Evaluation result file should be saved: {eval_result_file}"
             )
@@ -264,9 +232,7 @@ class TestReinforceTraining:
             Reinforce1DNet,
         )
 
-        dummy_model = Reinforce1DNet(
-            state_dim=4, action_dim=2
-        )  # CartPole has 4 obs, 2 actions
+        dummy_model = Reinforce1DNet(state_dim=4, action_dim=2)  # CartPole has 4 obs, 2 actions
         torch.save(dummy_model.state_dict(), checkpoint_file)
 
         # Update config to use checkpoint
@@ -289,9 +255,7 @@ class TestReinforceTraining:
 
         try:
             # Run training from checkpoint
-            reinforce_train_with_envs(
-                envs=envs, env_fn=env_fn, cfg_data=test_config
-            )
+            reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training from checkpoint completed successfully"
@@ -315,9 +279,7 @@ class TestReinforceTraining:
         # Verify output files were created
         output_dir = Path(test_config["output_params"]["output_dir"])
         model_file = output_dir / test_config["output_params"]["model_filename"]
-        assert model_file.exists(), (
-            "Model file should be created by main function"
-        )
+        assert model_file.exists(), "Model file should be created by main function"
 
     def test_main_function_with_config_file(
         self, test_config: dict[str, Any], temp_output_dir: Path
@@ -332,12 +294,8 @@ class TestReinforceTraining:
             json.dump(test_config, f, indent=2)
 
         # Mock command line arguments and run
-        with patch(
-            "sys.argv", ["reinforce_train.py", "--config", str(config_file)]
-        ):
-            with patch(
-                "hands_on.utils.file_utils.load_config_from_json"
-            ) as mock_load:
+        with patch("sys.argv", ["reinforce_train.py", "--config", str(config_file)]):
+            with patch("hands_on.utils.file_utils.load_config_from_json") as mock_load:
                 mock_load.return_value = test_config
 
                 # Run the main function directly
@@ -345,9 +303,7 @@ class TestReinforceTraining:
 
                 # Verify output files were created
                 output_dir = Path(test_config["output_params"]["output_dir"])
-                model_file = (
-                    output_dir / test_config["output_params"]["model_filename"]
-                )
+                model_file = output_dir / test_config["output_params"]["model_filename"]
                 assert model_file.exists(), "Model file should be created"
 
     def test_training_produces_valid_results(
@@ -384,9 +340,7 @@ class TestReinforceTraining:
         dummy_input = torch.randn(1, 4)  # CartPole has 4 observations
         with torch.no_grad():
             output = model(dummy_input)
-        assert output.shape == (1, 2), (
-            f"Model output should be shape (1, 2), got {output.shape}"
-        )
+        assert output.shape == (1, 2), f"Model output should be shape (1, 2), got {output.shape}"
 
         # Check output is valid probability distribution
         assert torch.allclose(output.sum(dim=1), torch.ones(1)), (
@@ -402,19 +356,11 @@ class TestReinforceTraining:
             eval_result = json.load(f)
 
         # Validate evaluation results structure
-        assert "mean_reward" in eval_result, (
-            "Evaluation should include mean_reward"
-        )
-        assert "std_reward" in eval_result, (
-            "Evaluation should include std_reward"
-        )
-        assert "date" in eval_result, "Evaluation should include date"
-        assert isinstance(eval_result["mean_reward"], (int, float)), (
-            "mean_reward should be numeric"
-        )
-        assert isinstance(eval_result["std_reward"], (int, float)), (
-            "std_reward should be numeric"
-        )
+        assert "mean_reward" in eval_result, "Evaluation should include mean_reward"
+        assert "std_reward" in eval_result, "Evaluation should include std_reward"
+        assert "datetime" in eval_result, "Evaluation should include datetime"
+        assert isinstance(eval_result["mean_reward"], (int, float)), "mean_reward should be numeric"
+        assert isinstance(eval_result["std_reward"], (int, float)), "std_reward should be numeric"
 
     def test_training_with_different_hyperparameters(
         self, test_config: dict[str, Any], temp_output_dir: Path
@@ -424,18 +370,14 @@ class TestReinforceTraining:
         test_config_high_lr = test_config.copy()
         test_config_high_lr["hyper_params"] = test_config["hyper_params"].copy()
         test_config_high_lr["hyper_params"]["lr"] = 1e-2
-        test_config_high_lr["output_params"]["output_dir"] = str(
-            temp_output_dir / "high_lr"
-        )
+        test_config_high_lr["output_params"]["output_dir"] = str(temp_output_dir / "high_lr")
         test_config_high_lr["output_params"]["save_result"] = False
 
         # Test with low learning rate
         test_config_low_lr = test_config.copy()
         test_config_low_lr["hyper_params"] = test_config["hyper_params"].copy()
         test_config_low_lr["hyper_params"]["lr"] = 1e-5
-        test_config_low_lr["output_params"]["output_dir"] = str(
-            temp_output_dir / "low_lr"
-        )
+        test_config_low_lr["output_params"]["output_dir"] = str(temp_output_dir / "low_lr")
         test_config_low_lr["output_params"]["save_result"] = False
 
         for config in [test_config_high_lr, test_config_low_lr]:
@@ -454,23 +396,19 @@ class TestReinforceTraining:
 
         # Mock the evaluation step to raise an exception after training starts
         with patch(
-            "hands_on.exercise3_reinforce.reinforce_train.evaluate_agent"
+            "hands_on.exercise3_reinforce.reinforce_train.evaluate_and_save_results"
         ) as mock_eval:
             mock_eval.side_effect = RuntimeError("Simulated evaluation error")
 
             # Should raise the exception but environment should still be cleaned up properly
-            with pytest.raises(
-                RuntimeError, match="Simulated evaluation error"
-            ):
+            with pytest.raises(RuntimeError, match="Simulated evaluation error"):
                 reinforce_main(cfg_data=test_config)
 
             # If we get here, it means the finally block worked correctly
             # (the environment was closed properly, otherwise we'd have resource warnings)
             assert True, "Environment cleanup handled exception correctly"
 
-    def test_device_detection(
-        self, test_config: dict[str, Any], temp_output_dir: Path
-    ) -> None:
+    def test_device_detection(self, test_config: dict[str, Any], temp_output_dir: Path) -> None:
         """Test device detection and model placement."""
         import gymnasium as gym
 
@@ -493,12 +431,8 @@ class TestReinforceTraining:
         try:
             # Mock device detection to test CPU path
             with patch("torch.cuda.is_available", return_value=False):
-                with patch(
-                    "torch.backends.mps.is_available", return_value=False
-                ):
-                    reinforce_train_with_envs(
-                        envs=envs, env_fn=env_fn, cfg_data=test_config
-                    )
+                with patch("torch.backends.mps.is_available", return_value=False):
+                    reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Test passes if training completes on CPU
             assert True, "Training completed successfully on CPU"
@@ -515,13 +449,9 @@ class TestReinforceTraining:
         # Test with LunarLander (more complex environment)
         test_config_lunar = test_config.copy()
         test_config_lunar["env_params"]["env_id"] = "LunarLander-v3"
-        test_config_lunar["output_params"]["output_dir"] = str(
-            temp_output_dir / "lunar"
-        )
+        test_config_lunar["output_params"]["output_dir"] = str(temp_output_dir / "lunar")
         test_config_lunar["output_params"]["save_result"] = False
-        test_config_lunar["hyper_params"]["global_episode"] = (
-            3  # Even shorter for LunarLander
-        )
+        test_config_lunar["hyper_params"]["global_episode"] = 3  # Even shorter for LunarLander
 
         # Should not raise any exceptions
         reinforce_main(cfg_data=test_config_lunar)

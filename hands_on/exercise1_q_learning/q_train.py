@@ -1,6 +1,4 @@
 import argparse
-import os
-from datetime import datetime
 from typing import Any
 
 import gymnasium as gym
@@ -16,10 +14,9 @@ from hands_on.exercise1_q_learning.q_exercise import (
     q_table_train_loop,
 )
 from hands_on.utils.env_utils import make_discrete_env_with_kwargs
-from hands_on.utils.evaluation_utils import evaluate_agent
+from hands_on.utils.evaluation_utils import evaluate_and_save_results
 from hands_on.utils.file_utils import (
     load_config_from_json,
-    save_model_and_result,
 )
 
 
@@ -46,34 +43,16 @@ def q_table_train(
         q_table=q_table,
         q_config=QTableTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
-    assert "episode_rewards" in train_data, (
-        "episode_rewards must be in train_data"
-    )
+    assert "episode_rewards" in train_data, "episode_rewards must be in train_data"
 
-    # evaluate the agent
+    # Create agent and evaluate/save results
     q_agent = QTable(q_table=q_table)
-    eval_params = cfg_data["eval_params"]
-    mean_reward, std_reward = evaluate_agent(
+    evaluate_and_save_results(
         env=env,
-        policy=q_agent,
-        max_steps=eval_params["max_steps"],
-        episodes=eval_params["eval_episodes"],
-        seed=eval_params["eval_seed"],
-        record_video=eval_params.get("record_video", False),
-        video_dir=os.path.join(
-            cfg_data["output_params"]["output_dir"], "video"
-        ),
+        agent=q_agent,
+        cfg_data=cfg_data,
+        train_result=train_data,
     )
-
-    # save the result
-    save_result = cfg_data["output_params"].get("save_result", False)
-    if save_result:
-        eval_result = {
-            "mean_reward": mean_reward,
-            "std_reward": std_reward,
-            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        save_model_and_result(cfg_data, train_data, eval_result, agent=q_agent)
 
 
 def main(cfg_data: dict[str, Any]) -> None:

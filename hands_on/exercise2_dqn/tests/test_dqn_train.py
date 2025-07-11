@@ -97,9 +97,7 @@ def temp_output_dir() -> Generator[Path, None, None]:
 class TestDQNTraining:
     """Test DQN training functionality."""
 
-    def test_vector_env_creation_sync(
-        self, test_config: dict[str, Any]
-    ) -> None:
+    def test_vector_env_creation_sync(self, test_config: dict[str, Any]) -> None:
         """Test synchronous vector environment creation."""
 
         def env_fn() -> EnvType:
@@ -111,18 +109,12 @@ class TestDQNTraining:
 
         try:
             assert envs.num_envs == 2, "Should create 2 environments"
-            assert hasattr(envs, "single_observation_space"), (
-                "Should have observation space"
-            )
-            assert hasattr(envs, "single_action_space"), (
-                "Should have action space"
-            )
+            assert hasattr(envs, "single_observation_space"), "Should have observation space"
+            assert hasattr(envs, "single_action_space"), "Should have action space"
         finally:
             envs.close()
 
-    def test_vector_env_creation_async(
-        self, test_config: dict[str, Any]
-    ) -> None:
+    def test_vector_env_creation_async(self, test_config: dict[str, Any]) -> None:
         """Test asynchronous vector environment creation."""
 
         def env_fn() -> EnvType:
@@ -134,24 +126,16 @@ class TestDQNTraining:
 
         try:
             assert envs.num_envs == 2, "Should create 2 environments"
-            assert hasattr(envs, "single_observation_space"), (
-                "Should have observation space"
-            )
-            assert hasattr(envs, "single_action_space"), (
-                "Should have action space"
-            )
+            assert hasattr(envs, "single_observation_space"), "Should have observation space"
+            assert hasattr(envs, "single_action_space"), "Should have action space"
         finally:
             envs.close()
 
-    def test_dqn_train_basic_flow(
-        self, test_config: dict[str, Any], temp_output_dir: Path
-    ) -> None:
+    def test_dqn_train_basic_flow(self, test_config: dict[str, Any], temp_output_dir: Path) -> None:
         """Test basic DQN training flow without file operations."""
         # Update config to use temp directory
         test_config["output_params"]["output_dir"] = str(temp_output_dir)
-        test_config["output_params"]["save_result"] = (
-            False  # Skip file saving for this test
-        )
+        test_config["output_params"]["save_result"] = False  # Skip file saving for this test
 
         # Create environment factory function
         def env_fn() -> EnvType:
@@ -167,9 +151,7 @@ class TestDQNTraining:
 
         try:
             # Run training
-            dqn_train_with_multi_envs(
-                envs=envs, env_fn=env_fn, cfg_data=test_config
-            )
+            dqn_train_with_multi_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training completed successfully"
@@ -201,40 +183,24 @@ class TestDQNTraining:
 
         try:
             # Run training
-            dqn_train_with_multi_envs(
-                envs=envs, env_fn=env_fn, cfg_data=test_config
-            )
+            dqn_train_with_multi_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Check that output files were created
             output_dir = Path(test_config["output_params"]["output_dir"])
             assert output_dir.exists(), "Output directory should be created"
 
-            model_file = (
-                output_dir / test_config["output_params"]["model_filename"]
-            )
-            assert model_file.exists(), (
-                f"Model file should be saved: {model_file}"
-            )
+            model_file = output_dir / test_config["output_params"]["model_filename"]
+            assert model_file.exists(), f"Model file should be saved: {model_file}"
 
-            params_file = (
-                output_dir / test_config["output_params"]["params_filename"]
-            )
-            assert params_file.exists(), (
-                f"Params file should be saved: {params_file}"
-            )
+            params_file = output_dir / test_config["output_params"]["params_filename"]
+            assert params_file.exists(), f"Params file should be saved: {params_file}"
 
-            train_result_file = (
-                output_dir
-                / test_config["output_params"]["train_result_filename"]
-            )
+            train_result_file = output_dir / test_config["output_params"]["train_result_filename"]
             assert train_result_file.exists(), (
                 f"Training result file should be saved: {train_result_file}"
             )
 
-            eval_result_file = (
-                output_dir
-                / test_config["output_params"]["eval_result_filename"]
-            )
+            eval_result_file = output_dir / test_config["output_params"]["eval_result_filename"]
             assert eval_result_file.exists(), (
                 f"Evaluation result file should be saved: {eval_result_file}"
             )
@@ -255,9 +221,7 @@ class TestDQNTraining:
         # Create a dummy model state dict with correct structure
         from hands_on.exercise2_dqn.dqn_exercise import QNet1D
 
-        dummy_model = QNet1D(
-            state_n=8, action_n=4
-        )  # LunarLander has 8 obs, 4 actions
+        dummy_model = QNet1D(state_n=8, action_n=4)  # LunarLander has 8 obs, 4 actions
         torch.save(dummy_model.state_dict(), checkpoint_file)
 
         # Update config to use checkpoint
@@ -279,9 +243,7 @@ class TestDQNTraining:
 
         try:
             # Run training from checkpoint
-            dqn_train_with_multi_envs(
-                envs=envs, env_fn=env_fn, cfg_data=test_config
-            )
+            dqn_train_with_multi_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training from checkpoint completed successfully"
@@ -305,9 +267,7 @@ class TestDQNTraining:
         # Verify output files were created
         output_dir = Path(test_config["output_params"]["output_dir"])
         model_file = output_dir / test_config["output_params"]["model_filename"]
-        assert model_file.exists(), (
-            "Model file should be created by main function"
-        )
+        assert model_file.exists(), "Model file should be created by main function"
 
     def test_main_function_with_config_file(
         self, test_config: dict[str, Any], temp_output_dir: Path
@@ -323,9 +283,7 @@ class TestDQNTraining:
 
         # Mock command line arguments and run
         with patch("sys.argv", ["dqn_train.py", "--config", str(config_file)]):
-            with patch(
-                "hands_on.exercise2_dqn.dqn_train.load_config_from_json"
-            ) as mock_load:
+            with patch("hands_on.exercise2_dqn.dqn_train.load_config_from_json") as mock_load:
                 mock_load.return_value = test_config
 
                 # Run the main function directly
@@ -333,9 +291,7 @@ class TestDQNTraining:
 
                 # Verify output files were created
                 output_dir = Path(test_config["output_params"]["output_dir"])
-                model_file = (
-                    output_dir / test_config["output_params"]["model_filename"]
-                )
+                model_file = output_dir / test_config["output_params"]["model_filename"]
                 assert model_file.exists(), "Model file should be created"
 
     def test_training_produces_valid_results(
@@ -358,9 +314,7 @@ class TestDQNTraining:
         # Validate model structure - should be a QNet1D instance
         from hands_on.exercise2_dqn.dqn_exercise import QNet1D
 
-        assert isinstance(model, QNet1D), (
-            f"Model should be QNet1D instance, got {type(model)}"
-        )
+        assert isinstance(model, QNet1D), f"Model should be QNet1D instance, got {type(model)}"
 
         # Check that model has parameters
         param_count = sum(p.numel() for p in model.parameters())
@@ -370,9 +324,7 @@ class TestDQNTraining:
         dummy_input = torch.randn(1, 8)  # LunarLander has 8 observations
         with torch.no_grad():
             output = model(dummy_input)
-        assert output.shape == (1, 4), (
-            f"Model output should be shape (1, 4), got {output.shape}"
-        )
+        assert output.shape == (1, 4), f"Model output should be shape (1, 4), got {output.shape}"
 
         # Load and validate evaluation results
         eval_result_file = (
@@ -383,19 +335,11 @@ class TestDQNTraining:
             eval_result = json.load(f)
 
         # Validate evaluation results structure
-        assert "mean_reward" in eval_result, (
-            "Evaluation should include mean_reward"
-        )
-        assert "std_reward" in eval_result, (
-            "Evaluation should include std_reward"
-        )
+        assert "mean_reward" in eval_result, "Evaluation should include mean_reward"
+        assert "std_reward" in eval_result, "Evaluation should include std_reward"
         assert "datetime" in eval_result, "Evaluation should include datetime"
-        assert isinstance(eval_result["mean_reward"], (int, float)), (
-            "mean_reward should be numeric"
-        )
-        assert isinstance(eval_result["std_reward"], (int, float)), (
-            "std_reward should be numeric"
-        )
+        assert isinstance(eval_result["mean_reward"], (int, float)), "mean_reward should be numeric"
+        assert isinstance(eval_result["std_reward"], (int, float)), "std_reward should be numeric"
 
     def test_training_with_different_hyperparameters(
         self, test_config: dict[str, Any], temp_output_dir: Path
@@ -405,18 +349,14 @@ class TestDQNTraining:
         test_config_high_lr = test_config.copy()
         test_config_high_lr["hyper_params"] = test_config["hyper_params"].copy()
         test_config_high_lr["hyper_params"]["learning_rate"] = 1e-2
-        test_config_high_lr["output_params"]["output_dir"] = str(
-            temp_output_dir / "high_lr"
-        )
+        test_config_high_lr["output_params"]["output_dir"] = str(temp_output_dir / "high_lr")
         test_config_high_lr["output_params"]["save_result"] = False
 
         # Test with low learning rate
         test_config_low_lr = test_config.copy()
         test_config_low_lr["hyper_params"] = test_config["hyper_params"].copy()
         test_config_low_lr["hyper_params"]["learning_rate"] = 1e-5
-        test_config_low_lr["output_params"]["output_dir"] = str(
-            temp_output_dir / "low_lr"
-        )
+        test_config_low_lr["output_params"]["output_dir"] = str(temp_output_dir / "low_lr")
         test_config_low_lr["output_params"]["save_result"] = False
 
         for config in [test_config_high_lr, test_config_low_lr]:
@@ -434,24 +374,18 @@ class TestDQNTraining:
         from unittest.mock import patch
 
         # Mock the evaluation step to raise an exception after training starts
-        with patch(
-            "hands_on.exercise2_dqn.dqn_train.evaluate_agent"
-        ) as mock_eval:
+        with patch("hands_on.exercise2_dqn.dqn_train.evaluate_and_save_results") as mock_eval:
             mock_eval.side_effect = RuntimeError("Simulated evaluation error")
 
             # Should raise the exception but environment should still be cleaned up properly
-            with pytest.raises(
-                RuntimeError, match="Simulated evaluation error"
-            ):
+            with pytest.raises(RuntimeError, match="Simulated evaluation error"):
                 main(cfg_data=test_config)
 
             # If we get here, it means the finally block worked correctly
             # (the environment was closed properly, otherwise we'd have resource warnings)
             assert True, "Environment cleanup handled exception correctly"
 
-    def test_device_detection(
-        self, test_config: dict[str, Any], temp_output_dir: Path
-    ) -> None:
+    def test_device_detection(self, test_config: dict[str, Any], temp_output_dir: Path) -> None:
         """Test device detection and model placement."""
         test_config["output_params"]["output_dir"] = str(temp_output_dir)
         test_config["output_params"]["save_result"] = False
@@ -471,12 +405,8 @@ class TestDQNTraining:
         try:
             # Mock device detection to test CPU path
             with patch("torch.cuda.is_available", return_value=False):
-                with patch(
-                    "torch.backends.mps.is_available", return_value=False
-                ):
-                    dqn_train_with_multi_envs(
-                        envs=envs, env_fn=env_fn, cfg_data=test_config
-                    )
+                with patch("torch.backends.mps.is_available", return_value=False):
+                    dqn_train_with_multi_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
 
             # Test passes if training completes on CPU
             assert True, "Training completed successfully on CPU"
@@ -493,13 +423,9 @@ class TestDQNTraining:
         # Test with CartPole (simpler environment)
         test_config_cartpole = test_config.copy()
         test_config_cartpole["env_params"]["env_id"] = "CartPole-v1"
-        test_config_cartpole["output_params"]["output_dir"] = str(
-            temp_output_dir / "cartpole"
-        )
+        test_config_cartpole["output_params"]["output_dir"] = str(temp_output_dir / "cartpole")
         test_config_cartpole["output_params"]["save_result"] = False
-        test_config_cartpole["hyper_params"]["timesteps"] = (
-            50  # Even shorter for CartPole
-        )
+        test_config_cartpole["hyper_params"]["timesteps"] = 50  # Even shorter for CartPole
 
         # Should not raise any exceptions
         main(cfg_data=test_config_cartpole)

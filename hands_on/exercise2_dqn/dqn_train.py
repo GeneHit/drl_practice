@@ -6,9 +6,7 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 """
 
 import argparse
-import os
 import time
-from datetime import datetime
 from typing import Any, Callable, cast
 
 import gymnasium as gym
@@ -27,10 +25,9 @@ from hands_on.exercise2_dqn.dqn_exercise import (
     dqn_train_loop,
 )
 from hands_on.utils.env_utils import make_1d_env, make_image_env
-from hands_on.utils.evaluation_utils import evaluate_agent
+from hands_on.utils.evaluation_utils import evaluate_and_save_results
 from hands_on.utils.file_utils import (
     load_config_from_json,
-    save_model_and_result,
 )
 
 
@@ -86,41 +83,21 @@ def dqn_train_with_multi_envs(
         config=DQNTrainConfig.from_dict(cfg_data["hyper_params"]),
     )
     envs.close()
-    assert "episode_rewards" in train_result, (
-        "episode_rewards must be in train_result"
-    )
+    assert "episode_rewards" in train_result, "episode_rewards must be in train_result"
     duration_min = (time.time() - start_time) / 60
     train_result["duration_min"] = duration_min
+    # Update config with device info for saving
+    cfg_data["env_params"].update({"device": str(device)})
 
-    # Evaluate the agent on a single environment
+    # Create agent and evaluate/save results on a single environment
     dqn_agent = DQNAgent(q_network=q_network)
-    out_dir = cfg_data["output_params"]["output_dir"]
     eval_env = env_fn()
     try:
-        mean_reward, std_reward = evaluate_agent(
-            env=eval_env,
-            policy=dqn_agent,
-            max_steps=cfg_data["eval_params"].get("max_steps", None),
-            episodes=int(cfg_data["eval_params"]["eval_episodes"]),
-            seed=tuple(cfg_data["eval_params"]["eval_seed"]),
-            record_video=cfg_data["eval_params"].get("record_video", False),
-            video_dir=os.path.join(out_dir, "video"),
+        evaluate_and_save_results(
+            env=eval_env, agent=dqn_agent, cfg_data=cfg_data, train_result=train_result
         )
     finally:
         eval_env.close()
-
-    # Save model and result if requested
-    save_result: bool = cfg_data["output_params"].get("save_result", False)
-    if save_result:
-        eval_result = {
-            "mean_reward": mean_reward,
-            "std_reward": std_reward,
-            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        cfg_data["env_params"].update({"device": str(device)})
-        save_model_and_result(
-            cfg_data, train_result, eval_result, agent=dqn_agent
-        )
 
 
 def main(cfg_data: dict[str, Any]) -> None:
@@ -144,9 +121,7 @@ def main(cfg_data: dict[str, Any]) -> None:
 
     # Create vector environment
     num_envs: int = cfg_data["hyper_params"]["num_envs"]
-    use_multi_processing: bool = cfg_data["hyper_params"][
-        "use_multi_processing"
-    ]
+    use_multi_processing: bool = cfg_data["hyper_params"]["use_multi_processing"]
     envs = _make_vector_env(env_fn, num_envs, use_multi_processing)
 
     # Get environment info and update config

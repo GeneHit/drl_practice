@@ -1,6 +1,4 @@
-import os
 import time
-from datetime import datetime
 from typing import Any, Callable, cast
 
 import torch
@@ -14,8 +12,7 @@ from hands_on.exercise3_reinforce.reinforce_exercise import (
 )
 from hands_on.utils.agent_utils import NNAgent
 from hands_on.utils.env_utils import get_device
-from hands_on.utils.evaluation_utils import evaluate_agent
-from hands_on.utils.file_utils import save_model_and_result
+from hands_on.utils.evaluation_utils import evaluate_and_save_results
 
 
 def reinforce_train_with_envs(
@@ -33,12 +30,8 @@ def reinforce_train_with_envs(
 
     # Create policy network
     if len(obs_shape) != 1:
-        raise NotImplementedError(
-            "2D observation space not implemented for REINFORCE"
-        )
-    net = Reinforce1DNet(
-        state_dim=obs_shape[0], action_dim=action_n, hidden_dim=128, layer_num=2
-    )
+        raise NotImplementedError("2D observation space not implemented for REINFORCE")
+    net = Reinforce1DNet(state_dim=obs_shape[0], action_dim=action_n, hidden_dim=128, layer_num=2)
 
     # Load checkpoint if exists
     checkpoint_pathname = cfg_data.get("checkpoint_pathname", None)
@@ -61,45 +54,19 @@ def reinforce_train_with_envs(
     )
     envs.close()
 
-    assert "episode_rewards" in train_result, (
-        "episode_rewards must be in train_result"
-    )
+    assert "episode_rewards" in train_result, "episode_rewards must be in train_result"
     train_result["duration_min"] = (time.time() - start_time) / 60
 
-    # Evaluate the agent on a single environment
+    # Create agent and evaluate/save results on a single environment
     agent = NNAgent(net=net)
     eval_env = env_fn()
 
     try:
-        eval_params = cfg_data["eval_params"]
-
-        mean_reward, std_reward = evaluate_agent(
-            env=eval_env,
-            policy=agent,
-            max_steps=eval_params.get("max_steps"),
-            episodes=eval_params["eval_episodes"],
-            seed=eval_params["eval_seed"],
-            record_video=eval_params.get("record_video", False),
-            video_dir=os.path.join(
-                cfg_data["output_params"]["output_dir"], "video"
-            ),
+        evaluate_and_save_results(
+            env=eval_env, agent=agent, cfg_data=cfg_data, train_result=train_result
         )
     finally:
         eval_env.close()
-
-    eval_result = {
-        "mean_reward": mean_reward,
-        "std_reward": std_reward,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-    # Save model and results
-    save_model_and_result(
-        cfg_data=cfg_data,
-        train_result=train_result,
-        eval_result=eval_result,
-        agent=agent,
-    )
 
 
 def reinforce_main(cfg_data: dict[str, Any]) -> None:
@@ -123,16 +90,12 @@ def reinforce_main(cfg_data: dict[str, Any]) -> None:
     env_params = cfg_data["env_params"]
 
     def env_fn() -> EnvType:
-        env, _ = make_1d_env(
-            env_id=env_params["env_id"], max_steps=env_params.get("max_steps")
-        )
+        env, _ = make_1d_env(env_id=env_params["env_id"], max_steps=env_params.get("max_steps"))
         return cast(EnvType, env)
 
     # Create vector environment
     num_envs: int = cfg_data["hyper_params"]["num_envs"]
-    use_multi_processing: bool = cfg_data["hyper_params"].get(
-        "use_multi_processing", False
-    )
+    use_multi_processing: bool = cfg_data["hyper_params"].get("use_multi_processing", False)
     envs = _make_vector_env(env_fn, num_envs, use_multi_processing)
 
     # Get environment info and update config
