@@ -18,6 +18,7 @@ from hands_on.utils.cli_utils import (
     load_and_validate_config,
     load_model_from_config,
     play_and_generate_video_generic,
+    push_to_hub_generic,
     validate_cli_args,
 )
 
@@ -307,6 +308,134 @@ class TestPlayAndGenerateVideo:
 
         # Environment should still be closed
         mock_env.close.assert_called_once()
+
+
+class TestHubPush:
+    """Test hub push functionality."""
+
+    @patch("hands_on.utils.cli_utils.create_env_from_config")
+    @patch("hands_on.utils.hub_play_utils.get_env_name_and_metadata")
+    @patch("hands_on.utils.hub_play_utils.push_model_to_hub")
+    def test_push_to_hub_generic_success(
+        self,
+        mock_push_model: MagicMock,
+        mock_get_metadata: MagicMock,
+        mock_create_env: MagicMock,
+    ) -> None:
+        """Test successful generic hub push."""
+        # Setup mocks
+        mock_env = Mock()
+        mock_create_env.return_value = mock_env
+        mock_metadata = {"env_name": "TestEnv", "tags": ["test"]}
+        mock_get_metadata.return_value = mock_metadata
+
+        cfg_data = {
+            "env_params": {"env_id": "TestEnv-v0"},
+            "hub_params": {"repo_id": "test-repo"},
+            "output_params": {"output_dir": "test_output"},
+        }
+
+        push_to_hub_generic(
+            cfg_data=cfg_data,
+            username="testuser",
+            algorithm_name="TestAlgorithm",
+            model_filename="model.pth",
+            extra_tags=["tag1", "tag2"],
+            usage_instructions="Custom usage instructions",
+        )
+
+        # Verify function calls
+        mock_create_env.assert_called_once_with(cfg_data["env_params"])
+        mock_get_metadata.assert_called_once_with(
+            env_id="TestEnv-v0",
+            env=mock_env,
+            algorithm_name="testalgorithm",
+            extra_tags=["tag1", "tag2"],
+        )
+        mock_push_model.assert_called_once()
+        mock_env.close.assert_called_once()
+
+        # Check push_model_to_hub call arguments
+        call_args = mock_push_model.call_args
+        assert call_args[1]["repo_id"] == "testuser/test-repo"
+        assert call_args[1]["output_params"] == cfg_data["output_params"]
+        assert call_args[1]["metadata"] == mock_metadata
+        assert "TestAlgorithm" in call_args[1]["model_card"]
+        assert "TestEnv-v0" in call_args[1]["model_card"]
+        assert "model.pth" in call_args[1]["model_card"]
+        assert "Custom usage instructions" in call_args[1]["model_card"]
+
+    @patch("hands_on.utils.cli_utils.create_env_from_config")
+    @patch("hands_on.utils.hub_play_utils.get_env_name_and_metadata")
+    @patch("hands_on.utils.hub_play_utils.push_model_to_hub")
+    def test_push_to_hub_generic_env_cleanup(
+        self,
+        mock_push_model: MagicMock,
+        mock_get_metadata: MagicMock,
+        mock_create_env: MagicMock,
+    ) -> None:
+        """Test that environment is closed even if error occurs during hub push."""
+        mock_env = Mock()
+        mock_create_env.return_value = mock_env
+        mock_get_metadata.side_effect = Exception("Metadata error")
+
+        cfg_data = {
+            "env_params": {"env_id": "TestEnv-v0"},
+            "hub_params": {"repo_id": "test-repo"},
+            "output_params": {"output_dir": "test_output"},
+        }
+
+        with pytest.raises(Exception, match="Metadata error"):
+            push_to_hub_generic(
+                cfg_data=cfg_data,
+                username="testuser",
+                algorithm_name="TestAlgorithm",
+                model_filename="model.pth",
+            )
+
+        # Environment should still be closed
+        mock_env.close.assert_called_once()
+
+    @patch("hands_on.utils.cli_utils.create_env_from_config")
+    @patch("hands_on.utils.hub_play_utils.get_env_name_and_metadata")
+    @patch("hands_on.utils.hub_play_utils.push_model_to_hub")
+    def test_push_to_hub_generic_default_parameters(
+        self,
+        mock_push_model: MagicMock,
+        mock_get_metadata: MagicMock,
+        mock_create_env: MagicMock,
+    ) -> None:
+        """Test hub push with default parameters."""
+        mock_env = Mock()
+        mock_create_env.return_value = mock_env
+        mock_metadata = {"env_name": "TestEnv", "tags": ["test"]}
+        mock_get_metadata.return_value = mock_metadata
+
+        cfg_data = {
+            "env_params": {"env_id": "TestEnv-v0"},
+            "hub_params": {"repo_id": "test-repo"},
+            "output_params": {"output_dir": "test_output"},
+        }
+
+        push_to_hub_generic(
+            cfg_data=cfg_data,
+            username="testuser",
+            algorithm_name="TestAlgorithm",
+            model_filename="model.pth",
+        )
+
+        # Verify get_metadata was called with empty extra_tags
+        mock_get_metadata.assert_called_once_with(
+            env_id="TestEnv-v0",
+            env=mock_env,
+            algorithm_name="testalgorithm",
+            extra_tags=[],
+        )
+
+        # Verify model card has minimal usage instructions
+        call_args = mock_push_model.call_args
+        model_card = call_args[1]["model_card"]
+        assert 'env = gym.make(model["env_id"])' in model_card
 
 
 class TestModeHandler:

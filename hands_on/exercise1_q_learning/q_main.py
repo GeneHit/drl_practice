@@ -8,23 +8,26 @@ This script supports different modes:
 
 from typing import Any
 
-from hands_on.exercise1_q_learning.q_hub import push_q_table_to_hub
 from hands_on.exercise1_q_learning.q_train import QTable
 from hands_on.exercise1_q_learning.q_train import main as train_main
 from hands_on.utils.cli_utils import (
     create_env_from_config,
     create_main_function,
     play_and_generate_video_generic,
+    push_to_hub_generic,
 )
 
 
 def push_to_hub_wrapper(cfg_data: dict[str, Any], username: str) -> None:
-    """Wrapper for push_q_table_to_hub to match expected signature."""
-    env = create_env_from_config(cfg_data["env_params"])
-    try:
-        push_q_table_to_hub(username=username, cfg_data=cfg_data, env=env)
-    finally:
-        env.close()
+    """Wrapper for Q-learning hub push to match expected signature."""
+    push_to_hub_generic(
+        cfg_data=cfg_data,
+        username=username,
+        algorithm_name="Q-Learning",
+        model_filename="q-learning.pkl",
+        extra_tags=[],
+        usage_instructions="# Don't forget to check if you need to add additional attributes (is_slippery=False etc)",
+    )
 
 
 def play_and_generate_video(cfg_data: dict[str, Any]) -> None:

@@ -9,23 +9,28 @@ This script supports different modes:
 from typing import Any
 
 from hands_on.exercise2_dqn.dqn_exercise import DQNAgent
-from hands_on.exercise2_dqn.dqn_hub import push_dqn_to_hub
 from hands_on.exercise2_dqn.dqn_train import main as train_main
 from hands_on.utils.cli_utils import (
     create_env_from_config,
     create_main_function,
     play_and_generate_video_generic,
+    push_to_hub_generic,
 )
 from hands_on.utils.env_utils import get_device
 
 
 def push_to_hub_wrapper(cfg_data: dict[str, Any], username: str) -> None:
-    """Wrapper for push_dqn_to_hub to match expected signature."""
-    env = create_env_from_config(cfg_data["env_params"])
-    try:
-        push_dqn_to_hub(username=username, cfg_data=cfg_data, env=env)
-    finally:
-        env.close()
+    """Wrapper for DQN hub push to match expected signature."""
+    push_to_hub_generic(
+        cfg_data=cfg_data,
+        username=username,
+        algorithm_name="DQN",
+        model_filename="dqn.pth",
+        extra_tags=["deep-q-learning", "pytorch"],
+        usage_instructions="""# Don't forget to check if you need to add additional wrapper to the
+    # environment for the image observation.
+    env = gym.wrappers.AddRenderObservation(env, render_only=True)""",
+    )
 
 
 def play_and_generate_video(cfg_data: dict[str, Any]) -> None:

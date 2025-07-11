@@ -173,6 +173,71 @@ def create_env_from_config(
     return env
 
 
+def push_to_hub_generic(
+    cfg_data: dict[str, Any],
+    username: str,
+    algorithm_name: str,
+    model_filename: str,
+    extra_tags: Union[list[str], None] = None,
+    usage_instructions: str = "",
+) -> None:
+    """Generic function to push any model to Hugging Face Hub.
+
+    Args:
+        cfg_data: Configuration data containing env_params, hub_params, output_params
+        username: Hugging Face username
+        algorithm_name: Name of the algorithm (e.g., "Q-Learning", "DQN", "REINFORCE")
+        model_filename: Name of the model file (e.g., "q-learning.pkl", "dqn.pth")
+        extra_tags: Additional tags for the model (default: None)
+        usage_instructions: Additional usage instructions for the model card
+    """
+    from hands_on.utils.hub_play_utils import (
+        get_env_name_and_metadata,
+        push_model_to_hub,
+    )
+
+    env_id = cfg_data["env_params"]["env_id"]
+
+    # Create environment for metadata generation
+    env = create_env_from_config(cfg_data["env_params"])
+
+    try:
+        # Get metadata with algorithm-specific tags
+        metadata = get_env_name_and_metadata(
+            env_id=env_id,
+            env=env,
+            algorithm_name=algorithm_name.lower(),
+            extra_tags=extra_tags or [],
+        )
+
+        # Create repo_id
+        repo_id = f"{username}/{cfg_data['hub_params']['repo_id']}"
+
+        # Create model card with algorithm-specific content
+        model_card = f"""
+    # **{algorithm_name}** Agent playing **{env_id}**
+    This is a trained model of a **{algorithm_name}** agent playing **{env_id}**.
+
+    ## Usage
+
+    model = load_from_hub(repo_id="{repo_id}", filename="{model_filename}")
+
+    {usage_instructions}
+    env = gym.make(model["env_id"])
+    ...
+    """
+
+        # Push to hub
+        push_model_to_hub(
+            repo_id=repo_id,
+            output_params=cfg_data["output_params"],
+            model_card=model_card,
+            metadata=metadata,
+        )
+    finally:
+        env.close()
+
+
 class CLIConfig:
     """Configuration container for CLI arguments."""
 

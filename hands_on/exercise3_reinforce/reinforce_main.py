@@ -16,28 +16,21 @@ from hands_on.utils.cli_utils import (
     create_env_from_config,
     create_main_function,
     play_and_generate_video_generic,
+    push_to_hub_generic,
 )
 from hands_on.utils.env_utils import get_device
 
 
 def push_to_hub_wrapper(cfg_data: dict[str, Any], username: str) -> None:
-    """Wrapper for push_reinforce_to_hub to match expected signature."""
-    env = create_env_from_config(cfg_data["env_params"])
-
-    try:
-        from hands_on.exercise3_reinforce.reinforce_hub import (
-            push_reinforce_to_hub,
-        )
-
-        push_reinforce_to_hub(
-            username=username,
-            cfg_data=cfg_data,
-            env=env,
-        )
-    except ImportError:
-        print("Hub functionality not implemented yet")
-    finally:
-        env.close()
+    """Wrapper for REINFORCE hub push to match expected signature."""
+    push_to_hub_generic(
+        cfg_data=cfg_data,
+        username=username,
+        algorithm_name="REINFORCE",
+        model_filename="reinforce.pth",
+        extra_tags=["policy-gradient", "pytorch"],
+        usage_instructions="# Don't forget to check if you need to add additional wrapper to the\n    # environment for the observation.",
+    )
 
 
 def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
