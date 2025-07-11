@@ -69,31 +69,31 @@ The unified main script for `taxi` (can change to `frozen_lake`).
 
 Train the q_table from zeros:
 ```
-python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json
+python hands_on/exercise1_q_learning/q_cli.py --config hands_on/exercise1_q_learning/config_taxi.json
 ```
 or
 ```
-python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_frozen_lake.json
+python hands_on/exercise1_q_learning/q_cli.py --config hands_on/exercise1_q_learning/config_frozen_lake.json
 ```
 
 Train without playing/video generation:
 ```
-python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json --skip_play
+python hands_on/exercise1_q_learning/q_cli.py --config hands_on/exercise1_q_learning/config_taxi.json --skip_play
 ```
 
 Generate a replay video only (to `results/exercise1_q/` folder):
 ```
-python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json --mode play_only
+python hands_on/exercise1_q_learning/q_cli.py --config hands_on/exercise1_q_learning/config_taxi.json --mode play_only
 ```
 
 Push model to HuggingFace hub (with video generation):
 ```
-python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json --mode push_to_hub --username $YOUR_USERNAME$
+python hands_on/exercise1_q_learning/q_cli.py --config hands_on/exercise1_q_learning/config_taxi.json --mode push_to_hub --username $YOUR_USERNAME$
 ```
 
 Push model to HuggingFace hub (without video generation):
 ```
-python hands_on/exercise1_q_learning/q_main.py --config hands_on/exercise1_q_learning/config_taxi.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
+python hands_on/exercise1_q_learning/q_cli.py --config hands_on/exercise1_q_learning/config_taxi.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
 **Note:**:Replace `$YOUR_USERNAME$` with your HuggingFace account name.
@@ -109,31 +109,31 @@ The unified main script for `2d` (change to `1d` for the discre observation).
 
 Train:
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_2d_config.json
+python hands_on/exercise2_dqn/dqn_cli.py --config hands_on/exercise2_dqn/obs_2d_config.json
 ```
 or
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_1d_config.json
+python hands_on/exercise2_dqn/dqn_cli.py --config hands_on/exercise2_dqn/obs_1d_config.json
 ```
 
 Train without playing/video generation:
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_2d_config.json --skip_play
+python hands_on/exercise2_dqn/dqn_cli.py --config hands_on/exercise2_dqn/obs_2d_config.json --skip_play
 ```
 
 Generate a replay video only:
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_2d_config.json --mode play_only
+python hands_on/exercise2_dqn/dqn_cli.py --config hands_on/exercise2_dqn/obs_2d_config.json --mode play_only
 ```
 
 Push model to HuggingFace hub (with video generation):
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_2d_config.json --mode push_to_hub --username $YOUR_USERNAME$
+python hands_on/exercise2_dqn/dqn_cli.py --config hands_on/exercise2_dqn/obs_2d_config.json --mode push_to_hub --username $YOUR_USERNAME$
 ```
 
 Push model to HuggingFace hub (without video generation):
 ```
-python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_2d_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
+python hands_on/exercise2_dqn/dqn_cli.py --config hands_on/exercise2_dqn/obs_2d_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
 **Note:** Replace `$YOUR_USERNAME$` with your HuggingFace account name.
@@ -145,27 +145,27 @@ The unified main script for policy gradient learning using REINFORCE algorithm.
 
 Train the REINFORCE agent:
 ```
-python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json
 ```
 
 Train without playing/video generation:
 ```
-python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --skip_play
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --skip_play
 ```
 
 Generate a replay video only:
 ```
-python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode play_only
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode play_only
 ```
 
 Push model to HuggingFace hub (with video generation):
 ```
-python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$
 ```
 
 Push model to HuggingFace hub (without video generation):
 ```
-python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
 **Note:** Replace `$YOUR_USERNAME$` with your HuggingFace account name.
