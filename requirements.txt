@@ -15,6 +15,7 @@ pre-commit==4.0.1
 # required by gymnasium
 pygame==2.6.1
 pytest==8.4.1
+pytest-timeout==2.4.0
 # required by gymnasium[box2d]
 swig==4.3.1
 torch==2.7.0

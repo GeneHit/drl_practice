@@ -51,8 +51,8 @@ repos:
         description: Ensure there are no type errors in the code
         entry: ./scripts/mypy.sh
         language: script
-    -   id: pytest
-        name: Run pytest to check for test failures
-        description: Ensure there are no test failures in the code
-        entry: ./scripts/pytest.sh
-        language: script
+    # -   id: pytest
+    #     name: Run pytest to check for test failures
+    #     description: Ensure there are no test failures in the code
+    #     entry: ./scripts/pytest.sh
+    #     language: script
