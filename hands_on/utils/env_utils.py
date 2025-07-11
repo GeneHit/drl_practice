@@ -63,9 +63,17 @@ def make_image_env(
 
 
 def make_1d_env(
-    env_id: str, render_mode: str | None = None
+    env_id: str, render_mode: str | None = None, max_steps: int | None = None
 ) -> tuple[gym.Env[NDArray[Any], np.int64], dict[str, Any]]:
     """Make the 1D environment.
+
+    Args:
+        env_id: The environment ID to create
+        render_mode: The render mode for the environment
+        max_steps: Optional maximum steps per episode. If provided, wraps environment with TimeLimit
+
+    Returns:
+        Tuple of (environment, environment info dict)
 
     env.action_space.n=np.int64(4)
     env.observation_space.shape=(8,), np.int
@@ -75,6 +83,11 @@ def make_1d_env(
     env = gym.wrappers.RecordEpisodeStatistics(env)
     # Add auto-reset wrapper - provides terminal_observation for final observations
     env = gym.wrappers.Autoreset(env)
+
+    # Add time limit wrapper if max_steps is specified
+    if max_steps is not None:
+        env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+
     act_space = env.action_space
     assert isinstance(act_space, Discrete)  # make mypy happy
     env_info = {

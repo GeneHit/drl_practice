@@ -10,7 +10,7 @@ from hands_on.utils_for_coding.numpy_tensor_utils import (
 )
 
 
-class NetAgent(AgentBase):
+class NNAgent(AgentBase):
     """Agent that uses a neural network to make decisions.
 
     Only use for evaluation/gameplay, not for training.
@@ -40,7 +40,7 @@ class NetAgent(AgentBase):
     @classmethod
     def load_from_checkpoint(
         cls, pathname: str, device: torch.device | None
-    ) -> "NetAgent":
+    ) -> "NNAgent":
         """Load the DQN model."""
         assert pathname.endswith(".pth")
         net = torch.load(pathname, map_location=device, weights_only=False)

@@ -137,3 +137,37 @@ python hands_on/exercise2_dqn/dqn_main.py --config hands_on/exercise2_dqn/obs_2d
 ```
 
 **Note:** Replace `$YOUR_USERNAME$` with your HuggingFace account name.
+
+
+### Exercise 3: REINFORCE
+
+The unified main script for policy gradient learning using REINFORCE algorithm.
+
+Train the REINFORCE agent:
+```
+python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json
+```
+
+Train without playing/video generation:
+```
+python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --skip_play
+```
+
+Generate a replay video only:
+```
+python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode play_only
+```
+
+Push model to HuggingFace hub (with video generation):
+```
+python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$
+```
+
+Push model to HuggingFace hub (without video generation):
+```
+python hands_on/exercise3_reinforce/reinforce_main.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
+```
+
+**Note:** Replace `$YOUR_USERNAME$` with your HuggingFace account name.
+
+**Algorithm Details:** REINFORCE uses policy gradients to directly optimize the policy network. It collects full episodes, calculates returns (discounted cumulative rewards), and updates the policy to increase the probability of actions that led to higher returns.

@@ -39,7 +39,11 @@ EnvsType: TypeAlias = gym.vector.VectorEnv[
 
 
 class QNet2D(nn.Module):
-    """Q network with 2D convolution."""
+    """Q network with 2D convolution.
+
+    Same as DeepMind's DQN paper for Atari:
+    https://www.nature.com/articles/nature14236
+    """
 
     def __init__(self, in_shape: tuple[int, int, int], action_n: int) -> None:
         super().__init__()
@@ -62,11 +66,11 @@ class QNet2D(nn.Module):
             conv_output = self.conv(test_input)
             conv_output_size = conv_output.size(1)
 
-        # full connected layer
+        # full connected layer, original 512
         self.fc = nn.Sequential(
-            nn.Linear(conv_output_size, 512),
+            nn.Linear(conv_output_size, 256),
             nn.ReLU(),
-            nn.Linear(512, action_n),
+            nn.Linear(256, action_n),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

@@ -1,9 +1,9 @@
 {
     "hyper_params": {
-        "episode": 200000,
+        "global_episode": 1000,
         "lr": 1e-4,
         "gamma": 0.99,
-        "grad_acc": 2,
+        "grad_acc": 1,
         "num_envs": 2,
         "use_multi_processing": true
     },
@@ -12,8 +12,8 @@
         "max_steps": 1000
     },
     "eval_params": {
-        "eval_episodes": 100,
-        "eval_seed": [465, 131, 72, 782, 153, 233, 639, 746, 366, 473, 103, 569, 842, 412, 688, 946, 450, 722, 45, 606, 343, 194, 231, 415, 393, 781, 774, 318, 263, 154, 198, 549, 429, 889, 442, 54, 730, 910, 171, 520, 489, 145, 229, 526, 566, 725, 384, 895, 581, 138, 757, 8, 454, 58, 976, 595, 325, 347, 671, 399, 753, 517, 104, 133, 12, 391, 910, 301, 220, 226, 668, 999, 211, 644, 209, 734, 138, 308, 601, 779, 247, 692, 626, 916, 874, 808, 151, 92, 412, 62, 878, 29, 741, 903, 703, 21, 351, 545, 292, 103]
+        "eval_episodes": 20,
+        "eval_seed": [1, 55, 44, 23, 12, 34, 86, 78, 90, 100, 166, 127, 134, 145, 151, 115, 178, 189, 190, 200]
     },
     "output_params": {
         "output_dir": "results/exercise3_reinforce/cartpole/",
@@ -24,7 +24,7 @@
         "eval_result_filename": "eval_result.json"
     },
     "hub_params": {
-        "repo_id": "reinforce-CartPole-v1"
+        "repo_id": "Reinforce-CartPole"
     },
     "_notes": [
         "checkpoint_pathname: results/exercise3_reinforce/cartpole/reinforce.pth"
