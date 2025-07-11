@@ -66,19 +66,12 @@ class TestEvaluateAndSaveResults:
         # Create dummy agent
         agent = DummyAgent()
 
-        # Create dummy training results
-        train_result = {
-            "episode_rewards": [1.0, 0.0, 1.0],
-            "episode_lengths": [10, 15, 8],
-        }
-
         try:
             # Run evaluation and saving
             evaluate_and_save_results(
                 env=env,
                 agent=agent,
                 cfg_data=test_config,
-                train_result=train_result,
             )
 
             # Verify files were created
@@ -91,8 +84,7 @@ class TestEvaluateAndSaveResults:
             eval_result_file = output_dir / test_config["output_params"]["eval_result_filename"]
             assert eval_result_file.exists()
 
-            train_result_file = output_dir / test_config["output_params"]["train_result_filename"]
-            assert train_result_file.exists()
+            # Note: train_result.json is no longer saved by the current implementation
 
             params_file = output_dir / test_config["output_params"]["params_filename"]
             assert params_file.exists()
@@ -122,12 +114,6 @@ class TestEvaluateAndSaveResults:
         # Create dummy agent
         agent = DummyAgent()
 
-        # Create dummy training results
-        train_result = {
-            "episode_rewards": [1.0, 0.0, 1.0],
-            "episode_lengths": [10, 15, 8],
-        }
-
         # Additional evaluation data
         additional_eval_data = {
             "custom_metric": 42.0,
@@ -140,7 +126,6 @@ class TestEvaluateAndSaveResults:
                 env=env,
                 agent=agent,
                 cfg_data=test_config,
-                train_result=train_result,
                 additional_eval_data=additional_eval_data,
             )
 
@@ -175,19 +160,12 @@ class TestEvaluateAndSaveResults:
         # Create dummy agent
         agent = DummyAgent()
 
-        # Create dummy training results
-        train_result = {
-            "episode_rewards": [1.0, 0.0, 1.0],
-            "episode_lengths": [10, 15, 8],
-        }
-
         try:
             # Run evaluation (should not save)
             evaluate_and_save_results(
                 env=env,
                 agent=agent,
                 cfg_data=test_config,
-                train_result=train_result,
             )
 
             # Verify no files were created (except possibly the temp directory)

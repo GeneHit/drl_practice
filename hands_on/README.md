@@ -55,13 +55,25 @@ Check the specified environment:
     python hands_on/sandbox/env_test.py
     ```
 
-Plot the training rewards:
-1. change the file path in [plot_train_rewards.py](./sandbox/plot_train_rewards.py)
-2. run
+#### TensorBoard
+Launch TensorBoard to view training metrics:
+1. Make sure you have trained a model (Q-learning, DQN, or REINFORCE) which generates logs in the `results/` directory
+2. Run the TensorBoard CLI tool:
     ```
-    python hands_on/sanbox/plot_train_rewards.py
+    python hands_on/sandbox/tensorboard_cli.py --config $CONFIG_FILE$
     ```
+    For example:
+    ```
+    python hands_on/tensorboard_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json
+    ```
+3. Open the displayed URL in your browser to view the TensorBoard dashboard with training metrics, episode rewards, and other logged data.
 
+or run the below command in terminal:
+```
+tensorboard --logdir=results/exercise3_reinforce/cartpole
+```
+
+**Note:** Replace `$CONFIG_FILE$` with the path to your training configuration file. The CLI will automatically find the corresponding log directory based on the config's output parameters.
 
 ### Exercise 1: Q Learning
 

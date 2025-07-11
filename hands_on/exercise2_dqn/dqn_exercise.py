@@ -6,7 +6,7 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 """
 
 import copy
-from typing import Any, TypeAlias, Union, cast
+from typing import TypeAlias, Union, cast
 
 import gymnasium as gym
 import numpy as np
@@ -17,8 +17,8 @@ import tqdm
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 from torch import Tensor
+from torch.utils.tensorboard import SummaryWriter
 
-# from torch.utils.tensorboard import SummaryWriter
 from hands_on.base import ActType, AgentBase, ScheduleBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
 from hands_on.utils.env_utils import extract_episode_data_from_infos
@@ -207,11 +207,14 @@ class DQNTrainer:
 
         return cast(NDArray[ActType], actions)
 
-    def update(self, experiences: Experience) -> None:
+    def update(self, experiences: Experience) -> float:
         """Update Q-network using experiences.
 
         Args:
             experiences: Batch of experiences from replay buffer
+
+        Returns:
+            loss: The TD loss value for logging
         """
         # Move all inputs to device
         states = experiences.states.to(self._device)
@@ -235,20 +238,28 @@ class DQNTrainer:
         loss.backward()
         self._optimizer.step()
 
+        return float(loss.item())
+
 
 def dqn_train_loop(
     envs: EnvsType,
     q_network: nn.Module,
     device: torch.device,
     config: DQNTrainConfig,
-) -> dict[str, Any]:
+    log_dir: str,
+) -> None:
     """Train the DQN agent with multiple environments.
 
-    Returns
-    -------
-        the training result: dict[str, Any]
-            - episode_rewards: list[float]. Have to include this key.
+    Args:
+        envs: Vector environment for training
+        q_network: The Q-network to train
+        device: Device to run computations on
+        config: Training configuration
+        log_dir: Directory for tensorboard logs.
     """
+    # Initialize tensorboard writer
+    writer = SummaryWriter(log_dir)
+
     # Get environment info
     obs_shape = envs.single_observation_space.shape
     act_space = envs.single_action_space
@@ -262,13 +273,10 @@ def dqn_train_loop(
         duration=int(config.exploration_fraction * config.timesteps),
     )
 
-    # Create optimizer inside the function
-    optimizer = torch.optim.Adam(q_network.parameters(), lr=config.learning_rate)
-
     # Create trainer inside the function
     trainer = DQNTrainer(
         q_network=q_network,
-        optimizer=optimizer,
+        optimizer=torch.optim.Adam(q_network.parameters(), lr=config.learning_rate),
         device=device,
         gamma=config.gamma,
         epsilon=epsilon_schedule,
@@ -284,14 +292,12 @@ def dqn_train_loop(
         action_dtype=np.int64,
     )
 
-    episode_rewards: list[float] = []
-    episode_lengths: list[int] = []
-
     # Initialize environments
     states, _ = envs.reset()
     assert isinstance(states, np.ndarray), "States must be numpy array"
     # Track previous step terminal status to avoid invalid transitions
     prev_dones: NDArray[np.bool_] = np.zeros(envs.num_envs, dtype=np.bool_)
+    episode_steps = 0
 
     for step in tqdm.tqdm(range(config.timesteps)):
         # Get actions for all environments using trainer's epsilon-greedy action method
@@ -325,17 +331,24 @@ def dqn_train_loop(
         if step >= config.update_start_step:
             if step % config.train_interval == 0:
                 experiences = replay_buffer.sample(config.batch_size)
-                trainer.update(experiences)
+                loss = trainer.update(experiences)
+
+                # Log training metrics
+                writer.add_scalar("training/loss", loss, step)
+                writer.add_scalar("training/epsilon", epsilon_schedule(step), step)
+
             if step % config.target_update_interval == 0:
                 trainer.sync_target_net()
 
         # get the episode rewards from RecordEpisodeStatistics wrapper
         # Use the new utility function to extract episode data
         ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-        episode_rewards.extend(ep_rewards)
-        episode_lengths.extend(ep_lengths)
 
-    return {
-        "episode_rewards": episode_rewards,
-        "episode_lengths": episode_lengths,
-    }
+        # Log episode metrics when episodes complete
+        for idx, reward in enumerate(ep_rewards):
+            writer.add_scalar("episode/reward", reward, episode_steps)
+            writer.add_scalar("episode/length", ep_lengths[idx], episode_steps)
+            episode_steps += 1
+
+    # Close writer
+    writer.close()

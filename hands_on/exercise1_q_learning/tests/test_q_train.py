@@ -138,10 +138,7 @@ class TestQTraining:
             params_file = output_dir / test_config["output_params"]["params_filename"]
             assert params_file.exists(), f"Params file should be saved: {params_file}"
 
-            train_result_file = output_dir / test_config["output_params"]["train_result_filename"]
-            assert train_result_file.exists(), (
-                f"Training result file should be saved: {train_result_file}"
-            )
+            # Note: train_result.json is no longer saved by the current implementation
 
             eval_result_file = output_dir / test_config["output_params"]["eval_result_filename"]
             assert eval_result_file.exists(), (

@@ -1,4 +1,4 @@
-import time
+import os
 from typing import Any, Callable, cast
 
 import torch
@@ -42,29 +42,22 @@ def reinforce_train_with_envs(
     device = get_device()
     net = net.to(device)
 
-    # Start training
-    start_time = time.time()
-
     # Create config from hyper_params
-    train_result = reinforce_train_loop(
+    reinforce_train_loop(
         envs=envs,
         net=net,
         device=device,
         config=ReinforceConfig.from_dict(cfg_data["hyper_params"]),
+        log_dir=os.path.join(cfg_data["output_params"]["output_dir"], "runs"),
     )
     envs.close()
-
-    assert "episode_rewards" in train_result, "episode_rewards must be in train_result"
-    train_result["duration_min"] = (time.time() - start_time) / 60
 
     # Create agent and evaluate/save results on a single environment
     agent = NNAgent(net=net)
     eval_env = env_fn()
 
     try:
-        evaluate_and_save_results(
-            env=eval_env, agent=agent, cfg_data=cfg_data, train_result=train_result
-        )
+        evaluate_and_save_results(env=eval_env, agent=agent, cfg_data=cfg_data)
     finally:
         eval_env.close()
 

@@ -1,15 +1,15 @@
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
 import gymnasium as gym
 import numpy as np
 import pickle5 as pickle
 import torch
 from numpy.typing import NDArray
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from hands_on.base import ActType, AgentBase, ScheduleBase
 from hands_on.exercise1_q_learning.config import QTableTrainConfig
-from hands_on.utils.env_utils import extract_episode_data_from_infos
 from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 # because q_table is use for the discrete action and observation space
@@ -106,26 +106,33 @@ class QTableTrainer:
         action: ActType,
         reward: float,
         next_state: ObsType,
-    ) -> None:
-        """Update Q-table using Bellman equation."""
+    ) -> float:
+        """Update Q-table using Bellman equation.
+
+        Returns:
+            td_error: The temporal difference error for logging
+        """
         assert isinstance(state, int)
         assert isinstance(next_state, int)
 
         old_score = self._q_table[state, action]
         next_max_q = float(max(self._q_table[next_state]))
 
-        new_score = old_score + self._learning_rate * (
-            reward + self._gamma * next_max_q - old_score
-        )
+        td_target = reward + self._gamma * next_max_q
+        td_error = td_target - old_score
 
+        new_score = old_score + self._learning_rate * td_error
         self._q_table[state, action] = new_score
+
+        return abs(td_error)
 
 
 def q_table_train_loop(
     env: gym.Env[ObsType, ActType],
     q_table: NDArray[np.float32],
     q_config: QTableTrainConfig,
-) -> dict[str, Any]:
+    log_dir: str,
+) -> None:
     """Train the Q-table.
 
     For each episode:
@@ -142,47 +149,58 @@ def q_table_train_loop(
 
     Args:
         env (gym.Env): The environment.
-        trainer (QTableTrainer): The Q-table trainer.
+        q_table (NDArray[np.float32]): The Q-table.
         q_config (QTableTrainConfig): The training configuration.
-
-    Returns:
-        dict[str, Any]: The training metadata.
-            - episode_rewards: list[float]. Have to include this key.
+        log_dir: Directory for tensorboard logs.
     """
+    # Initialize tensorboard writer
+    writer = SummaryWriter(log_dir)
+    epsilon_schedule = ExponentialSchedule(
+        start_e=q_config.min_epsilon,
+        end_e=q_config.max_epsilon,
+        decay_rate=q_config.decay_rate,
+    )
     trainer = QTableTrainer(
         q_table=q_table,
         learning_rate=q_config.learning_rate,
         gamma=q_config.gamma,
-        epsilon_schedule=ExponentialSchedule(
-            start_e=q_config.min_epsilon,
-            end_e=q_config.max_epsilon,
-            decay_rate=q_config.decay_rate,
-        ),
+        epsilon_schedule=epsilon_schedule,
     )
 
-    episode_rewards = []
-    episode_lengths = []
+    global_step = 0
     for episode in tqdm(range(q_config.episodes)):
         state, _ = env.reset()
+
+        # Track episode-level statistics
+        episode_reward = 0.0
+        episode_steps = 0
 
         for _ in range(q_config.max_steps):
             action = trainer.action(state=state, episode=episode)
             next_state, reward, terminated, truncated, infos = env.step(action)
 
-            trainer.update(
+            # Update episode tracking
+            episode_reward += float(reward)
+            episode_steps += 1
+
+            td_error = trainer.update(
                 state=state,
                 action=action,
                 reward=float(reward),
                 next_state=next_state,
             )
+            global_step += 1
 
-            # Extract episode data from infos if available
-            ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-            episode_rewards.extend(ep_rewards)
-            episode_lengths.extend(ep_lengths)
+            # Log training metrics
+            writer.add_scalar("training/td_error", td_error, global_step)
+            writer.add_scalar("training/epsilon", epsilon_schedule(episode), global_step)
 
             if terminated or truncated:
+                # Log our manually tracked episode statistics
+                writer.add_scalar("episode/reward", episode_reward, global_step)
+                writer.add_scalar("episode/length", episode_steps, global_step)
                 break
             state = next_state
 
-    return {"episode_rewards": episode_rewards, "episode_lengths": episode_lengths}
+    # Close writer
+    writer.close()

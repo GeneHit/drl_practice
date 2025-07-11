@@ -78,7 +78,6 @@ def evaluate_and_save_results(
     env: gym.Env[Any, Any],
     agent: AgentBase,
     cfg_data: dict[str, Any],
-    train_result: dict[str, Any],
     additional_eval_data: dict[str, Any] | None = None,
 ) -> None:
     """Evaluate agent and save all results (model, training data, evaluation data, config).
@@ -124,7 +123,7 @@ def evaluate_and_save_results(
         # Import here to avoid circular imports
         from .file_utils import save_model_and_result
 
-        save_model_and_result(cfg_data, train_result, eval_result, agent=agent)
+        save_model_and_result(cfg_data, eval_result, agent=agent)
 
 
 def play_game_once(

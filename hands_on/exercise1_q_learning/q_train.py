@@ -1,4 +1,5 @@
 import argparse
+import os
 from typing import Any
 
 import gymnasium as gym
@@ -38,21 +39,16 @@ def q_table_train(
         q_table = np.zeros((obs_space.n, act_space.n), dtype=np.float32)
 
     # Train the Q-table using config parameters
-    train_data = q_table_train_loop(
+    q_table_train_loop(
         env=env,
         q_table=q_table,
         q_config=QTableTrainConfig.from_dict(cfg_data["hyper_params"]),
+        log_dir=os.path.join(cfg_data["output_params"]["output_dir"], "runs"),
     )
-    assert "episode_rewards" in train_data, "episode_rewards must be in train_data"
 
     # Create agent and evaluate/save results
     q_agent = QTable(q_table=q_table)
-    evaluate_and_save_results(
-        env=env,
-        agent=q_agent,
-        cfg_data=cfg_data,
-        train_result=train_data,
-    )
+    evaluate_and_save_results(env=env, agent=q_agent, cfg_data=cfg_data)
 
 
 def main(cfg_data: dict[str, Any]) -> None:

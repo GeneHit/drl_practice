@@ -6,7 +6,7 @@ Code:https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari.py
 """
 
 import argparse
-import time
+import os
 from typing import Any, Callable, cast
 
 import gymnasium as gym
@@ -74,18 +74,15 @@ def dqn_train_with_multi_envs(
         device = torch.device("mps")
     q_network = q_network.to(device)
 
-    # Start training
-    start_time = time.time()
-    train_result = dqn_train_loop(
+    dqn_train_loop(
         envs=envs,
         q_network=q_network,
         device=device,
         config=DQNTrainConfig.from_dict(cfg_data["hyper_params"]),
+        log_dir=os.path.join(cfg_data["output_params"]["output_dir"], "runs"),
     )
     envs.close()
-    assert "episode_rewards" in train_result, "episode_rewards must be in train_result"
-    duration_min = (time.time() - start_time) / 60
-    train_result["duration_min"] = duration_min
+
     # Update config with device info for saving
     cfg_data["env_params"].update({"device": str(device)})
 
@@ -93,9 +90,7 @@ def dqn_train_with_multi_envs(
     dqn_agent = DQNAgent(q_network=q_network)
     eval_env = env_fn()
     try:
-        evaluate_and_save_results(
-            env=eval_env, agent=dqn_agent, cfg_data=cfg_data, train_result=train_result
-        )
+        evaluate_and_save_results(env=eval_env, agent=dqn_agent, cfg_data=cfg_data)
     finally:
         eval_env.close()
 

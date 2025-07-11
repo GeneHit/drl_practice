@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 from numpy.typing import NDArray
 from torch import Tensor
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-# from torch.utils.tensorboard import SummaryWriter
 from hands_on.base import ActType
 from hands_on.exercise2_dqn.dqn_exercise import EnvsType, ObsType
 from hands_on.exercise3_reinforce.config import ReinforceConfig
@@ -123,7 +123,7 @@ class ReinforceTrainer:
         actions_numpy = action_tensor.cpu().numpy().astype(ActType)
         return cast(NDArray[ActType], actions_numpy)
 
-    def update(self, rewards: Sequence[float], log_probs: Tensor) -> None:
+    def update(self, rewards: Sequence[float], log_probs: Tensor) -> float:
         """Update the policy network with a episode's data.
 
         Don't support inputting batch episodes now, because it's complex
@@ -143,6 +143,10 @@ class ReinforceTrainer:
                 rewards of a episode, [episode_length, ]
             log_probs: Tensor
                 log probabilities of actions in a episode, [episode_length, ]
+
+        Returns
+        -------
+            loss: The policy loss value for logging
         """
         # Calculate returns (discounted cumulative rewards)
         returns: list[float] = []
@@ -176,6 +180,8 @@ class ReinforceTrainer:
             self._optimizer.step()
             self._optimizer.zero_grad()
             self._accumulated_episodes = 0
+
+        return float(total_loss.item())
 
     def flush_gradients(self) -> None:
         """Force an optimizer step with accumulated gradients.
@@ -220,8 +226,20 @@ def reinforce_train_loop(
     net: nn.Module,
     device: torch.device,
     config: ReinforceConfig,
-) -> dict[str, Any]:
-    """Train the policy network with multiple environments."""
+    log_dir: str,
+) -> None:
+    """Train the policy network with multiple environments.
+
+    Args:
+        envs: Vector environment for training
+        net: The policy network to train
+        device: Device to run computations on
+        config: Training configuration
+        log_dir: Directory for tensorboard logs.
+    """
+    # Initialize tensorboard writer
+    writer = SummaryWriter(log_dir)
+
     # Get environment info
     obs_shape = envs.single_observation_space.shape
     act_space = envs.single_action_space
@@ -247,9 +265,8 @@ def reinforce_train_loop(
     env_episode_buffers = [EpisodeBuffer() for _ in range(num_envs)]
     pre_done: NDArray[np.bool_] = np.zeros(num_envs, dtype=np.bool_)
     pbar = tqdm(total=config.global_episode, desc="Training")
-    episode_reward_history: list[float] = []
-    episode_length_history: list[int] = []
     episodes_completed = 0
+    episode_reward_step = 0
 
     while episodes_completed < config.global_episode:
         # Sample actions for all environments
@@ -288,7 +305,10 @@ def reinforce_train_loop(
                 )[1]
 
                 # Pass the tensor directly instead of converting to list
-                trainer.update(episode_rewards, episode_log_probs)
+                loss = trainer.update(episode_rewards, episode_log_probs)
+
+                # Log training metrics
+                writer.add_scalar("training/loss", loss, episodes_completed)
                 episodes_completed += 1
 
                 # Clear episode buffer for this environment
@@ -297,10 +317,16 @@ def reinforce_train_loop(
         # Get episode statistics from RecordEpisodeStatistics wrapper
         # Use the new utility function to extract episode data
         ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-        episode_reward_history.extend(ep_rewards)
-        episode_length_history.extend(ep_lengths)
+
+        # Log episode metrics when episodes complete
+        for idx, reward in enumerate(ep_rewards):
+            writer.add_scalar("episode/reward", reward, episode_reward_step)
+            writer.add_scalar("episode/length", ep_lengths[idx], episode_reward_step)
+            episode_reward_step += 1
 
     # Flush any remaining accumulated gradients at the end of training
     trainer.flush_gradients()
     pbar.close()
-    return {"episode_rewards": episode_reward_history, "episode_lengths": episode_length_history}
+
+    # Close writer
+    writer.close()

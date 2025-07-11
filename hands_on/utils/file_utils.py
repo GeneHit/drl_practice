@@ -21,7 +21,6 @@ def load_config_from_json(config_path: str | Path) -> dict[str, Any]:
 
 def save_model_and_result(
     cfg_data: dict[str, Any],
-    train_result: dict[str, Any],
     eval_result: dict[str, Any],
     agent: AgentBase,
 ) -> None:
@@ -36,9 +35,6 @@ def save_model_and_result(
     out_dir.mkdir(parents=True, exist_ok=True)
     # save the model
     agent.only_save_model(str(out_dir / output_params["model_filename"]))
-    # save the train result
-    with open(out_dir / output_params["train_result_filename"], "w") as f:
-        json.dump(train_result, f)
     # save all the config data
     with open(out_dir / output_params["params_filename"], "w") as f:
         json.dump(cfg_data, f)
