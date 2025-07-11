@@ -12,6 +12,7 @@ from tqdm import tqdm
 from hands_on.base import ActType
 from hands_on.exercise2_dqn.dqn_exercise import EnvsType, ObsType
 from hands_on.exercise3_reinforce.config import ReinforceConfig
+from hands_on.utils.env_utils import extract_episode_data_from_infos
 
 
 class Reinforce1DNet(nn.Module):
@@ -151,9 +152,7 @@ class ReinforceTrainer:
             returns.insert(0, G)
 
         # Convert to tensor and normalize
-        returns_tensor = torch.tensor(
-            returns, dtype=torch.float32, device=self._device
-        )
+        returns_tensor = torch.tensor(returns, dtype=torch.float32, device=self._device)
         if len(returns_tensor) > 1:
             returns_tensor = (returns_tensor - returns_tensor.mean()) / (
                 returns_tensor.std() + 1e-8
@@ -239,19 +238,18 @@ def reinforce_train_loop(
         grad_acc=config.grad_acc,
     )
 
-    episode_reward_history: list[float] = []
-    episode_length_history: list[int] = []
-    episodes_completed = 0
-
     # Initialize environments
     states, _ = envs.reset()
     assert isinstance(states, np.ndarray), "States must be numpy array"
 
-    # Create episode buffers for each environment
+    # Create variables for loop
     num_envs = len(states)
     env_episode_buffers = [EpisodeBuffer() for _ in range(num_envs)]
     pre_done: NDArray[np.bool_] = np.zeros(num_envs, dtype=np.bool_)
     pbar = tqdm(total=config.global_episode, desc="Training")
+    episode_reward_history: list[float] = []
+    episode_length_history: list[int] = []
+    episodes_completed = 0
 
     while episodes_completed < config.global_episode:
         # Sample actions for all environments
@@ -264,13 +262,9 @@ def reinforce_train_loop(
         # Store data in episode buffers for environments that were not done in previous step
         # This avoids storing invalid reset state transitions
         for env_idx in range(num_envs):
-            if not pre_done[
-                env_idx
-            ]:  # Only store if environment wasn't done in previous step
+            if not pre_done[env_idx]:  # Only store if environment wasn't done in previous step
                 env_episode_buffers[env_idx].add(
-                    states[env_idx],
-                    actions[env_idx].item(),
-                    float(rewards[env_idx]),
+                    states[env_idx], actions[env_idx].item(), float(rewards[env_idx])
                 )
 
         # Updates for next iteration
@@ -285,15 +279,12 @@ def reinforce_train_loop(
             if dones[env_idx] and len(env_buffer) > 0:
                 # Process the completed episode if we have data
                 # Get episode data from buffer
-                episode_states, episode_actions, episode_rewards = (
-                    env_buffer.get_episode_data()
-                )
+                episode_states, episode_actions, episode_rewards = env_buffer.get_episode_data()
 
                 # Get log probs for the actual actions taken during episode
                 # The target is get the seperated episode back-prop for each env
                 episode_log_probs = trainer.action_and_log_prob(
-                    state=np.array(episode_states),
-                    actions=episode_actions,
+                    state=np.array(episode_states), actions=episode_actions
                 )[1]
 
                 # Pass the tensor directly instead of converting to list
@@ -303,25 +294,13 @@ def reinforce_train_loop(
                 # Clear episode buffer for this environment
                 env_buffer.clear()
 
-        # Get episode statistics from RecordEpisodeStatistics wrapper (proper way)
-        if "episode" in infos:
-            if (
-                "_r" in infos["episode"]
-            ):  # _r marks which environments completed episodes
-                completed_mask = infos["episode"]["_r"]
-                if np.any(completed_mask):
-                    # Get rewards and lengths for completed episodes
-                    completed_rewards = infos["episode"]["r"][completed_mask]
-                    completed_lengths = infos["episode"]["l"][completed_mask]
-
-                    # Convert numpy arrays to Python lists and extend our episode lists
-                    episode_reward_history.extend(completed_rewards.tolist())
-                    episode_length_history.extend(completed_lengths.tolist())
+        # Get episode statistics from RecordEpisodeStatistics wrapper
+        # Use the new utility function to extract episode data
+        ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
+        episode_reward_history.extend(ep_rewards)
+        episode_length_history.extend(ep_lengths)
 
     # Flush any remaining accumulated gradients at the end of training
     trainer.flush_gradients()
     pbar.close()
-    return {
-        "episode_rewards": episode_reward_history,
-        "episode_lengths": episode_length_history,
-    }
+    return {"episode_rewards": episode_reward_history, "episode_lengths": episode_length_history}

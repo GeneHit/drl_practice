@@ -21,6 +21,7 @@ from torch import Tensor
 # from torch.utils.tensorboard import SummaryWriter
 from hands_on.base import ActType, AgentBase, ScheduleBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
+from hands_on.utils.env_utils import extract_episode_data_from_infos
 from hands_on.utils_for_coding.numpy_tensor_utils import (
     get_tensor_expanding_axis,
 )
@@ -33,9 +34,7 @@ from hands_on.utils_for_coding.scheduler_utils import LinearSchedule
 ObsType: TypeAlias = Union[np.uint8, np.float32]
 ArrayType: TypeAlias = Union[np.bool_, np.float32]
 EnvType: TypeAlias = gym.Env[NDArray[ObsType], ActType]
-EnvsType: TypeAlias = gym.vector.VectorEnv[
-    NDArray[ObsType], ActType, NDArray[ArrayType]
-]
+EnvsType: TypeAlias = gym.vector.VectorEnv[NDArray[ObsType], ActType, NDArray[ArrayType]]
 
 
 class QNet2D(nn.Module):
@@ -124,14 +123,10 @@ class DQNAgent(AgentBase):
         torch.save(self._q_network, pathname)
 
     @classmethod
-    def load_from_checkpoint(
-        cls, pathname: str, device: torch.device | None
-    ) -> "DQNAgent":
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "DQNAgent":
         """Load the DQN model."""
         assert pathname.endswith(".pth")
-        q_network = torch.load(
-            pathname, map_location=device, weights_only=False
-        )
+        q_network = torch.load(pathname, map_location=device, weights_only=False)
         q_network = q_network.to(device)
         return cls(q_network=q_network)
 
@@ -163,9 +158,7 @@ class DQNTrainer:
         """Synchronize target network with current Q-network."""
         self._target_net.load_state_dict(self._q_network.state_dict())
 
-    def action(
-        self, state: NDArray[ObsType], step: int, eval: bool = False
-    ) -> NDArray[ActType]:
+    def action(self, state: NDArray[ObsType], step: int, eval: bool = False) -> NDArray[ActType]:
         """Get action(s) for state(s).
 
         Args:
@@ -200,9 +193,7 @@ class DQNTrainer:
         random_mask = np.random.random(batch_size) < epsilon
         # Random actions for exploration
         num_random = int(np.sum(random_mask))
-        actions[random_mask] = np.random.randint(
-            0, self._action_n, size=num_random, dtype=ActType
-        )
+        actions[random_mask] = np.random.randint(0, self._action_n, size=num_random, dtype=ActType)
 
         # Greedy actions for exploitation
         if not np.all(random_mask):
@@ -232,9 +223,7 @@ class DQNTrainer:
         # Compute TD target using target network
         with torch.no_grad():
             target_max: Tensor = self._target_net(next_states).max(dim=1)[0]
-            td_target = rewards.flatten() + self._gamma * target_max * (
-                1 - dones.flatten().float()
-            )
+            td_target = rewards.flatten() + self._gamma * target_max * (1 - dones.flatten().float())
 
         # Get current Q-values for the actions taken
         self._q_network.train()
@@ -274,9 +263,7 @@ def dqn_train_loop(
     )
 
     # Create optimizer inside the function
-    optimizer = torch.optim.Adam(
-        q_network.parameters(), lr=config.learning_rate
-    )
+    optimizer = torch.optim.Adam(q_network.parameters(), lr=config.learning_rate)
 
     # Create trainer inside the function
     trainer = DQNTrainer(
@@ -343,21 +330,10 @@ def dqn_train_loop(
                 trainer.sync_target_net()
 
         # get the episode rewards from RecordEpisodeStatistics wrapper
-        # The wrapper provides episode data in vectorized format as numpy arrays
-        if "episode" in infos:
-            # Extract episode rewards and lengths for completed episodes
-            if (
-                "_r" in infos["episode"]
-            ):  # _r marks which environments completed episodes
-                completed_mask = infos["episode"]["_r"]
-                if np.any(completed_mask):
-                    # Get rewards and lengths for completed episodes
-                    completed_rewards = infos["episode"]["r"][completed_mask]
-                    completed_lengths = infos["episode"]["l"][completed_mask]
-
-                    # Convert numpy arrays to Python lists and extend our episode lists
-                    episode_rewards.extend(completed_rewards.tolist())
-                    episode_lengths.extend(completed_lengths.tolist())
+        # Use the new utility function to extract episode data
+        ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
+        episode_rewards.extend(ep_rewards)
+        episode_lengths.extend(ep_lengths)
 
     return {
         "episode_rewards": episode_rewards,

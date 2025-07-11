@@ -7,6 +7,39 @@ from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
 
+def extract_episode_data_from_infos(infos: dict[str, Any]) -> tuple[list[float], list[int]]:
+    """Extract episode rewards and lengths from infos dictionary.
+
+    This function works with the RecordEpisodeStatistics wrapper which provides
+    episode data in vectorized format as numpy arrays.
+
+    Args:
+        infos: Info dictionary from environment step containing episode statistics
+
+    Returns:
+        Tuple of (episode_rewards, episode_lengths) as lists of floats and ints
+        Returns empty lists if no episodes completed in this step
+    """
+    episode_rewards: list[float] = []
+    episode_lengths: list[int] = []
+
+    # Check if episode statistics are available
+    if "episode" in infos:
+        # _r marks which environments completed episodes
+        if "_r" in infos["episode"]:
+            completed_mask = infos["episode"]["_r"]
+            if np.any(completed_mask):
+                # Get rewards and lengths for completed episodes
+                completed_rewards = infos["episode"]["r"][completed_mask]
+                completed_lengths = infos["episode"]["l"][completed_mask]
+
+                # Convert numpy arrays to Python lists
+                episode_rewards.extend(completed_rewards.tolist())
+                episode_lengths.extend(completed_lengths.tolist())
+
+    return episode_rewards, episode_lengths
+
+
 def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:
     stack = []
     while hasattr(env, "env"):
@@ -39,9 +72,7 @@ def make_image_env(
     # -> [**shape, 1] -> [4, **shape, 1]
     env = gym.wrappers.FrameStackObservation(env, stack_size=frame_stack_size)
     obs_shape = (frame_stack_size, *resize_shape)
-    transposed_space = gym.spaces.Box(
-        low=0, high=255, shape=obs_shape, dtype=np.uint8
-    )
+    transposed_space = gym.spaces.Box(low=0, high=255, shape=obs_shape, dtype=np.uint8)
     # -> [num_stack, **shape, 1] -> [num_stack, **shape]
     env = gym.wrappers.TransformObservation(
         env,
@@ -108,6 +139,8 @@ def make_discrete_env_with_kwargs(
         type: numpy.int64, act.dtype: int64, act.shape: (), act_n: int
     """
     env = gym.make(id=env_id, **kwargs)
+    # Add episode statistics tracking - tracks cumulative rewards and episode lengths
+    env = gym.wrappers.RecordEpisodeStatistics(env)
 
     act_space = env.action_space
     obs_space = env.observation_space

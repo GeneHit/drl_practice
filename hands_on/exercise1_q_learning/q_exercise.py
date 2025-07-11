@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from hands_on.base import ActType, AgentBase, ScheduleBase
 from hands_on.exercise1_q_learning.config import QTableTrainConfig
+from hands_on.utils.env_utils import extract_episode_data_from_infos
 from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 # because q_table is use for the discrete action and observation space
@@ -28,9 +29,7 @@ def greedy_policy(q_table: NDArray[np.float32], state: int) -> ActType:
     return np.argmax(q_table[state])
 
 
-def epsilon_greedy_policy(
-    q_table: NDArray[np.float32], state: int, epsilon: float
-) -> ActType:
+def epsilon_greedy_policy(q_table: NDArray[np.float32], state: int, epsilon: float) -> ActType:
     """Take an action with the epsilon-greedy strategy.
 
     2 strategies:
@@ -73,9 +72,7 @@ class QTable(AgentBase):
             pickle.dump(self._q_table, f)
 
     @classmethod
-    def load_from_checkpoint(
-        cls, pathname: str, device: torch.device | None
-    ) -> "QTable":
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "QTable":
         """Load the Q-table from a file."""
         with open(pathname, "rb") as f:
             q_table = pickle.load(f)
@@ -164,14 +161,13 @@ def q_table_train_loop(
     )
 
     episode_rewards = []
+    episode_lengths = []
     for episode in tqdm(range(q_config.episodes)):
-        rewards = 0.0
         state, _ = env.reset()
 
         for _ in range(q_config.max_steps):
             action = trainer.action(state=state, episode=episode)
-            next_state, reward, terminated, truncated, _ = env.step(action)
-            rewards += float(reward)
+            next_state, reward, terminated, truncated, infos = env.step(action)
 
             trainer.update(
                 state=state,
@@ -180,9 +176,13 @@ def q_table_train_loop(
                 next_state=next_state,
             )
 
+            # Extract episode data from infos if available
+            ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
+            episode_rewards.extend(ep_rewards)
+            episode_lengths.extend(ep_lengths)
+
             if terminated or truncated:
                 break
             state = next_state
-        episode_rewards.append(rewards)
 
-    return {"episode_rewards": episode_rewards}
+    return {"episode_rewards": episode_rewards, "episode_lengths": episode_lengths}
