@@ -1,6 +1,6 @@
 {
     "hyper_params": {
-        "global_episode": 1000,
+        "global_episode": 4000,
         "lr": 1e-4,
         "gamma": 0.99,
         "grad_acc": 1,
@@ -9,11 +9,13 @@
     },
     "env_params": {
         "env_id": "Acrobot-v1",
-        "max_steps": 1000
+        "max_steps": 1000,
+        "render_mode": "rgb_array"
     },
     "eval_params": {
         "eval_episodes": 20,
-        "eval_seed": [1, 55, 44, 23, 12, 34, 86, 78, 90, 100, 166, 127, 134, 145, 151, 115, 178, 189, 190, 200]
+        "eval_seed": [1, 55, 44, 23, 12, 34, 86, 78, 90, 100, 166, 127, 134, 145, 151, 115, 178, 189, 190, 200],
+        "record_video": true
     },
     "output_params": {
         "output_dir": "results/exercise3_reinforce/acrobot/",

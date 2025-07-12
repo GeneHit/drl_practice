@@ -83,7 +83,11 @@ def reinforce_main(cfg_data: dict[str, Any]) -> None:
     env_params = cfg_data["env_params"]
 
     def env_fn() -> EnvType:
-        env, _ = make_1d_env(env_id=env_params["env_id"], max_steps=env_params.get("max_steps"))
+        env, _ = make_1d_env(
+            env_id=env_params["env_id"],
+            max_steps=env_params.get("max_steps"),
+            render_mode=env_params.get("render_mode"),
+        )
         return cast(EnvType, env)
 
     # Create vector environment
