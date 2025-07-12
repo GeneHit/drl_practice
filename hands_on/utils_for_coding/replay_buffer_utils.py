@@ -49,9 +49,7 @@ class ReplayBuffer:
         self._states = np.empty((capacity, *state_shape), dtype=state_dtype)
         self._actions = np.empty(capacity, dtype=action_dtype)
         self._rewards = np.empty(capacity, dtype=np.float32)
-        self._next_states = np.empty(
-            (capacity, *state_shape), dtype=state_dtype
-        )
+        self._next_states = np.empty((capacity, *state_shape), dtype=state_dtype)
         self._dones = np.empty(capacity, dtype=np.bool_)
 
     def add_one(
@@ -87,50 +85,20 @@ class ReplayBuffer:
         batch_size = len(states)
         if self._ptr + batch_size <= self._capacity:
             # no wrap-around writing
-            indices: Union[slice, list[slice]] = slice(
-                self._ptr, self._ptr + batch_size
-            )
+            indices: Union[slice, list[slice]] = slice(self._ptr, self._ptr + batch_size)
         else:
             # segment writing (wrap-around case)
             head_size = self._capacity - self._ptr
             indices = [slice(self._ptr, None), slice(0, batch_size - head_size)]
 
         # batch writing
-        for i, data in enumerate(
-            [states, actions, rewards, next_states, dones]
-        ):
+        attr_names = ["_states", "_actions", "_rewards", "_next_states", "_dones"]
+        for i, data in enumerate([states, actions, rewards, next_states, dones]):
             if isinstance(indices, list):
-                getattr(
-                    self,
-                    [
-                        "_states",
-                        "_actions",
-                        "_rewards",
-                        "_next_states",
-                        "_dones",
-                    ][i],
-                )[indices[0]] = data[:head_size]
-                getattr(
-                    self,
-                    [
-                        "_states",
-                        "_actions",
-                        "_rewards",
-                        "_next_states",
-                        "_dones",
-                    ][i],
-                )[indices[1]] = data[head_size:]
+                getattr(self, attr_names[i])[indices[0]] = data[:head_size]
+                getattr(self, attr_names[i])[indices[1]] = data[head_size:]
             else:
-                getattr(
-                    self,
-                    [
-                        "_states",
-                        "_actions",
-                        "_rewards",
-                        "_next_states",
-                        "_dones",
-                    ][i],
-                )[indices] = data
+                getattr(self, attr_names[i])[indices] = data
 
         # update pointer and count
         self._ptr = (self._ptr + batch_size) % self._capacity
@@ -164,8 +132,5 @@ class ReplayBuffer:
 
     def _warn_if_necessary(self, state: NDArray[Any]) -> None:
         if state.dtype != self._state_type and not self._printed_warning:
-            print(
-                f"Warning: state dtype mismatch, expected {self._state_type}, "
-                f"got {state.dtype}"
-            )
+            print(f"Warning: state dtype mismatch, expected {self._state_type}, got {state.dtype}")
             self._printed_warning = True

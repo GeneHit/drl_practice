@@ -17,18 +17,10 @@ from hands_on.utils.env_utils import extract_episode_data_from_infos
 
 class Reinforce1DNet(nn.Module):
     def __init__(
-        self,
-        state_dim: int,
-        action_dim: int,
-        hidden_dim: int = 128,
-        layer_num: int = 2,
+        self, state_dim: int, action_dim: int, hidden_dim: int = 128, layer_num: int = 2
     ) -> None:
         super().__init__()
-        layers = [
-            nn.Linear(state_dim, hidden_dim),
-            nn.ReLU(),
-        ]
-
+        layers = [nn.Linear(state_dim, hidden_dim), nn.ReLU()]
         for _ in range(layer_num - 1):
             layers.append(nn.Linear(hidden_dim, hidden_dim))
             layers.append(nn.ReLU())
@@ -222,11 +214,7 @@ class EpisodeBuffer:
 
 
 def reinforce_train_loop(
-    envs: EnvsType,
-    net: nn.Module,
-    device: torch.device,
-    config: ReinforceConfig,
-    log_dir: str,
+    envs: EnvsType, net: nn.Module, device: torch.device, config: ReinforceConfig, log_dir: str
 ) -> None:
     """Train the policy network with multiple environments.
 

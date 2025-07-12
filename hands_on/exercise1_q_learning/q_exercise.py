@@ -156,9 +156,7 @@ def q_table_train_loop(
     # Initialize tensorboard writer
     writer = SummaryWriter(log_dir)
     epsilon_schedule = ExponentialSchedule(
-        start_e=q_config.min_epsilon,
-        end_e=q_config.max_epsilon,
-        decay_rate=q_config.decay_rate,
+        start_e=q_config.min_epsilon, end_e=q_config.max_epsilon, decay_rate=q_config.decay_rate
     )
     trainer = QTableTrainer(
         q_table=q_table,
@@ -177,17 +175,14 @@ def q_table_train_loop(
 
         for _ in range(q_config.max_steps):
             action = trainer.action(state=state, episode=episode)
-            next_state, reward, terminated, truncated, infos = env.step(action)
+            next_state, reward, terminated, truncated, _ = env.step(action)
 
             # Update episode tracking
             episode_reward += float(reward)
             episode_steps += 1
 
             td_error = trainer.update(
-                state=state,
-                action=action,
-                reward=float(reward),
-                next_state=next_state,
+                state=state, action=action, reward=float(reward), next_state=next_state
             )
             global_step += 1
 
