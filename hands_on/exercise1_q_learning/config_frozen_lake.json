@@ -34,6 +34,7 @@
         "repo_id": "q-FrozenLake-v1-4x4-noSlippery"
     },
     "_notes": [
-        "checkpoint_pathname: results/exercise1_q/frozen_lake/q_table.pkl"
+        "checkpoint_pathname: results/exercise1_q/frozen_lake/q_table.pkl",
+        "max_steps: FrozenLake default 100 for 4x4 environment, 200 for 8x8-v1."
     ]
 }

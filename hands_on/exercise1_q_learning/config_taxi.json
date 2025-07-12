@@ -32,6 +32,7 @@
         "repo_id": "q-Taxi-v3"
     },
     "_notes": [
-        "checkpoint_pathname: results/exercise1_q/taxi/q_table_taxi.pkl"
+        "checkpoint_pathname: results/exercise1_q/taxi/q_table_taxi.pkl",
+        "max_steps: Taxi-v3 default 200."
     ]
 }

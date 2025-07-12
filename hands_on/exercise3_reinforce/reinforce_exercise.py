@@ -1,3 +1,4 @@
+import time
 from typing import Any, Sequence, cast
 
 import gymnasium as gym
@@ -255,6 +256,8 @@ def reinforce_train_loop(
     pbar = tqdm(total=config.global_episode, desc="Training")
     episodes_completed = 0
     episode_reward_step = 0
+    start_time = time.time()
+    global_step = 0
 
     while episodes_completed < config.global_episode:
         # Sample actions for all environments
@@ -279,8 +282,6 @@ def reinforce_train_loop(
         # Check for completed episodes and process them
         for env_idx in range(num_envs):
             env_buffer = env_episode_buffers[env_idx]
-            if dones[env_idx]:
-                pbar.update(1)
             if dones[env_idx] and len(env_buffer) > 0:
                 # Process the completed episode if we have data
                 # Get episode data from buffer
@@ -296,8 +297,9 @@ def reinforce_train_loop(
                 loss = trainer.update(episode_rewards, episode_log_probs)
 
                 # Log training metrics
-                writer.add_scalar("training/loss", loss, episodes_completed)
+                writer.add_scalar("losses/td_loss", loss, episodes_completed)
                 episodes_completed += 1
+                pbar.update(1)
 
                 # Clear episode buffer for this environment
                 env_buffer.clear()
@@ -305,12 +307,14 @@ def reinforce_train_loop(
         # Get episode statistics from RecordEpisodeStatistics wrapper
         # Use the new utility function to extract episode data
         ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-
         # Log episode metrics when episodes complete
         for idx, reward in enumerate(ep_rewards):
             writer.add_scalar("episode/reward", reward, episode_reward_step)
             writer.add_scalar("episode/length", ep_lengths[idx], episode_reward_step)
             episode_reward_step += 1
+
+        global_step += 1
+        writer.add_scalar("charts/SPS", int(global_step / time.time() - start_time), global_step)
 
     # Flush any remaining accumulated gradients at the end of training
     trainer.flush_gradients()

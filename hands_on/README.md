@@ -64,7 +64,7 @@ Launch TensorBoard to view training metrics:
     ```
     For example:
     ```
-    python hands_on/tensorboard_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json
+    python hands_on/tensorboard_cli.py --config hands_on/exercise3_reinforce/config_cartpole.json
     ```
 3. Open the displayed URL in your browser to view the TensorBoard dashboard with training metrics, episode rewards, and other logged data.
 
@@ -157,27 +157,27 @@ The unified main script for policy gradient learning using REINFORCE algorithm.
 
 Train the REINFORCE agent:
 ```
-python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/config_cartpole.json
 ```
 
 Train without playing/video generation:
 ```
-python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --skip_play
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/config_cartpole.json --skip_play
 ```
 
 Generate a replay video only:
 ```
-python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode play_only
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/config_cartpole.json --mode play_only
 ```
 
 Push model to HuggingFace hub (with video generation):
 ```
-python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/config_cartpole.json --mode push_to_hub --username $YOUR_USERNAME$
 ```
 
 Push model to HuggingFace hub (without video generation):
 ```
-python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/cartpole_config.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
+python hands_on/exercise3_reinforce/reinforce_cli.py --config hands_on/exercise3_reinforce/config_cartpole.json --mode push_to_hub --username $YOUR_USERNAME$ --skip_play
 ```
 
 **Note:** Replace `$YOUR_USERNAME$` with your HuggingFace account name.

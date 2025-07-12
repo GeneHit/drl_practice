@@ -46,7 +46,7 @@ def evaluate_agent(
         )
 
     rewards = []
-    for episode in tqdm(range(episodes)):
+    for episode in tqdm(range(episodes), desc="Evaluating"):
         if seed:
             state, _ = env.reset(seed=seed[episode])
         else:
