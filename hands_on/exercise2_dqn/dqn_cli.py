@@ -8,8 +8,8 @@ This script supports different modes:
 
 from typing import Any
 
-from hands_on.exercise2_dqn.dqn_exercise import DQNAgent
-from hands_on.exercise2_dqn.dqn_train import main as train_main
+from hands_on.exercise2_dqn.dqn_train import main as dqn_train
+from hands_on.utils.agent_utils import NNAgent
 from hands_on.utils.cli_utils import (
     create_env_from_config,
     create_main_function,
@@ -38,7 +38,7 @@ def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
     play_and_generate_video_generic(
         cfg_data=cfg_data,
         env_creator=create_env_from_config,
-        model_loader=DQNAgent,
+        model_loader=NNAgent,
         device=get_device(),
         fps=10,
         seed=99,
@@ -49,7 +49,7 @@ def play_and_generate_video(cfg_data: dict[str, Any]) -> None:
 main = create_main_function(
     script_name="dqn_main.py",
     algorithm_name="DQN",
-    train_fn=train_main,
+    train_fn=dqn_train,
     push_to_hub_fn=push_to_hub_wrapper,
     play_and_generate_video_fn=play_and_generate_video,
     config_example="config.json",

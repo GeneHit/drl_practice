@@ -19,12 +19,9 @@ from numpy.typing import NDArray
 from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 
-from hands_on.base import ActType, AgentBase, ScheduleBase
+from hands_on.base import ActType, ScheduleBase
 from hands_on.exercise2_dqn.config import DQNTrainConfig
 from hands_on.utils.env_utils import extract_episode_data_from_infos
-from hands_on.utils_for_coding.numpy_tensor_utils import (
-    get_tensor_expanding_axis,
-)
 from hands_on.utils_for_coding.replay_buffer_utils import (
     Experience,
     ReplayBuffer,
@@ -95,40 +92,6 @@ class QNet1D(nn.Module):
         y = self.network(x)
         assert isinstance(y, torch.Tensor)  # make mypy happy
         return y
-
-
-class DQNAgent(AgentBase):
-    """DQN agent for evaluation/gameplay.
-
-    This agent is focused on action selection using a trained Q-network.
-    It does not handle training-specific operations.
-    """
-
-    def __init__(self, q_network: nn.Module) -> None:
-        self._q_network = q_network
-        self._device = next(q_network.parameters()).device
-
-    def action(self, state: NDArray[ObsType]) -> ActType:
-        """Get action for single state using greedy policy."""
-        # Always use greedy policy for trained agent evaluation
-        self._q_network.eval()
-        state_tensor = get_tensor_expanding_axis(state).to(self._device)
-        with torch.no_grad():
-            q_values = self._q_network(state_tensor).cpu()
-        return ActType(q_values.argmax().item())
-
-    def only_save_model(self, pathname: str) -> None:
-        """Save the DQN model."""
-        assert pathname.endswith(".pth")
-        torch.save(self._q_network, pathname)
-
-    @classmethod
-    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "DQNAgent":
-        """Load the DQN model."""
-        assert pathname.endswith(".pth")
-        q_network = torch.load(pathname, map_location=device, weights_only=False)
-        q_network = q_network.to(device)
-        return cls(q_network=q_network)
 
 
 class DQNTrainer:

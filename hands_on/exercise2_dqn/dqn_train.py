@@ -17,13 +17,13 @@ from gymnasium.spaces import Discrete
 # from torch.utils.tensorboard import SummaryWriter
 from hands_on.exercise2_dqn.config import DQNTrainConfig
 from hands_on.exercise2_dqn.dqn_exercise import (
-    DQNAgent,
     EnvsType,
     EnvType,
     QNet1D,
     QNet2D,
     dqn_train_loop,
 )
+from hands_on.utils.agent_utils import NNAgent
 from hands_on.utils.env_utils import make_1d_env, make_image_env
 from hands_on.utils.evaluation_utils import evaluate_and_save_results
 from hands_on.utils.file_utils import (
@@ -87,7 +87,7 @@ def dqn_train_with_multi_envs(
     cfg_data["env_params"].update({"device": str(device)})
 
     # Create agent and evaluate/save results on a single environment
-    dqn_agent = DQNAgent(q_network=q_network)
+    dqn_agent = NNAgent(net=q_network)
     eval_env = env_fn()
     try:
         evaluate_and_save_results(env=eval_env, agent=dqn_agent, cfg_data=cfg_data)
