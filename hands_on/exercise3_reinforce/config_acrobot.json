@@ -8,8 +8,7 @@
         "use_multi_processing": true
     },
     "env_params": {
-        "env_id": "Acrobot-v1",
-        "render_mode": "rgb_array"
+        "env_id": "Acrobot-v1"
     },
     "eval_params": {
         "eval_episodes": 20,

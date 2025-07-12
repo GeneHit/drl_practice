@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from hands_on.base import ActType
+from hands_on.base import ActType, RewardBase
 from hands_on.exercise2_dqn.dqn_exercise import EnvsType, ObsType
 from hands_on.exercise3_reinforce.config import ReinforceConfig
 from hands_on.utils.env_utils import extract_episode_data_from_infos
@@ -61,6 +61,7 @@ class ReinforceTrainer:
         self._state_shape = state_shape
         self._grad_acc = grad_acc
         self._episode_count = 0
+        self._net.train()  # Ensure network is in training mode
 
         # Track episodes since last optimizer step
         self._accumulated_episodes = 0
@@ -88,7 +89,6 @@ class ReinforceTrainer:
         state_batch = state if not is_single else state.reshape(1, *state.shape)
         state_tensor = torch.from_numpy(state_batch).to(self._device)
 
-        self._net.train()  # Ensure network is in training mode
         probs = self._net(state_tensor)
         dist = torch.distributions.Categorical(probs)
 
@@ -112,8 +112,9 @@ class ReinforceTrainer:
         Returns:
             actions: Sampled actions as numpy array
         """
-        action_tensor = self.action_and_log_prob(state, actions=None)[0]
-        actions_numpy = action_tensor.cpu().numpy().astype(ActType)
+        with torch.no_grad():
+            action_tensor = self.action_and_log_prob(state, actions=None)[0]
+            actions_numpy = action_tensor.cpu().numpy().astype(ActType)
         return cast(NDArray[ActType], actions_numpy)
 
     def update(self, rewards: Sequence[float], log_probs: Tensor) -> float:
@@ -142,11 +143,11 @@ class ReinforceTrainer:
             loss: The policy loss value for logging
         """
         # Calculate returns (discounted cumulative rewards)
-        returns: list[float] = []
-        G = 0.0
-        for reward in reversed(rewards):
-            G = reward + self._gamma * G
-            returns.insert(0, G)
+        returns: list[float] = [0.0] * len(rewards)
+        disc_return_t = 0.0
+        for i in range(len(rewards) - 1, -1, -1):
+            disc_return_t = rewards[i] + self._gamma * disc_return_t
+            returns[i] = disc_return_t
 
         # Convert to tensor and normalize
         returns_tensor = torch.tensor(returns, dtype=torch.float32, device=self._device)
@@ -196,7 +197,7 @@ class EpisodeBuffer:
         self.rewards: list[float] = []
 
     def add(self, state: NDArray[Any], action: ActType, reward: float) -> None:
-        self.states.append(state.copy())
+        self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
 
@@ -215,9 +216,16 @@ class EpisodeBuffer:
 
 
 def reinforce_train_loop(
-    envs: EnvsType, net: nn.Module, device: torch.device, config: ReinforceConfig, log_dir: str
+    envs: EnvsType,
+    net: nn.Module,
+    device: torch.device,
+    config: ReinforceConfig,
+    log_dir: str,
+    rewarders: Sequence[RewardBase] = [],
 ) -> None:
     """Train the policy network with multiple environments.
+
+    Note: the rewards is used for the exercise4_curiosity.
 
     Args:
         envs: Vector environment for training
@@ -225,6 +233,7 @@ def reinforce_train_loop(
         device: Device to run computations on
         config: Training configuration
         log_dir: Directory for tensorboard logs.
+        rewarders: the rewarders to use for training.
     """
     # Initialize tensorboard writer
     writer = SummaryWriter(log_dir)
@@ -267,12 +276,20 @@ def reinforce_train_loop(
         next_states, rewards, terms, truncs, infos = envs.step(actions.tolist())
         dones = np.logical_or(terms, truncs)
 
+        # Calculate intrinsic rewards
+        copy_rewards = rewards.astype(np.float64)  # make mypy happy
+        new_rewards = copy_rewards.copy()
+        for rewarder in rewarders:
+            intrinsic_reward = rewarder.get_reward(states, next_states)
+            # Ensure type compatibility by explicitly casting to float64
+            new_rewards = new_rewards + intrinsic_reward
+
         # Store data in episode buffers for environments that were not done in previous step
         # This avoids storing invalid reset state transitions
         for env_idx in range(num_envs):
             if not pre_done[env_idx]:  # Only store if environment wasn't done in previous step
                 env_episode_buffers[env_idx].add(
-                    states[env_idx], actions[env_idx].item(), float(rewards[env_idx])
+                    states[env_idx], actions[env_idx].item(), float(new_rewards[env_idx])
                 )
 
         # Updates for next iteration
@@ -314,11 +331,18 @@ def reinforce_train_loop(
             episode_reward_step += 1
 
         global_step += 1
-        writer.add_scalar("charts/SPS", int(global_step / time.time() - start_time), global_step)
+        if global_step % 100 == 0:
+            writer.add_scalar(
+                "charts/SPS", int(global_step / time.time() - start_time), global_step
+            )
+            if len(rewarders) > 0:
+                writer.add_scalar("rewards/intrinsic_mean", np.mean(new_rewards), global_step)
+                writer.add_scalar("rewards/intrinsic_std", np.std(new_rewards), global_step)
+            writer.add_scalar("rewards/sys_mean", np.mean(copy_rewards), global_step)
+            writer.add_scalar("rewards/sys_std", np.std(copy_rewards), global_step)
 
     # Flush any remaining accumulated gradients at the end of training
     trainer.flush_gradients()
-    pbar.close()
 
     # Close writer
     writer.close()

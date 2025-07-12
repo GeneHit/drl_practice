@@ -155,7 +155,7 @@ class TestReinforceTraining:
 
         try:
             # Run training
-            reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
+            reinforce_train_with_envs(envs=envs, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training completed successfully"
@@ -190,7 +190,7 @@ class TestReinforceTraining:
 
         try:
             # Run training
-            reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
+            reinforce_train_with_envs(envs=envs, cfg_data=test_config)
 
             # Check that output files were created
             output_dir = Path(test_config["output_params"]["output_dir"])
@@ -252,7 +252,7 @@ class TestReinforceTraining:
 
         try:
             # Run training from checkpoint
-            reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
+            reinforce_train_with_envs(envs=envs, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training from checkpoint completed successfully"
@@ -429,7 +429,7 @@ class TestReinforceTraining:
             # Mock device detection to test CPU path
             with patch("torch.cuda.is_available", return_value=False):
                 with patch("torch.backends.mps.is_available", return_value=False):
-                    reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=test_config)
+                    reinforce_train_with_envs(envs=envs, cfg_data=test_config)
 
             # Test passes if training completes on CPU
             assert True, "Training completed successfully on CPU"

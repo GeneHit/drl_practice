@@ -1,6 +1,7 @@
 import os
 from typing import Any, Callable, cast
 
+import gymnasium as gym
 import torch
 from gymnasium.spaces import Discrete
 
@@ -10,14 +11,14 @@ from hands_on.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     reinforce_train_loop,
 )
+from hands_on.exercise4_curiosity.curiosity_exercise import RNDNetwork1D, RNDReward
 from hands_on.utils.agent_utils import NNAgent
-from hands_on.utils.env_utils import get_device
+from hands_on.utils.env_utils import get_device, make_1d_env
 from hands_on.utils.evaluation_utils import evaluate_and_save_results
 
 
 def reinforce_train_with_envs(
     envs: EnvsType,
-    env_fn: Callable[[], EnvType],
     cfg_data: dict[str, Any],
 ) -> None:
     """Main training function for multi-environment REINFORCE."""
@@ -33,10 +34,31 @@ def reinforce_train_with_envs(
         raise NotImplementedError("2D observation space not implemented for REINFORCE")
     net = Reinforce1DNet(state_dim=obs_shape[0], action_dim=action_n, hidden_dim=128, layer_num=2)
 
+    intrinsic_rewarders = []
+    if "model_params" in cfg_data and "intrinsic_rewarders" in cfg_data["model_params"]:
+        for intrinsic_rewarder in cfg_data["model_params"]["intrinsic_rewarders"]:
+            if intrinsic_rewarder["type"] == "RNDNetwork":
+                intrinsic_rewarders.append(
+                    RNDReward(
+                        network=RNDNetwork1D(
+                            obs_dim=obs_shape[0],
+                            output_dim=intrinsic_rewarder["params"]["output_dim"],
+                        ),
+                        device=get_device(),
+                        beta=intrinsic_rewarder["params"]["beta"],
+                    )
+                )
+
     # Load checkpoint if exists
     checkpoint_pathname = cfg_data.get("checkpoint_pathname", None)
     if checkpoint_pathname:
-        net.load_state_dict(torch.load(checkpoint_pathname))
+        checkpoint = torch.load(checkpoint_pathname, weights_only=False)
+        if isinstance(checkpoint, dict):
+            # It's a state_dict
+            net.load_state_dict(checkpoint)
+        else:
+            # It's a full model, extract state_dict
+            net.load_state_dict(checkpoint.state_dict())
 
     # Set device
     device = get_device()
@@ -49,12 +71,17 @@ def reinforce_train_with_envs(
         device=device,
         config=ReinforceConfig.from_dict(cfg_data["hyper_params"]),
         log_dir=os.path.join(cfg_data["output_params"]["output_dir"], "runs"),
+        rewarders=intrinsic_rewarders,
     )
     envs.close()
 
     # Create agent and evaluate/save results on a single environment
     agent = NNAgent(net=net)
-    eval_env = env_fn()
+    eval_env, _ = make_1d_env(
+        env_id=cfg_data["env_params"]["env_id"],
+        max_steps=cfg_data["env_params"].get("max_steps"),
+        render_mode="rgb_array",
+    )
 
     try:
         evaluate_and_save_results(env=eval_env, agent=agent, cfg_data=cfg_data)
@@ -64,10 +91,6 @@ def reinforce_train_with_envs(
 
 def reinforce_main(cfg_data: dict[str, Any]) -> None:
     """Main function to setup environments and start training."""
-    # Import here to avoid circular imports
-    import gymnasium as gym
-
-    from hands_on.utils.env_utils import make_1d_env
 
     def _make_vector_env(
         env_fn: Callable[[], EnvType],
@@ -83,17 +106,15 @@ def reinforce_main(cfg_data: dict[str, Any]) -> None:
     env_params = cfg_data["env_params"]
 
     def env_fn() -> EnvType:
-        env, _ = make_1d_env(
-            env_id=env_params["env_id"],
-            max_steps=env_params.get("max_steps"),
-            render_mode=env_params.get("render_mode"),
-        )
+        env, _ = make_1d_env(env_id=env_params["env_id"], max_steps=env_params.get("max_steps"))
         return cast(EnvType, env)
 
     # Create vector environment
-    num_envs: int = cfg_data["hyper_params"]["num_envs"]
-    use_multi_processing: bool = cfg_data["hyper_params"].get("use_multi_processing", False)
-    envs = _make_vector_env(env_fn, num_envs, use_multi_processing)
+    envs = _make_vector_env(
+        env_fn=env_fn,
+        num_envs=int(cfg_data["hyper_params"]["num_envs"]),
+        use_multi_processing=cfg_data["hyper_params"].get("use_multi_processing", False),
+    )
 
     # Get environment info and update config
     temp_env, more_env_info = make_1d_env(
@@ -104,7 +125,7 @@ def reinforce_main(cfg_data: dict[str, Any]) -> None:
 
     # Start training
     try:
-        reinforce_train_with_envs(envs=envs, env_fn=env_fn, cfg_data=cfg_data)
+        reinforce_train_with_envs(envs=envs, cfg_data=cfg_data)
     finally:
         if not envs.closed:
             envs.close()

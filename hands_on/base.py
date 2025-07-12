@@ -3,6 +3,7 @@ from typing import Any, TypeAlias
 
 import numpy as np
 import torch
+from numpy.typing import NDArray
 
 ActType: TypeAlias = np.int64
 
@@ -40,9 +41,7 @@ class AgentBase(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def load_from_checkpoint(
-        cls, pathname: str, device: torch.device | None
-    ) -> "AgentBase":
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "AgentBase":
         """Load the policy from a checkpoint."""
 
 
@@ -59,3 +58,13 @@ class ScheduleBase(abc.ABC):
         epsilon = schedule(t=100)
         ```
         """
+
+
+class RewardBase(abc.ABC):
+    """Base class for the personal rewards."""
+
+    @abc.abstractmethod
+    def get_reward(
+        self, state: NDArray[Any], next_state: NDArray[Any]
+    ) -> NDArray[np.floating[Any]]:
+        """Get the reward for the given state and action."""

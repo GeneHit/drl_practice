@@ -66,7 +66,13 @@ def dqn_train_with_multi_envs(
     # Load checkpoint if exists
     checkpoint_pathname = cfg_data.get("checkpoint_pathname", None)
     if checkpoint_pathname:
-        q_network.load_state_dict(torch.load(checkpoint_pathname))
+        checkpoint = torch.load(checkpoint_pathname, weights_only=False)
+        if isinstance(checkpoint, dict):
+            # It's a state_dict
+            q_network.load_state_dict(checkpoint)
+        else:
+            # It's a full model, extract state_dict
+            q_network.load_state_dict(checkpoint.state_dict())
 
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
