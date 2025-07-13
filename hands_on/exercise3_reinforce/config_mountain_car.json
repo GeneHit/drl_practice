@@ -3,9 +3,7 @@
         "global_episode": 10000,
         "lr": 1e-3,
         "gamma": 0.99,
-        "grad_acc": 1,
-        "num_envs": 6,
-        "use_multi_processing": true
+        "grad_acc": 1
     },
     "env_params": {
         "env_id": "MountainCar-v0"

@@ -11,9 +11,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from hands_on.base import ActType, RewardBase
-from hands_on.exercise2_dqn.dqn_exercise import EnvsType, ObsType
+from hands_on.exercise2_dqn.dqn_exercise import EnvType, ObsType
 from hands_on.exercise3_reinforce.config import ReinforceConfig
-from hands_on.utils.env_utils import extract_episode_data_from_infos
 
 
 class Reinforce1DNet(nn.Module):
@@ -313,19 +312,19 @@ class EpisodeBuffer:
 
 
 def reinforce_train_loop(
-    envs: EnvsType,
+    env: EnvType,
     net: nn.Module,
     device: torch.device,
     config: ReinforceConfig,
     log_dir: str,
     rewarders: Sequence[RewardBase] = [],
 ) -> None:
-    """Train the policy network with multiple environments.
+    """Train the policy network with a single environment.
 
     Note: the rewards is used for the exercise4_curiosity.
 
     Args:
-        envs: Vector environment for training
+        env: Single environment for training
         net: The policy network to train
         device: Device to run computations on
         config: Training configuration
@@ -336,8 +335,8 @@ def reinforce_train_loop(
     writer = SummaryWriter(log_dir)
 
     # Get environment info
-    obs_shape = envs.single_observation_space.shape
-    act_space = envs.single_action_space
+    obs_shape = env.observation_space.shape
+    act_space = env.action_space
     assert obs_shape is not None
     assert isinstance(act_space, gym.spaces.Discrete)
 
@@ -353,103 +352,93 @@ def reinforce_train_loop(
         entropy_coef=config.entropy_coef,
     )
 
-    # Initialize environments
-    states, _ = envs.reset()
-    assert isinstance(states, np.ndarray), "States must be numpy array"
+    # Initialize environment
+    state, _ = env.reset()
+    assert isinstance(state, np.ndarray), "State must be numpy array"
 
     # Create variables for loop
-    num_envs = len(states)
-    env_episode_buffers = [EpisodeBuffer() for _ in range(num_envs)]
-    pre_done: NDArray[np.bool_] = np.zeros(num_envs, dtype=np.bool_)
+    episode_buffer = EpisodeBuffer()
     pbar = tqdm(total=config.global_episode, desc="Training")
     episodes_completed = 0
-    episode_reward_step = 0
     start_time = time.time()
     global_step = 0
 
     while episodes_completed < config.global_episode:
-        # Sample actions for all environments
-        actions = trainer.action(states)
+        # Reset episode buffer for new episode
+        episode_buffer.clear()
+        # Reset environment
+        state, _ = env.reset()
+        done = False
 
-        # Step environments
-        next_states, rewards, terms, truncs, infos = envs.step(actions.tolist())
-        dones = np.logical_or(terms, truncs)
+        # Run one episode
+        while not done:
+            # Sample action
+            action = trainer.action(state.reshape(1, -1))[0]
 
-        # Calculate intrinsic rewards
-        new_rewards = rewards.astype(np.float64)  # make mypy happy
-        intrinsic_rewards = []
-        for rewarder in rewarders:
-            intrinsic_reward = rewarder.get_reward(states, next_states, episodes_completed)
-            intrinsic_rewards.append(intrinsic_reward)
-            # Ensure type compatibility by explicitly casting to float64
-            new_rewards = new_rewards + intrinsic_reward
+            # Step environment
+            next_state, reward, term, trunc, info = env.step(action)
+            done = term or trunc
 
-        # Store data in episode buffers for environments that were not done in previous step
-        # This avoids storing invalid reset state transitions
-        for env_idx in range(num_envs):
-            if not pre_done[env_idx]:  # Only store if environment wasn't done in previous step
-                env_episode_buffers[env_idx].add(
-                    states[env_idx], actions[env_idx].item(), float(new_rewards[env_idx])
-                )
-                # Add intrinsic rewards from each rewarder
-                for idx, rewarder in enumerate(rewarders):
-                    rewarder_name = rewarder.__class__.__name__
-                    env_episode_buffers[env_idx].add_intrinsic_reward(
-                        float(intrinsic_rewards[idx][env_idx]), rewarder_name
-                    )
+            # Calculate intrinsic rewards
+            new_reward = float(reward)
+            intrinsic_rewards = []
+            for rewarder in rewarders:
+                intrinsic_reward = rewarder.get_reward(
+                    state.reshape(1, -1), next_state.reshape(1, -1), episodes_completed
+                )[0]
+                intrinsic_rewards.append(intrinsic_reward)
+                new_reward += float(intrinsic_reward)
 
-        # Updates for next iteration
-        states = next_states
-        pre_done = dones
+            # Store data in episode buffer
+            episode_buffer.add(state, action, new_reward)
 
-        # Check for completed episodes and process them
-        for env_idx in range(num_envs):
-            env_buffer = env_episode_buffers[env_idx]
-            if dones[env_idx] and len(env_buffer) > 0:
-                # Process the completed episode if we have data
-                # Get episode data from buffer
-                episode_states, episode_actions, episode_rewards = env_buffer.get_episode_data()
-
-                # Get log probs for the actual actions taken during episode
-                # The target is get the seperated episode back-prop for each env
-                _, episode_log_probs, episode_entropies = trainer.action_and_log_prob(
-                    state=np.array(episode_states), actions=episode_actions
+            # Add intrinsic rewards from each rewarder
+            for idx, rewarder in enumerate(rewarders):
+                episode_buffer.add_intrinsic_reward(
+                    intrinsic_reward=float(intrinsic_rewards[idx]),
+                    rewarder_name=rewarder.__class__.__name__,
                 )
 
-                # Pass the tensor directly instead of converting to list
-                policy_loss, entropy_loss = trainer.update(
-                    episode_rewards, episode_log_probs, episode_entropies
-                )
+            # Update state
+            state = next_state
+            global_step += 1
 
-                # Log training metrics
-                writer.add_scalar("losses/policy_loss", policy_loss, episodes_completed)
-                writer.add_scalar("losses/entropy_loss", entropy_loss, episodes_completed)
-                writer.add_scalar(
-                    "losses/total_loss", policy_loss + entropy_loss, episodes_completed
-                )
-                writer.add_scalar(
-                    "losses/baseline", trainer.get_baseline_value(), episodes_completed
-                )
+        # Process completed episode
+        if len(episode_buffer) > 0:
+            # Get episode data from buffer
+            episode_states, episode_actions, episode_rewards = episode_buffer.get_episode_data()
 
-                # Clear episode buffer for this environment and log rewarder data if present
-                env_buffer.clear(writer=writer, episodes_completed=episodes_completed)
+            # Get log probs and entropies for the actual actions taken during episode
+            _, episode_log_probs, episode_entropies = trainer.action_and_log_prob(
+                state=np.array(episode_states), actions=episode_actions
+            )
 
-                episodes_completed += 1
-                pbar.update(1)
+            # Update policy
+            policy_loss, entropy_loss = trainer.update(
+                episode_rewards, episode_log_probs, episode_entropies
+            )
 
-        # Get episode statistics from RecordEpisodeStatistics wrapper
-        # Use the new utility function to extract episode data
-        ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-        # Log episode metrics when episodes complete
-        for idx, reward in enumerate(ep_rewards):
-            writer.add_scalar("episode/reward", reward, episode_reward_step)
-            writer.add_scalar("episode/length", ep_lengths[idx], episode_reward_step)
-            episode_reward_step += 1
+            # Log training metrics
+            writer.add_scalar("losses/policy_loss", policy_loss, episodes_completed)
+            writer.add_scalar("losses/entropy_loss", entropy_loss, episodes_completed)
+            writer.add_scalar("losses/total_loss", policy_loss + entropy_loss, episodes_completed)
+            writer.add_scalar("losses/baseline", trainer.get_baseline_value(), episodes_completed)
 
-        global_step += 1
+            # Clear episode buffer and log rewarder data if present
+            episode_buffer.clear(writer=writer, episodes_completed=episodes_completed)
+
+            episodes_completed += 1
+            pbar.update(1)
+
+            # Log episode statistics if available in info
+            if "episode" in info:
+                writer.add_scalar("episode/reward", info["episode"]["r"], episodes_completed)
+                writer.add_scalar("episode/length", info["episode"]["l"], episodes_completed)
+
+        # Log performance metrics periodically
         if global_step % 100 == 0:
             writer.add_scalar(
-                "charts/SPS", int(global_step / time.time() - start_time), global_step
+                "charts/SPS", int(global_step / (time.time() - start_time)), global_step
             )
 
     # Flush any remaining accumulated gradients at the end of training

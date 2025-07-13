@@ -41,7 +41,7 @@ import torch
 from hands_on.exercise2_dqn.dqn_exercise import EnvType
 from hands_on.exercise3_reinforce.reinforce_train import (
     reinforce_main,
-    reinforce_train_with_envs,
+    reinforce_train,
 )
 from hands_on.utils.env_utils import make_1d_env
 
@@ -134,63 +134,47 @@ class TestReinforceTraining:
         self, test_config: dict[str, Any], temp_output_dir: Path
     ) -> None:
         """Test basic REINFORCE training flow without file operations."""
-        import gymnasium as gym
-
         # Update config to use temp directory
         test_config["output_params"]["output_dir"] = str(temp_output_dir)
         test_config["output_params"]["save_result"] = False  # Skip file saving for this test
 
-        # Create environment factory function
-        def env_fn() -> EnvType:
-            env, _ = make_1d_env(
-                env_id=test_config["env_params"]["env_id"],
-                max_steps=test_config["env_params"].get("max_steps"),
-            )
-            return env
-
-        # Create vector environment
-        envs = gym.vector.SyncVectorEnv(
-            [env_fn for _ in range(test_config["hyper_params"]["num_envs"])]
+        # Create single environment
+        env, _ = make_1d_env(
+            env_id=test_config["env_params"]["env_id"],
+            max_steps=test_config["env_params"].get("max_steps"),
         )
 
         try:
             # Run training
-            reinforce_train_with_envs(envs=envs, cfg_data=test_config)
+            reinforce_train(env=env, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training completed successfully"
         except Exception as e:
-            # Make sure to close envs even if test fails
-            if not envs.closed:
-                envs.close()
+            # Make sure to close env even if test fails
+            if hasattr(env, "closed") and not env.closed:
+                env.close()
+            elif not hasattr(env, "closed"):
+                env.close()
             raise e
 
     def test_reinforce_train_with_file_saving(
         self, test_config: dict[str, Any], temp_output_dir: Path
     ) -> None:
         """Test REINFORCE training with file saving enabled."""
-        import gymnasium as gym
 
         # Update config to use temp directory
         test_config["output_params"]["output_dir"] = str(temp_output_dir)
-        test_config["output_params"]["save_result"] = True
 
-        # Create environment factory function
-        def env_fn() -> EnvType:
-            env, _ = make_1d_env(
-                env_id=test_config["env_params"]["env_id"],
-                max_steps=test_config["env_params"].get("max_steps"),
-            )
-            return env
-
-        # Create vector environment
-        envs = gym.vector.SyncVectorEnv(
-            [env_fn for _ in range(test_config["hyper_params"]["num_envs"])]
+        # Create single environment
+        env, _ = make_1d_env(
+            env_id=test_config["env_params"]["env_id"],
+            max_steps=test_config["env_params"].get("max_steps"),
         )
 
         try:
             # Run training
-            reinforce_train_with_envs(envs=envs, cfg_data=test_config)
+            reinforce_train(env=env, cfg_data=test_config)
 
             # Check that output files were created
             output_dir = Path(test_config["output_params"]["output_dir"])
@@ -210,16 +194,17 @@ class TestReinforceTraining:
             )
 
         except Exception as e:
-            # Make sure to close envs even if test fails
-            if not envs.closed:
-                envs.close()
+            # Make sure to close env even if test fails
+            if hasattr(env, "closed") and not env.closed:
+                env.close()
+            elif not hasattr(env, "closed"):
+                env.close()
             raise e
 
     def test_reinforce_train_with_checkpoint(
         self, test_config: dict[str, Any], temp_output_dir: Path
     ) -> None:
         """Test REINFORCE training starting from a checkpoint."""
-        import gymnasium as gym
 
         # First, create a simple model checkpoint
         checkpoint_file = temp_output_dir / "checkpoint_reinforce.pth"
@@ -245,21 +230,24 @@ class TestReinforceTraining:
             )
             return env
 
-        # Create vector environment
-        envs = gym.vector.SyncVectorEnv(
-            [env_fn for _ in range(test_config["hyper_params"]["num_envs"])]
+        # Create single environment
+        env, _ = make_1d_env(
+            env_id=test_config["env_params"]["env_id"],
+            max_steps=test_config["env_params"].get("max_steps"),
         )
 
         try:
             # Run training from checkpoint
-            reinforce_train_with_envs(envs=envs, cfg_data=test_config)
+            reinforce_train(env=env, cfg_data=test_config)
 
             # Test passes if no exception is raised
             assert True, "Training from checkpoint completed successfully"
         except Exception as e:
-            # Make sure to close envs even if test fails
-            if not envs.closed:
-                envs.close()
+            # Make sure to close env even if test fails
+            if hasattr(env, "closed") and not env.closed:
+                env.close()
+            elif not hasattr(env, "closed"):
+                env.close()
             raise e
 
     def test_main_function_full_flow(
@@ -407,7 +395,6 @@ class TestReinforceTraining:
 
     def test_device_detection(self, test_config: dict[str, Any], temp_output_dir: Path) -> None:
         """Test device detection and model placement."""
-        import gymnasium as gym
 
         test_config["output_params"]["output_dir"] = str(temp_output_dir)
         test_config["output_params"]["save_result"] = False
@@ -420,23 +407,26 @@ class TestReinforceTraining:
             )
             return env
 
-        # Create vector environment
-        envs = gym.vector.SyncVectorEnv(
-            [env_fn for _ in range(test_config["hyper_params"]["num_envs"])]
+        # Create single environment
+        env, _ = make_1d_env(
+            env_id=test_config["env_params"]["env_id"],
+            max_steps=test_config["env_params"].get("max_steps"),
         )
 
         try:
             # Mock device detection to test CPU path
             with patch("torch.cuda.is_available", return_value=False):
                 with patch("torch.backends.mps.is_available", return_value=False):
-                    reinforce_train_with_envs(envs=envs, cfg_data=test_config)
+                    reinforce_train(env=env, cfg_data=test_config)
 
             # Test passes if training completes on CPU
             assert True, "Training completed successfully on CPU"
         except Exception as e:
-            # Make sure to close envs even if test fails
-            if not envs.closed:
-                envs.close()
+            # Make sure to close env even if test fails
+            if hasattr(env, "closed") and not env.closed:
+                env.close()
+            elif not hasattr(env, "closed"):
+                env.close()
             raise e
 
     def test_different_environment_types(
