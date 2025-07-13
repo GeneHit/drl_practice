@@ -17,5 +17,5 @@ config = QTableConfig(
     learning_rate=0.7,
     min_epsilon=0.05,
     max_epsilon=1.0,
-    decay_rate=0.0005
-) 
+    decay_rate=0.0005,
+)

@@ -1,1 +1,1 @@
-"""Q-table exercise package.""" 
+"""Q-table exercise package."""

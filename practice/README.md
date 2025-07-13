@@ -23,7 +23,7 @@ A well-architected package for training and experimenting with reinforcement lea
 - Epsilon-greedy exploration with exponential decay
 - Perfect for small discrete state/action spaces like FrozenLake
 
-#### 2. **Deep Q-Network (DQN)** (`dqn`) 
+#### 2. **Deep Q-Network (DQN)** (`dqn`)
 - Neural network-based Q-learning
 - Experience replay buffer
 - Target network for stability
@@ -129,7 +129,7 @@ from practice.base import BaseConfig, AgentBase, TrainerBase
 class MyAlgorithmConfig(BaseConfig):
     # Algorithm-specific parameters
     my_param: float
-    
+
     def validate(self) -> None:
         # Validation logic
         pass
@@ -139,7 +139,7 @@ class MyAgent(AgentBase):
     pass
 
 class MyTrainer(TrainerBase):
-    # Implementation  
+    # Implementation
     pass
 ```
 
@@ -163,7 +163,7 @@ practice/
 ├── cli.py                  # Unified CLI interface
 ├── base.py                 # Base classes and interfaces
 ├── qtable.py              # Q-table implementation
-├── dqn.py                 # DQN implementation  
+├── dqn.py                 # DQN implementation
 ├── reinforce.py           # REINFORCE implementation
 ├── enhanced_reinforce.py  # Enhanced REINFORCE with advanced features
 ├── utils/
@@ -201,4 +201,4 @@ The architecture is designed to easily accommodate:
 - **DDPG/TD3**: Continuous action algorithms
 - **SAC**: Soft Actor-Critic
 - **Custom environments**: Easy environment integration
-- **Multi-agent settings**: Extend base classes for multi-agent scenarios 
+- **Multi-agent settings**: Extend base classes for multi-agent scenarios

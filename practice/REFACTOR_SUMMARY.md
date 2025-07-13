@@ -24,7 +24,7 @@ This document summarizes the refactoring of the `hands_on/` folder into a well-a
 - ✅ Perfect for small discrete state/action spaces like FrozenLake
 - ✅ Tested and working
 
-#### 2. **Deep Q-Network (DQN)** (`dqn`) 
+#### 2. **Deep Q-Network (DQN)** (`dqn`)
 - ✅ Neural network-based Q-learning
 - ✅ Experience replay buffer
 - ✅ Target network for stability
@@ -187,4 +187,4 @@ The refactoring successfully achieved all the major goals:
 5. ✅ **Good config style** with validation and type safety
 6. ✅ **Friendly run commands** with clear examples
 
-The new `practice/` folder provides a solid foundation for RL algorithm development and experimentation with significantly improved developer experience and code maintainability. 
+The new `practice/` folder provides a solid foundation for RL algorithm development and experimentation with significantly improved developer experience and code maintainability.
