@@ -1,0 +1,5 @@
+"""Example DQN configuration for CartPole."""
+
+from practice.dqn import DQNConfig
+
+config = DQNConfig(env_id='CartPole-v1', env_kwargs={'render_mode': 'rgb_array'}, episodes=500, max_steps=500, gamma=0.99, eval_episodes=100, eval_seed=[102, 435, 860, 270, 106, 71, 700, 20, 614, 121, 466, 214, 330, 458, 87, 372, 99, 871, 663, 130, 661, 308, 769, 343, 491, 413, 805, 385, 191, 955, 276, 160, 459, 313, 21, 252, 747, 856, 560, 474, 58, 510, 681, 475, 699, 975, 782, 189, 957, 686, 957, 562, 875, 566, 243, 831, 504, 130, 484, 818, 646, 20, 840, 166, 273, 387, 600, 315, 13, 241, 776, 345, 564, 897, 339, 91, 366, 955, 454, 427, 508, 775, 942, 34, 205, 80, 931, 561, 871, 387, 1, 389, 565, 105, 771, 821, 476, 702, 401, 729], output_dir='results/dqn/cartpole/', save_result=True, model_filename='dqn.pth', repo_id='', learning_rate=0.001, min_epsilon=0.05, max_epsilon=1.0, epsilon_decay_duration=10000, target_network_frequency=1000, batch_size=32, buffer_size=10000, learning_starts=1000, train_frequency=4, hidden_dim=128, num_layers=2)
