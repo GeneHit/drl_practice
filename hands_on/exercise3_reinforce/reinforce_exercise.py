@@ -43,6 +43,9 @@ class ReinforceTrainer:
         gamma: float,
         state_shape: tuple[int, ...],
         grad_acc: int = 1,
+        baseline_decay: float = 0.99,
+        use_baseline: bool = False,
+        entropy_coef: float = 0.01,
     ) -> None:
         """Initialize the trainer.
 
@@ -53,6 +56,9 @@ class ReinforceTrainer:
             gamma: The discount factor.
             state_shape: The shape of the state.
             grad_acc: The number of gradient accumulation steps.
+            baseline_decay: Decay factor for the moving average baseline.
+            use_baseline: Whether to use a baseline for variance reduction.
+            entropy_coef: Coefficient for entropy bonus term.
         """
         self._net = net
         self._optimizer = optimizer
@@ -68,15 +74,23 @@ class ReinforceTrainer:
         # Initialize gradients
         self._optimizer.zero_grad()
 
+        # Baseline for variance reduction
+        self._baseline_decay = baseline_decay
+        self._baseline_value = 0.0
+        self._baseline_initialized = False
+        self._use_baseline = use_baseline
+
+        # Entropy bonus
+        self._entropy_coef = entropy_coef
+
     def action_and_log_prob(
         self, state: NDArray[ObsType], actions: Sequence[ActType] | None = None
-    ) -> tuple[Tensor, Tensor]:
-        """Get action(s) and log_prob(s) for state(s).
+    ) -> tuple[Tensor, Tensor, Tensor]:
+        """Get action(s), log_prob(s), and entropy for state(s).
 
         Args:
             state: Single state or batch of states
             actions: If provided, compute log probs for these actions. If None, sample new actions.
-            eval: If True, use greedy policy (only used when actions=None)
 
         Returns:
             actions: Tensor
@@ -84,6 +98,8 @@ class ReinforceTrainer:
                 If actions was provided: the same actions as a tensor
             log_probs: Tensor
                 Log probabilities for the actions
+            entropies: Tensor
+                Entropy values for the policy distribution
         """
         is_single = len(state.shape) == len(self._state_shape)
         state_batch = state if not is_single else state.reshape(1, *state.shape)
@@ -91,17 +107,18 @@ class ReinforceTrainer:
 
         probs = self._net(state_tensor)
         dist = torch.distributions.Categorical(probs)
+        entropies = dist.entropy()
 
         if actions is None:
             # Sample new actions
             sampled_actions = dist.sample()
             log_probs = dist.log_prob(sampled_actions)
-            return sampled_actions, log_probs
+            return sampled_actions, log_probs, entropies
         else:
             # Compute log probs for given actions
             action_tensor = torch.tensor(actions, device=self._device)
             log_probs = dist.log_prob(action_tensor)
-            return action_tensor, log_probs
+            return action_tensor, log_probs, entropies
 
     def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
         """Sample actions.
@@ -113,11 +130,13 @@ class ReinforceTrainer:
             actions: Sampled actions as numpy array
         """
         with torch.no_grad():
-            action_tensor = self.action_and_log_prob(state, actions=None)[0]
+            action_tensor, _, _ = self.action_and_log_prob(state, actions=None)
             actions_numpy = action_tensor.cpu().numpy().astype(ActType)
         return cast(NDArray[ActType], actions_numpy)
 
-    def update(self, rewards: Sequence[float], log_probs: Tensor) -> float:
+    def update(
+        self, rewards: Sequence[float], log_probs: Tensor, entropies: Tensor
+    ) -> tuple[float, float]:
         """Update the policy network with a episode's data.
 
         Don't support inputting batch episodes now, because it's complex
@@ -137,10 +156,13 @@ class ReinforceTrainer:
                 rewards of a episode, [episode_length, ]
             log_probs: Tensor
                 log probabilities of actions in a episode, [episode_length, ]
+            entropies: Tensor
+                entropy values for the policy distribution, [episode_length, ]
 
         Returns
         -------
-            loss: The policy loss value for logging
+            policy_loss: The policy loss value for logging
+            entropy_loss: The entropy loss value for logging
         """
         # Calculate returns (discounted cumulative rewards)
         returns: list[float] = [0.0] * len(rewards)
@@ -149,16 +171,36 @@ class ReinforceTrainer:
             disc_return_t = rewards[i] + self._gamma * disc_return_t
             returns[i] = disc_return_t
 
-        # Convert to tensor and normalize
+        # Convert to tensor
         returns_tensor = torch.tensor(returns, dtype=torch.float32, device=self._device)
-        if len(returns_tensor) > 1:
-            returns_tensor = (returns_tensor - returns_tensor.mean()) / (
-                returns_tensor.std() + 1e-8
-            )
 
-        # Calculate policy loss using vectorized operations
-        policy_loss = -log_probs * returns_tensor
-        total_loss = policy_loss.sum()
+        # Update baseline with the average return of this episode
+        episode_return = returns_tensor[0].item()  # First element is the total return
+        if not self._use_baseline:
+            advantages = returns_tensor
+        else:
+            if not self._baseline_initialized:
+                self._baseline_value = episode_return
+                self._baseline_initialized = True
+            else:
+                # Constant baseline using exponential moving average:
+                #       b_t = decay * b_{t-1} + (1-decay) * G_t
+                self._baseline_value = (
+                    self._baseline_decay * self._baseline_value
+                    + (1 - self._baseline_decay) * episode_return
+                )
+
+            # Apply baseline to reduce variance: A(s,a) = G_t - b (constant baseline)
+            advantages = returns_tensor - self._baseline_value
+
+        # Normalize advantages for stability
+        if len(advantages) > 1:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # Calculate policy loss and entropy loss
+        pg_loss = -(log_probs * advantages).sum()
+        entropy_loss = -self._entropy_coef * entropies.sum()
+        total_loss = pg_loss + entropy_loss
 
         # Scale loss by gradient accumulation factor to maintain proper gradient magnitude
         scaled_loss = total_loss / self._grad_acc
@@ -175,7 +217,7 @@ class ReinforceTrainer:
             self._optimizer.zero_grad()
             self._accumulated_episodes = 0
 
-        return float(total_loss.item())
+        return float(pg_loss.item()), float(entropy_loss.item())
 
     def flush_gradients(self) -> None:
         """Force an optimizer step with accumulated gradients.
@@ -187,32 +229,87 @@ class ReinforceTrainer:
             self._optimizer.zero_grad()
             self._accumulated_episodes = 0
 
+    def get_baseline_value(self) -> float:
+        """Get the current baseline value for logging purposes."""
+        return self._baseline_value
+
 
 class EpisodeBuffer:
     """Simple buffer to store episode data for REINFORCE."""
 
     def __init__(self) -> None:
-        self.states: list[NDArray[Any]] = []
-        self.actions: list[ActType] = []
-        self.rewards: list[float] = []
+        self._states: list[NDArray[Any]] = []
+        self._actions: list[ActType] = []
+        self._rewards: list[float] = []
+        self._intrinsic_rewards: list[float] = []
+        self._rewarder_contributions: dict[str, list[float]] = {}
 
     def add(self, state: NDArray[Any], action: ActType, reward: float) -> None:
-        self.states.append(state)
-        self.actions.append(action)
-        self.rewards.append(reward)
+        self._states.append(state)
+        self._actions.append(action)
+        self._rewards.append(reward)
+        self._intrinsic_rewards.append(0.0)  # Initialize with 0
+        # Initialize rewarder contributions for this step
+        for rewarder_name in self._rewarder_contributions:
+            self._rewarder_contributions[rewarder_name].append(0.0)
+
+    def add_intrinsic_reward(self, intrinsic_reward: float, rewarder_name: str = "unknown") -> None:
+        """Add intrinsic reward to the last step. Should be called after add()."""
+        if len(self._intrinsic_rewards) == 0:
+            raise RuntimeError("No intrinsic rewards to add, please call add() first.")
+
+        self._intrinsic_rewards[-1] += intrinsic_reward
+        # Track individual rewarder contribution
+        if rewarder_name not in self._rewarder_contributions:
+            # Initialize this rewarder's history with zeros for previous steps
+            self._rewarder_contributions[rewarder_name] = [0.0] * len(self._intrinsic_rewards)
+        # Ensure the contribution list is the same length as intrinsic_rewards
+        while len(self._rewarder_contributions[rewarder_name]) < len(self._intrinsic_rewards):
+            self._rewarder_contributions[rewarder_name].append(0.0)
+        self._rewarder_contributions[rewarder_name][-1] += intrinsic_reward
 
     def get_episode_data(
         self,
     ) -> tuple[list[NDArray[Any]], list[ActType], list[float]]:
-        return self.states, self.actions, self.rewards
+        return self._states, self._actions, self._rewards
 
-    def clear(self) -> None:
-        self.states.clear()
-        self.actions.clear()
-        self.rewards.clear()
+    def clear(self, writer: SummaryWriter | None = None, episodes_completed: int = 0) -> None:
+        """Clear the episode buffer and optionally log rewarder data.
+
+        Args:
+            writer: Optional SummaryWriter for logging rewarder data
+            episodes_completed: Episode count for logging
+        """
+        # Log rewarder data before clearing if writer is provided
+        if writer is not None:
+            self._record_scalars(writer, episodes_completed)
+
+        # Clear all data
+        self._states.clear()
+        self._actions.clear()
+        self._rewards.clear()
+        self._intrinsic_rewards.clear()
+        self._rewarder_contributions.clear()
 
     def __len__(self) -> int:
-        return len(self.states)
+        return len(self._states)
+
+    def _record_scalars(self, writer: SummaryWriter, episodes_completed: int) -> None:
+        """Private method to record all rewarder-related scalars to tensorboard."""
+        if len(self._rewarder_contributions) > 0:
+            # Log intrinsic and total rewards
+            writer.add_scalar(
+                "episode/intrinsic_reward", sum(self._intrinsic_rewards), episodes_completed
+            )
+            writer.add_scalar("episode/total_reward", sum(self._rewards), episodes_completed)
+
+            # Log individual rewarder contributions
+            for rewarder_name in self._rewarder_contributions:
+                writer.add_scalar(
+                    f"episode/intrinsic_reward_{rewarder_name}",
+                    sum(self._rewarder_contributions[rewarder_name]),
+                    episodes_completed,
+                )
 
 
 def reinforce_train_loop(
@@ -252,6 +349,8 @@ def reinforce_train_loop(
         gamma=config.gamma,
         state_shape=obs_shape,
         grad_acc=config.grad_acc,
+        baseline_decay=config.baseline_decay,
+        entropy_coef=config.entropy_coef,
     )
 
     # Initialize environments
@@ -277,10 +376,11 @@ def reinforce_train_loop(
         dones = np.logical_or(terms, truncs)
 
         # Calculate intrinsic rewards
-        copy_rewards = rewards.astype(np.float64)  # make mypy happy
-        new_rewards = copy_rewards.copy()
+        new_rewards = rewards.astype(np.float64)  # make mypy happy
+        intrinsic_rewards = []
         for rewarder in rewarders:
-            intrinsic_reward = rewarder.get_reward(states, next_states)
+            intrinsic_reward = rewarder.get_reward(states, next_states, episodes_completed)
+            intrinsic_rewards.append(intrinsic_reward)
             # Ensure type compatibility by explicitly casting to float64
             new_rewards = new_rewards + intrinsic_reward
 
@@ -291,6 +391,12 @@ def reinforce_train_loop(
                 env_episode_buffers[env_idx].add(
                     states[env_idx], actions[env_idx].item(), float(new_rewards[env_idx])
                 )
+                # Add intrinsic rewards from each rewarder
+                for idx, rewarder in enumerate(rewarders):
+                    rewarder_name = rewarder.__class__.__name__
+                    env_episode_buffers[env_idx].add_intrinsic_reward(
+                        float(intrinsic_rewards[idx][env_idx]), rewarder_name
+                    )
 
         # Updates for next iteration
         states = next_states
@@ -306,20 +412,30 @@ def reinforce_train_loop(
 
                 # Get log probs for the actual actions taken during episode
                 # The target is get the seperated episode back-prop for each env
-                episode_log_probs = trainer.action_and_log_prob(
+                _, episode_log_probs, episode_entropies = trainer.action_and_log_prob(
                     state=np.array(episode_states), actions=episode_actions
-                )[1]
+                )
 
                 # Pass the tensor directly instead of converting to list
-                loss = trainer.update(episode_rewards, episode_log_probs)
+                policy_loss, entropy_loss = trainer.update(
+                    episode_rewards, episode_log_probs, episode_entropies
+                )
 
                 # Log training metrics
-                writer.add_scalar("losses/td_loss", loss, episodes_completed)
+                writer.add_scalar("losses/policy_loss", policy_loss, episodes_completed)
+                writer.add_scalar("losses/entropy_loss", entropy_loss, episodes_completed)
+                writer.add_scalar(
+                    "losses/total_loss", policy_loss + entropy_loss, episodes_completed
+                )
+                writer.add_scalar(
+                    "losses/baseline", trainer.get_baseline_value(), episodes_completed
+                )
+
+                # Clear episode buffer for this environment and log rewarder data if present
+                env_buffer.clear(writer=writer, episodes_completed=episodes_completed)
+
                 episodes_completed += 1
                 pbar.update(1)
-
-                # Clear episode buffer for this environment
-                env_buffer.clear()
 
         # Get episode statistics from RecordEpisodeStatistics wrapper
         # Use the new utility function to extract episode data
@@ -335,11 +451,6 @@ def reinforce_train_loop(
             writer.add_scalar(
                 "charts/SPS", int(global_step / time.time() - start_time), global_step
             )
-            if len(rewarders) > 0:
-                writer.add_scalar("rewards/intrinsic_mean", np.mean(new_rewards), global_step)
-                writer.add_scalar("rewards/intrinsic_std", np.std(new_rewards), global_step)
-            writer.add_scalar("rewards/sys_mean", np.mean(copy_rewards), global_step)
-            writer.add_scalar("rewards/sys_std", np.std(copy_rewards), global_step)
 
     # Flush any remaining accumulated gradients at the end of training
     trainer.flush_gradients()

@@ -15,6 +15,7 @@ from hands_on.exercise4_curiosity.curiosity_exercise import RNDNetwork1D, RNDRew
 from hands_on.utils.agent_utils import NNAgent
 from hands_on.utils.env_utils import get_device, make_1d_env
 from hands_on.utils.evaluation_utils import evaluate_and_save_results
+from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 
 def reinforce_train_with_envs(
@@ -33,19 +34,33 @@ def reinforce_train_with_envs(
     if len(obs_shape) != 1:
         raise NotImplementedError("2D observation space not implemented for REINFORCE")
     net = Reinforce1DNet(state_dim=obs_shape[0], action_dim=action_n, hidden_dim=128, layer_num=2)
+    device = get_device()
 
     intrinsic_rewarders = []
     if "model_params" in cfg_data and "intrinsic_rewarders" in cfg_data["model_params"]:
         for intrinsic_rewarder in cfg_data["model_params"]["intrinsic_rewarders"]:
-            if intrinsic_rewarder["type"] == "RNDNetwork":
+            if intrinsic_rewarder["type"] == "RNDReward":
+                init_predictor = RNDNetwork1D(
+                    obs_dim=obs_shape[0],
+                    output_dim=intrinsic_rewarder["params"]["output_dim"],
+                ).to(device)
+                target_network = RNDNetwork1D(
+                    obs_dim=obs_shape[0],
+                    output_dim=intrinsic_rewarder["params"]["output_dim"],
+                ).to(device)
                 intrinsic_rewarders.append(
                     RNDReward(
-                        network=RNDNetwork1D(
-                            obs_dim=obs_shape[0],
-                            output_dim=intrinsic_rewarder["params"]["output_dim"],
+                        init_predictor=init_predictor,
+                        target_network=target_network,
+                        optimizer=torch.optim.Adam(
+                            init_predictor.parameters(), lr=intrinsic_rewarder["params"]["lr"]
                         ),
-                        device=get_device(),
-                        beta=intrinsic_rewarder["params"]["beta"],
+                        device=device,
+                        beta=ExponentialSchedule(
+                            start_e=5.0,
+                            end_e=intrinsic_rewarder["params"]["beta"],
+                            decay_rate=0.0005,
+                        ),
                     )
                 )
 
@@ -61,7 +76,6 @@ def reinforce_train_with_envs(
             net.load_state_dict(checkpoint.state_dict())
 
     # Set device
-    device = get_device()
     net = net.to(device)
 
     # Create config from hyper_params
