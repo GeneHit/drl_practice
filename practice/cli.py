@@ -13,11 +13,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from practice.utils.train_utils import train_and_evaluate_network
-
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+# below has to be imported after sys.path.insert(0, str(project_root))
+from practice.utils.train_utils import train_and_evaluate_network  # noqa: E402
 
 
 def load_config_module(config_path: str) -> tuple[Any, Any]:
