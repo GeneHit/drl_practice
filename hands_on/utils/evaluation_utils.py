@@ -1,6 +1,7 @@
 import os
+import random
 from datetime import datetime
-from typing import Any, List, Sequence
+from typing import Any, List
 
 import gymnasium as gym
 import imageio
@@ -15,9 +16,10 @@ def evaluate_agent(
     policy: AgentBase,
     max_steps: int | None,
     episodes: int,
-    seed: Sequence[int],
+    seed: int | None,
     record_video: bool = False,
     video_dir: str = "./video",
+    video_num: int | None = None,
 ) -> tuple[float, float]:
     """Evaluate the agent.
 
@@ -37,7 +39,8 @@ def evaluate_agent(
     if record_video:
         # Create the video folder if it doesn't exist
         os.makedirs(video_dir, exist_ok=True)
-        trigger_step = episodes // 10
+        num = video_num if video_num is not None else 10
+        trigger_step = episodes // num
         env = gym.wrappers.RecordVideo(
             env,
             video_folder=video_dir,
@@ -46,11 +49,10 @@ def evaluate_agent(
         )
 
     rewards = []
+    rnd = random.Random(seed)
+    seeks = [rnd.randint(0, 1000) for _ in range(episodes)]
     for episode in tqdm(range(episodes), desc="Evaluating"):
-        if seed:
-            state, _ = env.reset(seed=seed[episode])
-        else:
-            state, _ = env.reset()
+        state, _ = env.reset(seed=seeks[episode])
 
         total_rewards_ep = 0.0
 

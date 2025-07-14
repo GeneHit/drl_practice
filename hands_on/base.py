@@ -68,3 +68,11 @@ class RewardBase(abc.ABC):
         self, state: NDArray[Any], next_state: NDArray[Any], step: int
     ) -> NDArray[np.floating[Any]]:
         """Get the reward for the given state and action."""
+
+
+class RewardConfig(abc.ABC):
+    """Base class for the reward configuration."""
+
+    @abc.abstractmethod
+    def get_rewarder(self) -> RewardBase:
+        """Get the rewarder."""

@@ -1,0 +1,111 @@
+import abc
+import json
+from dataclasses import asdict, dataclass
+from typing import Any
+
+import torch
+
+
+@dataclass(frozen=True, kw_only=True)
+class ArtifactConfig(abc.ABC):
+    """Base configuration class for all artifacts."""
+
+    # Output parameters
+    output_dir: str
+    """The output directory for the artifacts."""
+    save_result: bool = True
+    """Whether to save the result."""
+    model_filename: str = "model.pth"
+    """The filename for the model."""
+    params_filename: str = "params.json"
+    """The filename for the parameters."""
+    train_result_filename: str = "train_result.json"
+    """The filename for the train result."""
+    eval_result_filename: str = "eval_result.json"
+
+    # Hub parameters (optional)
+    repo_id: str = ""
+    """The repository ID for the huggingface hub."""
+    seek_for_replay_video: int = 42
+    """The seed for the replay video."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class EnvConfig(abc.ABC):
+    """Configuration class for the gymnasium environments."""
+
+    env_id: str
+    env_kwargs: dict[str, Any] = {}
+    max_steps: int | None = None
+    use_image: bool = False
+
+    vector_env_num: int | None = None
+    """Number of vector environments to use.
+
+    If None, it will not use vector environments.
+    """
+    use_multi_processing: bool = False
+    """Whether to use multi-processing to create the vector environments."""
+
+    # Image parameters
+    image_shape: tuple[int, int] | None = None
+    """Shape of the image (height, width)."""
+    frame_stack: int = 1
+    """Number of frames to stack."""
+    frame_skip: int = 1
+    """Number of frames to skip."""
+
+    training_render_mode: str | None = None
+    """Render mode for training."""
+    record_eval_video: bool = False
+    """Whether to record the evaluation video."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class BaseConfig(abc.ABC):
+    """Base configuration class for all algorithms."""
+
+    # Environment parameters
+    env_config: EnvConfig
+    """The configuration for the gymnasium environment."""
+
+    device: torch.device
+    """The device to run the neural network."""
+
+    # Training parameters
+    learning_rate: float
+    """The learning rate for the optimizer."""
+    gamma: float = 0.99
+    """The discount factor."""
+    checkpoint_pathname: str = ""
+    """The pathname of the checkpoint to load."""
+
+    # Evaluation parameters
+    eval_episodes: int = 100
+    """The number of episodes to evaluate the policy."""
+    eval_random_seed: int = 42
+    """The seed for the evaluation."""
+    eval_video_num: int | None = None
+    """The number of videos to record.
+
+    If None, the video will not be recorded.
+    """
+
+    artifact_config: ArtifactConfig
+    """The configuration for the saving, naming, etc."""
+
+    def save_to_json(self, filepath: str, with_data: dict[str, Any] = {}) -> None:
+        """Save configuration to JSON file, except for artifact_config. Optionally merge extra data."""
+        # Build dict, excluding artifact_config
+        config_dict = self.to_dict()
+        if with_data:
+            config_dict.update(with_data)
+
+        with open(filepath, "w") as f:
+            json.dump(config_dict, f, indent=4)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert config to dictionary, excluding artifact_config."""
+        result = asdict(self)
+        result.pop("artifact_config", None)
+        return result
