@@ -90,7 +90,7 @@ def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:
     return ReinforceContext(
         env=env,
         eval_env=eval_env,
-        network=policy,
+        trained_target=policy,
         optimizer=Adam(policy.parameters(), lr=config.learning_rate),
         rewarders=rewarders,
     )
