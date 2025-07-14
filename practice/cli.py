@@ -11,17 +11,20 @@ import argparse
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # below has to be imported after sys.path.insert(0, str(project_root))
+from practice.base.config import BaseConfig  # noqa: E402
+from practice.base.context import ContextBase  # noqa: E402
+from practice.utils.cli_utils import play_and_generate_video_generic  # noqa: E402
 from practice.utils.train_utils import train_and_evaluate_network  # noqa: E402
 
 
-def load_config_module(config_path: str) -> tuple[Any, Any]:
+def load_config_module(config_path: str) -> tuple[BaseConfig, ContextBase]:
     """Load a Python config module and extract config and context functions.
 
     Args:
@@ -62,25 +65,20 @@ def load_config_module(config_path: str) -> tuple[Any, Any]:
     config = module.get_app_config()
     context = module.generate_context(config)
 
-    return config, context
+    return cast(BaseConfig, config), cast(ContextBase, context)
 
 
-def train_wrapper(config: Any, context: Any) -> None:
+def train_wrapper(config: BaseConfig, context: ContextBase) -> None:
     """Wrapper for training that matches the expected signature."""
-    train_and_evaluate_network(
-        config=config,
-        ctx=context,
-        Trainer=context.trainer_name,
-    )
+    train_and_evaluate_network(config=config, ctx=context)
 
 
-def play_wrapper(config: Any, context: Any) -> None:
+def play_wrapper(config: BaseConfig, context: ContextBase) -> None:
     """Simplified play wrapper for practice exercises."""
-    print("Play mode functionality will be implemented when needed.")
-    print("For now, you can check the results directory for videos generated during training.")
+    play_and_generate_video_generic(config=config, env=context.eval_env)
 
 
-def push_to_hub_wrapper(config: Any, context: Any, username: str) -> None:
+def push_to_hub_wrapper(config: BaseConfig, context: ContextBase, username: str) -> None:
     """Simplified push to hub wrapper for practice exercises."""
     print("Push to hub functionality will be implemented when needed.")
     print(f"Model would be pushed to hub for user: {username}")

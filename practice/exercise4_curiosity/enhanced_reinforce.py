@@ -1,5 +1,6 @@
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence
 
 import torch
@@ -164,7 +165,9 @@ class EnhancedReinforceTrainer(TrainerBase):
     def train(self) -> None:
         """Train the policy network with a single environment."""
         # Initialize tensorboard writer
-        writer = SummaryWriter(self._config.artifact_config.output_dir)
+        writer = SummaryWriter(
+            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
+        )
         env = self._ctx.env
         # Create training pod and buffer
         pod = _EnhancedReinforcePod(config=self._config, ctx=self._ctx, writer=writer)

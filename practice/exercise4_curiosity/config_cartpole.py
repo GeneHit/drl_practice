@@ -3,6 +3,7 @@ import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
+from hands_on.utils.agent_utils import NNAgent
 from hands_on.utils.env_utils import get_device
 from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 from practice.base.config import ArtifactConfig, EnvConfig
@@ -52,6 +53,8 @@ def get_app_config() -> EnhancedReinforceConfig:
             record_eval_video=True,
         ),
         artifact_config=ArtifactConfig(
+            trainer_type=EnhancedReinforceTrainer,
+            agent_type=NNAgent,
             output_dir="results/exercise4_curiosity/cartpole/",
             save_result=True,
             model_filename="curiosity.pth",
@@ -90,5 +93,4 @@ def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:
         network=policy,
         optimizer=Adam(policy.parameters(), lr=config.learning_rate),
         rewarders=rewarders,
-        trainer_name=EnhancedReinforceTrainer,
     )

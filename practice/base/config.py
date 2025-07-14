@@ -1,14 +1,25 @@
 import abc
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Type
 
 import torch
+
+from hands_on.base import AgentBase
+
+# reason: https://github.com/python/mypy/issues/11000
+if TYPE_CHECKING:
+    from practice.base.trainer import TrainerBase
 
 
 @dataclass(frozen=True, kw_only=True)
 class ArtifactConfig(abc.ABC):
     """Base configuration class for all artifacts."""
+
+    trainer_type: "Type[TrainerBase]"
+    """The type of the trainer. Use type[TrainerBase] to avoid circular import."""
+    agent_type: type[AgentBase]
+    """The type of the agent."""
 
     # Output parameters
     output_dir: str
@@ -27,6 +38,12 @@ class ArtifactConfig(abc.ABC):
     repo_id: str = ""
     """The repository ID for the huggingface hub."""
     seek_for_replay_video: int = 42
+    """The seed for the replay video."""
+    replay_video_filename: str = "replay.mp4"
+    """The filename for the replay video."""
+    fps: int = 10
+    """The frame rate of the replay video."""
+    seed: int = 99
     """The seed for the replay video."""
 
 
