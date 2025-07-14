@@ -7,17 +7,18 @@ from typing import TypeAlias
 import numpy as np
 
 from practice.base.config import BaseConfig
+from practice.base.context import ContextBase
 
 ActType: TypeAlias = np.int64
-# ObsType = TypeVar("ObsType")
 
 
 class TrainerBase(abc.ABC):
     """Base class for all RL trainers."""
 
-    def __init__(self, config: BaseConfig) -> None:
+    def __init__(self, config: BaseConfig, ctx: ContextBase) -> None:
         """Initialize trainer with config."""
         self._config = config
+        self._ctx = ctx
 
     @abc.abstractmethod
     def train(self) -> None:

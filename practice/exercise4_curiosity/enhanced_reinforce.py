@@ -30,7 +30,7 @@ class EnhancedReinforceConfig(BaseConfig):
 @dataclass(kw_only=True, frozen=True)
 class ReinforceContext(ContextBase):
     env: EnvType
-    rewarders: Sequence[RewardBase] = []
+    rewarders: tuple[RewardBase, ...] = ()
 
 
 class Reinforce1DNet(nn.Module):
@@ -156,8 +156,9 @@ class EnhancedReinforceTrainer(TrainerBase):
     """
 
     def __init__(self, config: EnhancedReinforceConfig, ctx: ReinforceContext) -> None:
+        super().__init__(config=config, ctx=ctx)
         self._config: EnhancedReinforceConfig = config
-        self._ctx = ctx
+        self._ctx: ReinforceContext = ctx
 
     def train(self) -> None:
         """Train the policy network with a single environment."""

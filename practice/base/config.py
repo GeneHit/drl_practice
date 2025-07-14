@@ -1,6 +1,6 @@
 import abc
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 import torch
@@ -35,7 +35,7 @@ class EnvConfig(abc.ABC):
     """Configuration class for the gymnasium environments."""
 
     env_id: str
-    env_kwargs: dict[str, Any] = {}
+    env_kwargs: dict[str, Any] = field(default_factory=dict)
     max_steps: int | None = None
     use_image: bool = False
 

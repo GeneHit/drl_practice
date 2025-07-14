@@ -48,10 +48,10 @@ def evaluate_and_save_results(
         "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-    save_model_and_result(env=env, agent=agent, config=config, eval_result=eval_result)
+    _save_model_and_result(env=env, agent=agent, config=config, eval_result=eval_result)
 
 
-def save_model_and_result(
+def _save_model_and_result(
     env: gym.Env[Any, Any],
     agent: AgentBase,
     config: BaseConfig,

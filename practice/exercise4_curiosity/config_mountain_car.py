@@ -12,6 +12,7 @@ from practice.exercise4_curiosity.curiosity_exercise import (
 )
 from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
+    EnhancedReinforceTrainer,
     Reinforce1DNet,
     ReinforceContext,
 )
@@ -25,7 +26,7 @@ def get_app_config() -> EnhancedReinforceConfig:
     device = get_device()
     return EnhancedReinforceConfig(
         device=device,
-        episode=1000,
+        episode=10,
         learning_rate=1e-3,
         gamma=0.999,
         grad_acc=1,
@@ -86,7 +87,7 @@ def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:
     policy.to(config.device)
 
     # Generate rewarders from reward_configs
-    rewarders = [reward_config.get_rewarder() for reward_config in config.reward_configs]
+    rewarders = tuple(reward_config.get_rewarder() for reward_config in config.reward_configs)
 
     return ReinforceContext(
         env=env,
@@ -94,4 +95,5 @@ def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:
         network=policy,
         optimizer=Adam(policy.parameters(), lr=config.learning_rate),
         rewarders=rewarders,
+        trainer_name=EnhancedReinforceTrainer,
     )
