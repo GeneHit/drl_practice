@@ -99,7 +99,8 @@ class EpisodeBuffer:
         self,
     ) -> tuple[list[float], list[Tensor], list[Tensor]]:
         return (
-            self._rewards + self._intrinsic_rewards,
+            # self._rewards .+ self._intrinsic_rewards,
+            [a + b for a, b in zip(self._rewards, self._intrinsic_rewards)],
             self._log_probs,
             self._entropies,
         )
@@ -136,7 +137,7 @@ class EpisodeBuffer:
             )
             writer.add_scalar(
                 "episode/total_reward",
-                sum(self._rewards + self._intrinsic_rewards),
+                sum(self._rewards) + sum(self._intrinsic_rewards),
                 episodes_completed,
             )
 
@@ -279,12 +280,12 @@ class _EnhancedReinforcePod:
             # Sample new actions
             sampled_actions = dist.sample()
             log_probs = dist.log_prob(sampled_actions)
-            return ActType(sampled_actions.cpu().item()), log_probs.cpu(), entropies.cpu()
+            return ActType(sampled_actions.cpu().item()), log_probs, entropies
         else:
             # Compute log probs for given actions
             action_tensor = torch.tensor(actions, device=self._config.device)
             log_probs = dist.log_prob(action_tensor)
-            return ActType(action_tensor.cpu().item()), log_probs.cpu(), entropies.cpu()
+            return ActType(action_tensor.cpu().item()), log_probs, entropies
 
     def update(
         self, rewards: Sequence[float], log_probs: Sequence[Tensor], entropies: Sequence[Tensor]
@@ -344,9 +345,9 @@ class _EnhancedReinforcePod:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         # Calculate policy loss and entropy loss
-        log_probs_tensor = torch.tensor(log_probs)
-        entropies_tensor = torch.tensor(entropies)
-        pg_loss = -(log_probs_tensor * advantages).sum()
+        log_probs_tensor = torch.stack(tuple(log_probs))
+        entropies_tensor = torch.stack(tuple(entropies))
+        pg_loss = -(log_probs_tensor * advantages.to(self._config.device)).sum()
         entropy_loss = -self._config.entropy_coef * entropies_tensor.sum()
         total_loss = pg_loss + entropy_loss
 
@@ -364,7 +365,6 @@ class _EnhancedReinforcePod:
             self._accumulated_episodes = 0
 
         # Log training metrics
-
         self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._episode_count)
         self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._episode_count)
         self._writer.add_scalar("losses/total_loss", total_loss.item(), self._episode_count)

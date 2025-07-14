@@ -108,4 +108,32 @@ class BaseConfig(abc.ABC):
         """Convert config to dictionary, excluding artifact_config."""
         result = asdict(self)
         result.pop("artifact_config", None)
+
+        # Make the result JSON serializable by converting complex objects
+        result = self._make_json_serializable(result)
+
         return result
+
+    def _make_json_serializable(self, obj: Any) -> Any:
+        """Recursively convert objects to JSON-serializable format."""
+        if isinstance(obj, torch.device):
+            return str(obj)
+        elif hasattr(obj, "__dict__"):
+            # For objects with attributes (like schedules), convert to dict representation
+            if hasattr(obj, "__class__"):
+                return {
+                    "_type": obj.__class__.__name__,
+                    "_module": obj.__class__.__module__,
+                    **{k: self._make_json_serializable(v) for k, v in obj.__dict__.items()},
+                }
+            else:
+                return {k: self._make_json_serializable(v) for k, v in obj.__dict__.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._make_json_serializable(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {k: self._make_json_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, (str, int, float, bool)) or obj is None:
+            return obj
+        else:
+            # For any other type, convert to string representation
+            return str(obj)

@@ -25,7 +25,7 @@ def get_app_config() -> EnhancedReinforceConfig:
     device = get_device()
     return EnhancedReinforceConfig(
         device=device,
-        episode=1000,
+        episode=10,
         learning_rate=1e-3,
         gamma=0.999,
         grad_acc=1,
