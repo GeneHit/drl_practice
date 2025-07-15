@@ -1,6 +1,5 @@
 import os
 import random
-from datetime import datetime
 from typing import Any, List
 
 import gymnasium as gym
@@ -74,58 +73,6 @@ def evaluate_agent(
         rewards.append(total_rewards_ep)
 
     return float(np.mean(rewards)), float(np.std(rewards))
-
-
-def evaluate_and_save_results(
-    env: gym.Env[Any, Any],
-    agent: AgentBase,
-    cfg_data: dict[str, Any],
-    additional_eval_data: dict[str, Any] | None = None,
-) -> None:
-    """Evaluate agent and save all results (model, training data, evaluation data, config).
-
-    This function centralizes the evaluation and saving workflow that's common
-    across all training scripts.
-
-    Args:
-        env: The environment for evaluation
-        agent: The trained agent to evaluate
-        cfg_data: Configuration dictionary containing eval_params and output_params
-        train_result: Training results dictionary (must contain "episode_rewards")
-        additional_eval_data: Optional additional data to include in eval result
-    """
-    # Extract evaluation parameters
-    eval_params = cfg_data["eval_params"]
-
-    # Perform evaluation
-    mean_reward, std_reward = evaluate_agent(
-        env=env,
-        policy=agent,
-        max_steps=eval_params.get("max_steps", None),
-        episodes=eval_params["eval_episodes"],
-        seed=eval_params["eval_seed"],
-        record_video=eval_params.get("record_video", False),
-        video_dir=os.path.join(cfg_data["output_params"]["output_dir"], "video"),
-    )
-
-    # Create evaluation result dictionary
-    eval_result = {
-        "mean_reward": mean_reward,
-        "std_reward": std_reward,
-        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-    # Add any additional evaluation data
-    if additional_eval_data:
-        eval_result.update(additional_eval_data)
-
-    # Save results only if requested
-    save_result = cfg_data["output_params"].get("save_result", False)
-    if save_result:
-        # Import here to avoid circular imports
-        from .file_utils import save_model_and_result
-
-        save_model_and_result(cfg_data, eval_result, agent=agent)
 
 
 def play_game_once(
