@@ -8,6 +8,7 @@ from hands_on.utils.agent_utils import NNAgent
 from hands_on.utils.env_utils import get_device
 from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 from practice.base.config import ArtifactConfig, EnvConfig
+from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.curiosity_exercise import (
     RND1DNetworkConfig,
     RNDRewardConfig,
@@ -15,7 +16,6 @@ from practice.exercise4_curiosity.curiosity_exercise import (
 from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
     EnhancedReinforceTrainer,
-    Reinforce1DNet,
     ReinforceContext,
 )
 from practice.utils.env_utils import get_env_from_config

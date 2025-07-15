@@ -32,6 +32,7 @@ import torch
 
 from hands_on.exercise2_dqn.dqn_exercise import EnvType
 from practice.base.context import ContextBase
+from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.config_mountain_car import (
     generate_context,
     get_app_config,
@@ -40,7 +41,6 @@ from practice.exercise4_curiosity.config_mountain_car import (
 from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
     EnhancedReinforceTrainer,
-    Reinforce1DNet,
 )
 from practice.utils.train_utils import train_and_evaluate_network
 

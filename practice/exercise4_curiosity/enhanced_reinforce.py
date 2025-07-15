@@ -4,14 +4,13 @@ from pathlib import Path
 from typing import Sequence
 
 import torch
-import torch.nn as nn
 from numpy.typing import NDArray
 from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from hands_on.base import ActType, RewardBase, RewardConfig
-from hands_on.exercise2_dqn.dqn_exercise import EnvType, ObsType
+from hands_on.exercise2_dqn.dqn_exercise import ObsType
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.trainer import TrainerBase
@@ -19,7 +18,6 @@ from practice.base.trainer import TrainerBase
 
 @dataclass(kw_only=True, frozen=True)
 class EnhancedReinforceConfig(BaseConfig):
-    device: torch.device
     episode: int
     grad_acc: int = 1
     use_baseline: bool
@@ -30,26 +28,7 @@ class EnhancedReinforceConfig(BaseConfig):
 
 @dataclass(kw_only=True, frozen=True)
 class ReinforceContext(ContextBase):
-    env: EnvType
     rewarders: tuple[RewardBase, ...] = ()
-
-
-class Reinforce1DNet(nn.Module):
-    def __init__(
-        self, state_dim: int, action_dim: int, hidden_dim: int = 128, layer_num: int = 2
-    ) -> None:
-        super().__init__()
-        layers = [nn.Linear(state_dim, hidden_dim), nn.ReLU()]
-        for _ in range(layer_num - 1):
-            layers.append(nn.Linear(hidden_dim, hidden_dim))
-            layers.append(nn.ReLU())
-        layers.append(nn.Linear(hidden_dim, action_dim))
-        layers.append(nn.Softmax(dim=-1))
-        self.network = nn.Sequential(*layers)
-
-    def forward(self, x: Tensor) -> Tensor:
-        y: Tensor = self.network(x)  # make mypy happy
-        return y
 
 
 class EpisodeBuffer:
@@ -192,7 +171,7 @@ class EnhancedReinforceTrainer(TrainerBase):
 
                 # Step environment
                 next_state, reward, term, trunc, _ = env.step(action)
-                done = term or trunc
+                done = bool(term or trunc)
 
                 # Store data in episode buffer
                 episode_buffer.add(float(reward), log_prob, entropy)
