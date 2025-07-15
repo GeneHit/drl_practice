@@ -14,14 +14,13 @@ from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from hands_on.base import ActType
-from hands_on.exercise2_dqn.dqn_exercise import ArrayType, ObsType
-from hands_on.utils.env_utils import extract_episode_data_from_infos
-from hands_on.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
-from hands_on.utils_for_coding.scheduler_utils import LinearSchedule
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
+from practice.base.env_typing import ActType, ArrayType, ObsType
 from practice.base.trainer import TrainerBase
+from practice.utils.env_utils import extract_episode_data_from_infos
+from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
+from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 # Type aliases for vector environments
 EnvsType = gym.vector.VectorEnv[NDArray[ObsType], ActType, NDArray[ArrayType]]

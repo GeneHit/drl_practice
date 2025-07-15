@@ -1,11 +1,11 @@
 import numpy as np
 
-from hands_on.base import AgentBase
-from hands_on.utils.agent_utils import NNAgent
+from practice.base.chest import AgentBase
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.utils.evaluation_utils import evaluate_and_save_results
+from practice.utils_for_coding.agent_utils import NNAgent
 
 
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:

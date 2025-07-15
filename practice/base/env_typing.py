@@ -11,7 +11,7 @@ import gymnasium as gym
 import numpy as np
 from numpy.typing import NDArray
 
-from hands_on.base import ActType
+ActType: TypeAlias = np.int64
 
 ObsType: TypeAlias = Union[np.uint8, np.float32]
 ArrayType: TypeAlias = Union[np.bool_, np.float32]

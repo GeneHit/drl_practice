@@ -1,9 +1,14 @@
+import os
 from pathlib import Path
+from typing import Any
 
-from hands_on.base import AgentBase
-from hands_on.exercise2_dqn.dqn_exercise import EnvType
-from hands_on.utils.evaluation_utils import play_game_once
+import gymnasium as gym
+import imageio
+import numpy as np
+
+from practice.base.chest import AgentBase
 from practice.base.config import BaseConfig
+from practice.base.env_typing import EnvType
 
 
 def play_and_generate_video_generic(config: BaseConfig, env: EnvType) -> None:
@@ -30,6 +35,49 @@ def play_and_generate_video_generic(config: BaseConfig, env: EnvType) -> None:
         seed=artifact_config.seed,
     )
     print(f"Game replay saved to: {video_path}")
+
+
+def play_game_once(
+    env: gym.Env[Any, Any],
+    policy: AgentBase,
+    save_video: bool = False,
+    video_pathname: str = "",
+    fps: int = 1,
+    seed: int = 100,
+) -> None:
+    """Play the game once with the random seed.
+
+    Args:
+        env (gym.Env): The environment.
+        policy (AgentBase): The policy.
+        save_video (bool): Whether to save the video.
+        video_pathname (str): The path and name of the video.
+        fps (int): The fps of the video.
+    """
+    images: list[Any] = []
+    state, _ = env.reset(seed=seed)
+    img_raw: Any = env.render()
+    assert img_raw is not None, "The image is None, please check the environment for rendering."
+    if save_video:
+        images.append(img_raw)
+
+    terminated = truncated = False
+    while not terminated and not truncated:
+        # Take the action (index) that have the maximum expected future reward given that state
+        action = policy.action(state)
+        state, _, terminated, truncated, _ = env.step(action)
+        if save_video:
+            img_raw = env.render()
+            assert img_raw is not None, (
+                "The image is None, please check the environment for rendering."
+            )
+            images.append(img_raw)
+
+    # Save video if requested
+    if save_video and video_pathname:
+        # Create the directory if it doesn't exist
+        os.makedirs(os.path.dirname(video_pathname), exist_ok=True)
+        imageio.mimsave(video_pathname, [np.array(img) for img in images], fps=fps)
 
 
 def _load_model_from_config(cfg: BaseConfig) -> AgentBase:

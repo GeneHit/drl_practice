@@ -1,11 +1,11 @@
 import abc
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
 import torch
 from numpy.typing import NDArray
 
-ActType: TypeAlias = np.int64
+from practice.base.env_typing import ActType
 
 
 class AgentBase(abc.ABC):

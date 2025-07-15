@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Type
 
 import torch
 
-from hands_on.base import AgentBase
+from practice.base.chest import AgentBase
 
 # reason: https://github.com/python/mypy/issues/11000
 if TYPE_CHECKING:

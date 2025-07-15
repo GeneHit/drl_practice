@@ -17,8 +17,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # below has to be imported after sys.path.insert(0, str(project_root))
-from hands_on.exercise2_dqn.dqn_exercise import EnvType  # noqa: E402
 from practice.base.context import ContextBase  # noqa: E402
+from practice.base.env_typing import EnvType  # noqa: E402
 from practice.utils.cli_utils import load_config_module  # noqa: E402
 from practice.utils.hub_utils import push_to_hub_generic  # noqa: E402
 from practice.utils.play_utils import play_and_generate_video_generic  # noqa: E402

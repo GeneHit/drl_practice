@@ -3,11 +3,8 @@ import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
-from hands_on.exercise2_dqn.dqn_exercise import EnvType
-from hands_on.utils.agent_utils import NNAgent
-from hands_on.utils.env_utils import get_device
-from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 from practice.base.config import ArtifactConfig, EnvConfig
+from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.curiosity_exercise import (
     RND1DNetworkConfig,
@@ -18,8 +15,10 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceTrainer,
     ReinforceContext,
 )
-from practice.utils.env_utils import get_env_from_config
-from practice.utils.reward_utils import XDirectionShapingRewardConfig
+from practice.utils.env_utils import get_device, get_env_from_config
+from practice.utils_for_coding.agent_utils import NNAgent
+from practice.utils_for_coding.reward_utils import XDirectionShapingRewardConfig
+from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 
 def get_app_config() -> EnhancedReinforceConfig:

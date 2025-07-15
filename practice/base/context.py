@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from numpy.typing import NDArray
 
-from hands_on.exercise2_dqn.dqn_exercise import EnvsType, EnvType
+from practice.base.env_typing import EnvsType, EnvType
 
 
 @dataclass(kw_only=True, frozen=True)

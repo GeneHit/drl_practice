@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim
 from numpy.typing import NDArray
 
-from hands_on.base import RewardBase, RewardConfig, ScheduleBase
+from practice.base.chest import RewardBase, RewardConfig, ScheduleBase
 
 
 class RNDNetwork1D(nn.Module):

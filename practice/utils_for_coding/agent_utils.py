@@ -4,10 +4,9 @@ import torch
 import torch.nn as nn
 from numpy.typing import NDArray
 
-from hands_on.base import ActType, AgentBase
-from hands_on.utils_for_coding.numpy_tensor_utils import (
-    get_tensor_expanding_axis,
-)
+from practice.base.chest import AgentBase
+from practice.base.env_typing import ActType
+from practice.utils_for_coding.numpy_tensor_utils import get_tensor_expanding_axis
 
 
 class NNAgent(AgentBase):
@@ -38,9 +37,7 @@ class NNAgent(AgentBase):
         torch.save(self._net, pathname)
 
     @classmethod
-    def load_from_checkpoint(
-        cls, pathname: str, device: torch.device | None
-    ) -> "NNAgent":
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "NNAgent":
         """Load the DQN model."""
         assert pathname.endswith(".pth")
         net = torch.load(pathname, map_location=device, weights_only=False)

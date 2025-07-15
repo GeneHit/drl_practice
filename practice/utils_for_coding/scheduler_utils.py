@@ -1,6 +1,6 @@
 import numpy as np
 
-from hands_on.base import ScheduleBase
+from practice.base.chest import ScheduleBase
 
 
 class ConstantSchedule(ScheduleBase):
@@ -50,7 +50,5 @@ class ExponentialSchedule(ScheduleBase):
         assert t >= 0
         # when t=0, epsilon should be start_e
         # when t -> inf, epsilon should be end_e
-        epsilon = self.end_e + (self.start_e - self.end_e) * float(
-            np.exp(-self.decay_rate * t)
-        )
+        epsilon = self.end_e + (self.start_e - self.end_e) * float(np.exp(-self.decay_rate * t))
         return epsilon

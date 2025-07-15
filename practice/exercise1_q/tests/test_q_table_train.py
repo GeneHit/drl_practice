@@ -32,7 +32,6 @@ from typing import Generator, cast
 import numpy as np
 import pytest
 
-from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 from practice.base.context import ContextBase
 from practice.exercise1_q.config_taxi import generate_context
 from practice.exercise1_q.q_table_exercise import (
@@ -42,13 +41,14 @@ from practice.exercise1_q.q_table_exercise import (
     QTableTrainer,
 )
 from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 
 @pytest.fixture
 def test_config() -> QTableConfig:
     """Create a test configuration based on taxi config with reduced parameters."""
-    from hands_on.utils.env_utils import get_device
     from practice.base.config import ArtifactConfig, EnvConfig
+    from practice.utils.env_utils import get_device
 
     device = get_device()
 

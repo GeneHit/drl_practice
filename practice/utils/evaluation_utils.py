@@ -1,15 +1,82 @@
 import json
 import os
+import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
+import numpy as np
+from tqdm import tqdm
 
-from hands_on.base import AgentBase
-from hands_on.utils.env_utils import describe_wrappers
-from hands_on.utils.evaluation_utils import evaluate_agent
+from practice.base.chest import AgentBase
 from practice.base.config import BaseConfig
+from practice.utils.env_utils import describe_wrappers
+
+
+def evaluate_agent(
+    env: gym.Env[Any, Any],
+    policy: AgentBase,
+    max_steps: int | None,
+    episodes: int,
+    seed: int | None,
+    record_video: bool = False,
+    video_dir: str = "./video",
+    video_num: int | None = None,
+) -> tuple[float, float]:
+    """Evaluate the agent.
+
+    Args:
+        env (gym.Env): The environment.
+        policy (AgentBase): The policy.
+        max_steps (int): The maximum number of steps per episode.
+        episodes (int): The number of episodes to evaluate.
+        seed (Sequence[int]): The seed.
+        record_video (bool): Whether to record videos during evaluation.
+        video_dir (str): The directory to save the videos.
+
+    Returns:
+        tuple[float, float]: The average and std of the reward.
+    """
+    # Wrap the environment with RecordVideo if video recording is requested
+    if record_video:
+        # Create the video folder if it doesn't exist
+        os.makedirs(video_dir, exist_ok=True)
+        num = video_num if video_num is not None else 10
+        trigger_step = episodes // num
+        env = gym.wrappers.RecordVideo(
+            env,
+            video_folder=video_dir,
+            episode_trigger=lambda x: x % trigger_step == 0,
+            disable_logger=True,
+        )
+
+    rewards = []
+    rnd = random.Random(seed)
+    seeks = [rnd.randint(0, 1000) for _ in range(episodes)]
+    for episode in tqdm(range(episodes), desc="Evaluating"):
+        state, _ = env.reset(seed=seeks[episode])
+
+        total_rewards_ep = 0.0
+
+        def step() -> bool:
+            nonlocal state, total_rewards_ep
+            action = policy.action(state)
+            state, reward, terminated, truncated, _ = env.step(action)
+            total_rewards_ep += float(reward)
+            return terminated or truncated
+
+        if max_steps is None:
+            while not step():
+                pass
+        else:
+            for _ in range(max_steps):
+                if step():
+                    break
+
+        rewards.append(total_rewards_ep)
+
+    return float(np.mean(rewards)), float(np.std(rewards))
 
 
 def evaluate_and_save_results(

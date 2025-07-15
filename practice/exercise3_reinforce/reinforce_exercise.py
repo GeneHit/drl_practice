@@ -11,10 +11,9 @@ from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from hands_on.base import ActType
-from hands_on.exercise2_dqn.dqn_exercise import ObsType
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
+from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
 
 

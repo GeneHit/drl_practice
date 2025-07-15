@@ -30,8 +30,8 @@ from typing import Generator, cast
 import pytest
 import torch
 
-from hands_on.exercise2_dqn.dqn_exercise import EnvType
 from practice.base.context import ContextBase
+from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.config_mountain_car import generate_context
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
@@ -44,9 +44,9 @@ from practice.utils.train_utils import train_and_evaluate_network
 @pytest.fixture
 def test_config() -> ReinforceConfig:
     """Create a test configuration based on mountain car config with reduced parameters."""
-    from hands_on.utils.agent_utils import NNAgent
-    from hands_on.utils.env_utils import get_device
     from practice.base.config import ArtifactConfig, EnvConfig
+    from practice.utils.env_utils import get_device
+    from practice.utils_for_coding.agent_utils import NNAgent
 
     device = get_device()
 

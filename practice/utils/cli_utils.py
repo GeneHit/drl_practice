@@ -2,9 +2,9 @@ import importlib.util
 from pathlib import Path
 from typing import Union, cast
 
-from hands_on.exercise2_dqn.dqn_exercise import EnvType
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
+from practice.base.env_typing import EnvType
 
 
 def load_config_module(

@@ -10,9 +10,10 @@ from numpy.typing import NDArray
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from hands_on.base import ActType, AgentBase, ScheduleBase
+from practice.base.chest import AgentBase, ScheduleBase
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
+from practice.base.env_typing import ActType
 from practice.base.trainer import TrainerBase
 
 # Type alias for discrete observations

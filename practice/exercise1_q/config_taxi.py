@@ -2,8 +2,6 @@ import numpy as np
 import torch
 from gymnasium.spaces import Discrete
 
-from hands_on.utils.env_utils import get_device
-from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.exercise1_q.q_table_exercise import (
@@ -12,7 +10,8 @@ from practice.exercise1_q.q_table_exercise import (
     QTableConfig,
     QTableTrainer,
 )
-from practice.utils.env_utils import make_discrete_env_with_kwargs
+from practice.utils.env_utils import get_device, make_discrete_env_with_kwargs
+from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 
 def get_app_config() -> QTableConfig:

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
+from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 
 def plot_exponential_schedule() -> None:
@@ -94,7 +94,7 @@ def plot_schedule_comparison() -> None:
     """Compare ExponentialSchedule with other schedule types."""
 
     # Import other schedule types
-    from hands_on.utils_for_coding.scheduler_utils import ConstantSchedule, LinearSchedule
+    from practice.utils_for_coding.scheduler_utils import ConstantSchedule, LinearSchedule
 
     time_steps = np.arange(0, 500, 1)
 
