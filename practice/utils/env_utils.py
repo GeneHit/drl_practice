@@ -11,6 +11,25 @@ ObsFloat: TypeAlias = np.float32
 ObsInt: TypeAlias = np.uint8
 
 
+def make_discrete_env_with_kwargs(
+    env_id: str, kwargs: dict[str, Any], max_steps: int | None = None
+) -> gym.Env[np.int64, np.int64]:
+    """Make the environment based on configuration.
+
+    observation:
+        type: numpy.int64, obs.dtype: int64, obs.shape: (), obs_n: int
+    action:
+        type: numpy.int64, act.dtype: int64, act.shape: (), act_n: int
+    """
+    env = gym.make(id=env_id, **kwargs)
+    # Add episode statistics tracking - tracks cumulative rewards and episode lengths
+    env = gym.wrappers.RecordEpisodeStatistics(env)
+    if max_steps is not None:
+        env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+
+    return env
+
+
 class CastObsFloat32Wrapper(gym.Wrapper):  # type: ignore
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
@@ -144,13 +163,12 @@ def get_env_from_config(config: EnvConfig) -> tuple[EnvType | EnvsType, EnvType]
         train_env = make_env_with_kwargs(
             config.env_id, max_steps=config.max_steps, kwargs=config.env_kwargs
         )
-        eval_env = train_env
-        if config.record_eval_video:
-            eval_env = make_env_with_kwargs(
-                config.env_id,
-                max_steps=config.max_steps,
-                kwargs={**config.env_kwargs, "render_mode": "rgb_array"},
-            )
+        # always use rgb_array and default max_steps for evaluation
+        eval_env = make_env_with_kwargs(
+            config.env_id,
+            max_steps=config.max_steps,
+            kwargs={**config.env_kwargs, "render_mode": "rgb_array"},
+        )
         return train_env, eval_env
 
     def get_env_fn(
