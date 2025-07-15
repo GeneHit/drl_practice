@@ -3,6 +3,7 @@ import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
+from hands_on.exercise2_dqn.dqn_exercise import EnvType
 from hands_on.utils.agent_utils import NNAgent
 from hands_on.utils.env_utils import get_device
 from hands_on.utils_for_coding.scheduler_utils import ExponentialSchedule
@@ -64,12 +65,20 @@ def get_app_config() -> EnhancedReinforceConfig:
             save_result=True,
             model_filename="curiosity.pth",
             repo_id="Reinforce-MountainCarV0",
+            algorithm_name="Reinforce_RND",
+            extra_tags=("curiosity", "reinforce", "rnd"),
         ),
     )
 
 
+def get_env_for_play_and_hub(config: EnhancedReinforceConfig) -> EnvType:
+    """Get the environment for play and hub."""
+    _, eval_env = get_env_from_config(config.env_config)
+    return eval_env
+
+
 def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:
-    """Generate the context for the application."""
+    """Generate the context for the training."""
     env, eval_env = get_env_from_config(config.env_config)
     assert isinstance(env, gym.Env)  # Changed from EnvType to gym.Env
 

@@ -17,6 +17,7 @@ def push_to_hub(
     eval_result_pathname: str,
     metadata: dict[str, Any],
     local_repo_path: str = "results/hub",
+    copy_file: bool = True,
 ) -> None:
     """Push a model to the Hub.
 
@@ -41,15 +42,10 @@ def push_to_hub(
     api = HfApi()
 
     # Step 1: Create the repo
-    repo_url = api.create_repo(
-        repo_id=repo_id,
-        exist_ok=True,
-    )
+    repo_url = api.create_repo(repo_id=repo_id, exist_ok=True)
 
     # Step 2: Download files
-    repo_local_path = Path(
-        snapshot_download(repo_id=repo_id, local_dir=local_repo_path)
-    )
+    repo_local_path = Path(snapshot_download(repo_id=repo_id, local_dir=local_repo_path))
 
     # Step 3: Create the model card
     readme_path = repo_local_path / "README.md"
@@ -82,19 +78,18 @@ def push_to_hub(
     metadata_save(readme_path, metadata)
 
     # Step 5: copy video, model, parameters, eval_result. keep the original file name
-    for file_pathname in file_pathnames:
-        shutil.copy(
-            file_pathname, repo_local_path / file_pathname.split("/")[-1]
-        )
+    if copy_file:
+        for file_pathname in file_pathnames:
+            shutil.copy(file_pathname, repo_local_path / file_pathname.split("/")[-1])
 
-    shutil.copy(
-        eval_result_pathname,
-        repo_local_path / eval_result_pathname.split("/")[-1],
-    )
+        shutil.copy(eval_result_pathname, repo_local_path / eval_result_pathname.split("/")[-1])
 
     # Step 7. Push everything to the Hub
     api.upload_folder(
-        repo_id=repo_id, folder_path=repo_local_path, path_in_repo="."
+        repo_id=repo_id,
+        folder_path=repo_local_path,
+        path_in_repo=".",
+        commit_message="test hub",
     )
 
     print("Pushed to the Hub. You can view your model here: ", repo_url)
@@ -104,7 +99,7 @@ def get_env_name_and_metadata(
     env_id: str,
     env: gym.Env[Any, Any],
     algorithm_name: str,
-    extra_tags: list[str] = [],
+    extra_tags: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Common function to generate environment name and metadata for hub uploads."""
     env_name = env_id
@@ -116,12 +111,7 @@ def get_env_name_and_metadata(
         if not is_slippery:
             env_name += "-noSlippery"
 
-    tags = [
-        env_name,
-        algorithm_name,
-        "reinforcement-learning",
-        "custom-implementation",
-    ]
+    tags = [env_name, algorithm_name, "reinforcement-learning", "custom-implementation"]
     if extra_tags:
         tags.extend(extra_tags)
 
@@ -146,14 +136,9 @@ def push_model_to_hub(
             str(output_dir / output_params["model_filename"]),
             str(output_dir / output_params["params_filename"]),
             str(output_dir / output_params["train_result_filename"]),
-            str(
-                output_dir
-                / output_params.get("replay_video_filename", "replay.mp4")
-            ),
+            str(output_dir / output_params.get("replay_video_filename", "replay.mp4")),
         ],
-        eval_result_pathname=str(
-            output_dir / output_params["eval_result_filename"]
-        ),
+        eval_result_pathname=str(output_dir / output_params["eval_result_filename"]),
         metadata=metadata,
         local_repo_path=str(output_dir / "hub"),
     )

@@ -8,7 +8,6 @@ This CLI can run various RL exercises by loading Python config modules and suppo
 """
 
 import argparse
-import importlib.util
 import sys
 from pathlib import Path
 from typing import cast
@@ -18,72 +17,12 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # below has to be imported after sys.path.insert(0, str(project_root))
-from practice.base.config import BaseConfig  # noqa: E402
+from hands_on.exercise2_dqn.dqn_exercise import EnvType  # noqa: E402
 from practice.base.context import ContextBase  # noqa: E402
-from practice.utils.cli_utils import play_and_generate_video_generic  # noqa: E402
+from practice.utils.cli_utils import load_config_module  # noqa: E402
+from practice.utils.hub_utils import push_to_hub_generic  # noqa: E402
+from practice.utils.play_utils import play_and_generate_video_generic  # noqa: E402
 from practice.utils.train_utils import train_and_evaluate_network  # noqa: E402
-
-
-def load_config_module(config_path: str) -> tuple[BaseConfig, ContextBase]:
-    """Load a Python config module and extract config and context functions.
-
-    Args:
-        config_path: Path to Python config file
-
-    Returns:
-        Tuple of (config, context) from the config module
-
-    Raises:
-        ImportError: If config module cannot be loaded
-        AttributeError: If required functions are missing
-    """
-    config_file = Path(config_path)
-    if not config_file.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    if not config_path.endswith(".py"):
-        raise ValueError(f"Config file must be a Python file (.py): {config_path}")
-
-    # Load the module dynamically
-    spec = importlib.util.spec_from_file_location("config_module", config_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load config module from: {config_path}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    # Extract required functions
-    if not hasattr(module, "get_app_config"):
-        raise AttributeError(f"Config module must define 'get_app_config' function: {config_path}")
-
-    if not hasattr(module, "generate_context"):
-        raise AttributeError(
-            f"Config module must define 'generate_context' function: {config_path}"
-        )
-
-    # Get config and context
-    config = module.get_app_config()
-    context = module.generate_context(config)
-
-    return cast(BaseConfig, config), cast(ContextBase, context)
-
-
-def train_wrapper(config: BaseConfig, context: ContextBase) -> None:
-    """Wrapper for training that matches the expected signature."""
-    train_and_evaluate_network(config=config, ctx=context)
-
-
-def play_wrapper(config: BaseConfig, context: ContextBase) -> None:
-    """Simplified play wrapper for practice exercises."""
-    play_and_generate_video_generic(config=config, env=context.eval_env)
-
-
-def push_to_hub_wrapper(config: BaseConfig, context: ContextBase, username: str) -> None:
-    """Simplified push to hub wrapper for practice exercises."""
-    print("Push to hub functionality will be implemented when needed.")
-    print(f"Model would be pushed to hub for user: {username}")
-    print(f"Model file: {config.artifact_config.model_filename}")
-    print(f"Repo ID: {config.artifact_config.repo_id}")
 
 
 def _create_parser() -> argparse.ArgumentParser:
@@ -163,27 +102,29 @@ def main() -> None:
     _validate_args(args, parser)
 
     try:
-        # Load config and context from Python module
+        # Load config and context/env from Python module based on mode
         print(f"Loading configuration from: {args.config}")
-        config, context = load_config_module(args.config)
+        config, context_or_env = load_config_module(args.config, args.mode)
 
         # Execute the requested mode
         if args.mode == "train":
             print("=== Training Mode ===")
-            train_wrapper(config, context)
+            train_and_evaluate_network(config=config, ctx=cast(ContextBase, context_or_env))
 
         elif args.mode == "play":
             print("=== Play Mode ===")
-            play_wrapper(config, context)
+            play_and_generate_video_generic(config=config, env=cast(EnvType, context_or_env))
 
         elif args.mode == "push_to_hub":
             print("=== Push to Hub Mode ===")
 
             if not args.skip_play:
                 print("Would play game and generate video first.")
-                play_wrapper(config, context)
+                play_and_generate_video_generic(config=config, env=cast(EnvType, context_or_env))
 
-            push_to_hub_wrapper(config, context, args.username)
+            push_to_hub_generic(
+                config=config, env=cast(EnvType, context_or_env), username=args.username
+            )
 
         print("=== Operation Complete ===")
 

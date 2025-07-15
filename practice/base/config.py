@@ -35,7 +35,7 @@ class ArtifactConfig(abc.ABC):
     eval_result_filename: str = "eval_result.json"
 
     # Hub parameters (optional)
-    repo_id: str = ""
+    repo_id: str
     """The repository ID for the huggingface hub."""
     seek_for_replay_video: int = 42
     """The seed for the replay video."""
@@ -45,6 +45,12 @@ class ArtifactConfig(abc.ABC):
     """The frame rate of the replay video."""
     seed: int = 99
     """The seed for the replay video."""
+    algorithm_name: str
+    """The name of the algorithm."""
+    extra_tags: tuple[str, ...] = ()
+    """The extra tags for the huggingface hub."""
+    usage_instructions: str = ""
+    """The usage instructions for the huggingface hub."""
 
 
 @dataclass(frozen=True, kw_only=True)
