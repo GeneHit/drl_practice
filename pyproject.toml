@@ -35,9 +35,7 @@ split-on-trailing-comma = true
 # ******************************Configuration for Pytest************************
 [tool.pytest.ini_options]
 filterwarnings = [
-    "ignore:greenlet.greenlet size changed",
-    "ignore:builtin type.*has no __module__ attribute:DeprecationWarning",
-    "ignore:pkg_resources is deprecated.*:DeprecationWarning",
+    "ignore::UserWarning:gymnasium.wrappers.rendering",
 ]
 # 600s should be quite enough for a single test
 # If your test exceeds this time, first check if there is inappropriate sleep

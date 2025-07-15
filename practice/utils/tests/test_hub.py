@@ -111,10 +111,16 @@ def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
 def mock_metadata() -> dict[str, Any]:
     """Create mock metadata for testing."""
     return {
-        "algorithm": "testalgorithm",
-        "env_id": "CartPole-v1",
-        "model_name": "TestAlgorithm",
-        "tags": ["test", "hub", "push", "testalgorithm"],
+        "env_name": "CartPole-v1",
+        "tags": [
+            "CartPole-v1",
+            "testalgorithm",
+            "reinforcement-learning",
+            "custom-implementation",
+            "test",
+            "hub",
+            "push",
+        ],
     }
 
 
@@ -122,7 +128,7 @@ class TestPushToHubGeneric:
     """Test push_to_hub_generic function."""
 
     @patch("practice.utils.hub_utils.push_model_to_hub")
-    @patch("practice.utils.hub_utils.get_env_name_and_metadata")
+    @patch("practice.utils.hub_utils._get_env_name_and_metadata")
     def test_push_to_hub_success(
         self,
         mock_get_metadata: Mock,
@@ -169,7 +175,7 @@ class TestPushToHubGeneric:
         assert test_config.artifact_config.model_filename in model_card
 
     @patch("practice.utils.hub_utils.push_model_to_hub")
-    @patch("practice.utils.hub_utils.get_env_name_and_metadata")
+    @patch("practice.utils.hub_utils._get_env_name_and_metadata")
     def test_push_to_hub_with_different_username(
         self,
         mock_get_metadata: Mock,
@@ -193,7 +199,7 @@ class TestPushToHubGeneric:
         assert call_args[1]["repo_id"] == f"{username}/{test_config.artifact_config.repo_id}"
 
     @patch("practice.utils.hub_utils.push_model_to_hub")
-    @patch("practice.utils.hub_utils.get_env_name_and_metadata")
+    @patch("practice.utils.hub_utils._get_env_name_and_metadata")
     def test_push_to_hub_with_no_extra_tags(
         self,
         mock_get_metadata: Mock,
@@ -228,7 +234,7 @@ class TestPushToHubGeneric:
         )
 
     @patch("practice.utils.hub_utils.push_model_to_hub")
-    @patch("practice.utils.hub_utils.get_env_name_and_metadata")
+    @patch("practice.utils.hub_utils._get_env_name_and_metadata")
     def test_push_to_hub_metadata_error(
         self,
         mock_get_metadata: Mock,
@@ -250,7 +256,7 @@ class TestPushToHubGeneric:
         # So we don't check for env.close() being called here
 
     @patch("practice.utils.hub_utils.push_model_to_hub")
-    @patch("practice.utils.hub_utils.get_env_name_and_metadata")
+    @patch("practice.utils.hub_utils._get_env_name_and_metadata")
     def test_push_to_hub_push_error(
         self,
         mock_get_metadata: Mock,
@@ -274,7 +280,7 @@ class TestPushToHubGeneric:
         # So we don't check for env.close() being called here
 
     @patch("practice.utils.hub_utils.push_model_to_hub")
-    @patch("practice.utils.hub_utils.get_env_name_and_metadata")
+    @patch("practice.utils.hub_utils._get_env_name_and_metadata")
     def test_model_card_generation(
         self,
         mock_get_metadata: Mock,
@@ -309,7 +315,7 @@ class TestPushToHubGeneric:
 class TestPushModelToHub:
     """Test push_model_to_hub function."""
 
-    @patch("practice.utils.hub_utils.push_to_hub")
+    @patch("practice.utils.hub_utils._push_to_hub")
     def test_push_model_to_hub_success(
         self, mock_push_to_hub: Mock, test_config: BaseConfig, mock_metadata: dict[str, Any]
     ) -> None:
@@ -354,7 +360,7 @@ class TestPushModelToHub:
         ]
         assert call_args[1]["file_pathnames"] == expected_files
 
-    @patch("practice.utils.hub_utils.push_to_hub")
+    @patch("practice.utils.hub_utils._push_to_hub")
     def test_push_model_to_hub_with_different_files(
         self, mock_push_to_hub: Mock, mock_metadata: dict[str, Any], temp_output_dir: Path
     ) -> None:
@@ -408,7 +414,7 @@ class TestPushModelToHub:
         assert call_args[1]["file_pathnames"] == expected_files
         assert call_args[1]["eval_result_pathname"] == str(temp_output_dir / "custom_eval.json")
 
-    @patch("practice.utils.hub_utils.push_to_hub")
+    @patch("practice.utils.hub_utils._push_to_hub")
     def test_push_model_to_hub_error(
         self, mock_push_to_hub: Mock, test_config: BaseConfig, mock_metadata: dict[str, Any]
     ) -> None:
@@ -449,8 +455,8 @@ class TestPushModelToHub:
 class TestHubUtilsIntegration:
     """Integration tests for hub utilities."""
 
-    @patch("practice.utils.hub_utils.push_to_hub")
-    @patch("practice.utils.hub_utils.get_env_name_and_metadata")
+    @patch("practice.utils.hub_utils._push_to_hub")
+    @patch("practice.utils.hub_utils._get_env_name_and_metadata")
     def test_full_hub_workflow(
         self,
         mock_get_metadata: Mock,
