@@ -72,7 +72,7 @@ def generate_context(config: ReinforceConfig) -> ContextBase:
     policy.to(config.device)
 
     return ContextBase(
-        env=env,
+        train_env=env,
         eval_env=eval_env,
         trained_target=policy,
         optimizer=Adam(policy.parameters(), lr=config.learning_rate),

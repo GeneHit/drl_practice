@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 import torch
@@ -10,10 +11,28 @@ from hands_on.exercise2_dqn.dqn_exercise import EnvsType, EnvType
 
 @dataclass(kw_only=True, frozen=True)
 class ContextBase:
-    env: EnvType | EnvsType
+    train_env: EnvType | EnvsType
+    """The environment used for training."""
     eval_env: EnvType
+    """The environment used for evaluation."""
     trained_target: nn.Module | NDArray[np.float32]
+    """The trained target network."""
     optimizer: torch.optim.Optimizer
+    """The optimizer used for training."""
+
+    @property
+    def env(self) -> EnvType:
+        # Check if it's a vector environment by checking for num_envs attribute
+        if hasattr(self.train_env, "num_envs"):
+            raise TypeError("train_env is a vector environment, use envs property instead")
+        return cast(EnvType, self.train_env)
+
+    @property
+    def envs(self) -> EnvsType:
+        # Check if it's a vector environment by checking for num_envs attribute
+        if not hasattr(self.train_env, "num_envs"):
+            raise TypeError("train_env is a single environment, use env property instead")
+        return cast(EnvsType, self.train_env)
 
     @property
     def network(self) -> nn.Module:

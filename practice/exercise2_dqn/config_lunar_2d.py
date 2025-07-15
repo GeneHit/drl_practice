@@ -93,7 +93,7 @@ def generate_context(config: DQNConfig) -> ContextBase:
     q_network.to(config.device)
 
     return ContextBase(
-        env=env,
+        train_env=env,
         eval_env=eval_env,
         trained_target=q_network,
         optimizer=Adam(q_network.parameters(), lr=config.learning_rate),

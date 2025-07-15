@@ -125,8 +125,8 @@ class TestDQNTraining:
             assert True, "Training completed successfully"
         finally:
             # Clean up environments
-            if hasattr(context, "env") and context.env:
-                context.env.close()
+            if hasattr(context, "train_env") and context.train_env:
+                context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
 
@@ -177,8 +177,8 @@ class TestDQNTraining:
 
         finally:
             # Clean up environments
-            if hasattr(context, "env") and context.env:
-                context.env.close()
+            if hasattr(context, "train_env") and context.train_env:
+                context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
 
@@ -216,8 +216,8 @@ class TestDQNTraining:
             assert True, "Training from checkpoint completed successfully"
         finally:
             # Clean up environments
-            if hasattr(context, "env") and context.env:
-                context.env.close()
+            if hasattr(context, "train_env") and context.train_env:
+                context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
 
@@ -286,8 +286,8 @@ class TestDQNTraining:
 
         finally:
             # Clean up environments
-            if hasattr(context, "env") and context.env:
-                context.env.close()
+            if hasattr(context, "train_env") and context.train_env:
+                context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
 
@@ -300,7 +300,7 @@ class TestDQNTraining:
 
         assert isinstance(config, DQNConfig)
         assert isinstance(context, ContextBase)
-        assert hasattr(context, "env")
+        assert hasattr(context, "train_env")
         assert hasattr(context, "eval_env")
 
         # Test play mode loading
@@ -313,8 +313,8 @@ class TestDQNTraining:
 
         # Clean up
         try:
-            if hasattr(context, "env") and context.env:
-                context.env.close()
+            if hasattr(context, "train_env") and context.train_env:
+                context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
             if env:

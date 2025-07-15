@@ -118,11 +118,7 @@ class DQNTrainer(TrainerBase):
         )
 
         # Use environment from context - must be vector environment for DQN training
-        envs = self._ctx.env
-        if not hasattr(envs, "num_envs"):
-            raise ValueError(
-                "DQN training requires vector environments. Please set vector_env_num in env_config."
-            )
+        envs = self._ctx.envs
 
         # Create trainer pod
         pod = _DQNPod(config=self._config, ctx=self._ctx, writer=writer)
@@ -226,9 +222,6 @@ class _DQNPod:
         assert isinstance(self._ctx.eval_env.action_space, Discrete)
         self._action_n = int(self._ctx.eval_env.action_space.n)
 
-        # Get state shape from context
-        self._state_shape = self._ctx.env_state_shape
-
     def sync_target_net(self) -> None:
         """Synchronize target network with current Q-network."""
         self._target_net.load_state_dict(self._ctx.network.state_dict())
@@ -246,7 +239,7 @@ class _DQNPod:
                 Single action or batch of actions depending on input shape.
         """
         # Check if input is a single state or batch of states
-        is_single = len(state.shape) == len(self._state_shape)
+        is_single = len(state.shape) == len(self._ctx.env_state_shape)
         state_batch = state if not is_single else state.reshape(1, *state.shape)
 
         if eval:

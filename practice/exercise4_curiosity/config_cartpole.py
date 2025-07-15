@@ -97,7 +97,7 @@ def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:
     rewarders = tuple(reward_config.get_rewarder() for reward_config in config.reward_configs)
 
     return ReinforceContext(
-        env=env,
+        train_env=env,
         eval_env=eval_env,
         trained_target=policy,
         optimizer=Adam(policy.parameters(), lr=config.learning_rate),
