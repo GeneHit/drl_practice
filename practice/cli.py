@@ -93,6 +93,19 @@ def _validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
         parser.error("--skip_play can only be used with push_to_hub mode")
 
 
+def _close_context_envs(context: ContextBase) -> None:
+    """Close all environments in the context."""
+    try:
+        context.env.close()
+    except Exception as e:
+        print(f"Warning: Failed to close training environment: {e}")
+
+    try:
+        context.eval_env.close()
+    except Exception as e:
+        print(f"Warning: Failed to close evaluation environment: {e}")
+
+
 def main() -> None:
     """Main CLI function."""
     parser = _create_parser()
@@ -109,28 +122,38 @@ def main() -> None:
         # Execute the requested mode
         if args.mode == "train":
             print("=== Training Mode ===")
-            train_and_evaluate_network(config=config, ctx=cast(ContextBase, context_or_env))
+            context = cast(ContextBase, context_or_env)
+            try:
+                train_and_evaluate_network(config=config, ctx=context)
+            finally:
+                _close_context_envs(context)
 
         elif args.mode == "play":
             print("=== Play Mode ===")
-            play_and_generate_video_generic(config=config, env=cast(EnvType, context_or_env))
+            env = cast(EnvType, context_or_env)
+            try:
+                play_and_generate_video_generic(config=config, env=env)
+            finally:
+                env.close()
 
         elif args.mode == "push_to_hub":
             print("=== Push to Hub Mode ===")
+            env = cast(EnvType, context_or_env)
+            # Environment cleanup is handled by the CLI try-finally block
+            try:
+                if not args.skip_play:
+                    print("Would play game and generate video first.")
+                    play_and_generate_video_generic(config=config, env=env)
 
-            if not args.skip_play:
-                print("Would play game and generate video first.")
-                play_and_generate_video_generic(config=config, env=cast(EnvType, context_or_env))
-
-            push_to_hub_generic(
-                config=config, env=cast(EnvType, context_or_env), username=args.username
-            )
+                push_to_hub_generic(config=config, env=env, username=args.username)
+            finally:
+                env.close()
 
         print("=== Operation Complete ===")
 
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        print(f"Error occurs while run {args.mode} mode")
+        raise e
 
 
 if __name__ == "__main__":

@@ -19,41 +19,38 @@ def push_to_hub_generic(config: BaseConfig, env: EnvType, username: str) -> None
     """
     env_id = config.env_config.env_id
     algorithm_name = config.artifact_config.algorithm_name
-    try:
-        # Get metadata with algorithm-specific tags
-        metadata = get_env_name_and_metadata(
-            env_id=env_id,
-            env=env,
-            algorithm_name=algorithm_name.lower(),
-            extra_tags=config.artifact_config.extra_tags or [],
-        )
+    # Get metadata with algorithm-specific tags
+    metadata = get_env_name_and_metadata(
+        env_id=env_id,
+        env=env,
+        algorithm_name=algorithm_name.lower(),
+        extra_tags=config.artifact_config.extra_tags,
+    )
 
-        # Create repo_id
-        repo_id = f"{username}/{config.artifact_config.repo_id}"
+    # Create repo_id
+    repo_id = f"{username}/{config.artifact_config.repo_id}"
 
-        # Create model card with algorithm-specific content
-        model_card = f"""
-    # **{algorithm_name}** Agent playing **{env_id}**
-    This is a trained model of a **{algorithm_name}** agent playing **{env_id}**.
+    # Create model card with algorithm-specific content
+    model_card = f"""
+# **{algorithm_name}** Agent playing **{env_id}**
+This is a trained model of a **{algorithm_name}** agent playing **{env_id}**.
 
-    ## Usage
+## Usage
 
-    model = load_from_hub(repo_id="{repo_id}", filename="{config.artifact_config.model_filename}")
+model = load_from_hub(repo_id="{repo_id}", filename="{config.artifact_config.model_filename}")
 
-    {config.artifact_config.usage_instructions}
-    env = gym.make("{env_id}")
-    ...
-    """
+{config.artifact_config.usage_instructions}
+env = gym.make("{env_id}")
+...
+"""
 
-        # Push to hub
-        push_model_to_hub(
-            repo_id=repo_id,
-            artifact_config=config.artifact_config,
-            model_card=model_card,
-            metadata=metadata,
-        )
-    finally:
-        env.close()
+    # Push to hub
+    push_model_to_hub(
+        repo_id=repo_id,
+        artifact_config=config.artifact_config,
+        model_card=model_card,
+        metadata=metadata,
+    )
 
 
 def push_model_to_hub(
