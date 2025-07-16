@@ -17,6 +17,7 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
 )
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
+from practice.utils_for_coding.baseline_utils import ConstantBaseline
 from practice.utils_for_coding.reward_utils import XDirectionShapingRewardConfig
 from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
@@ -31,8 +32,7 @@ def get_app_config() -> EnhancedReinforceConfig:
         learning_rate=1e-3,
         gamma=0.999,
         grad_acc=1,
-        use_baseline=True,
-        baseline_decay=0.99,
+        baseline=ConstantBaseline(decay=0.99),
         entropy_coef=0.01,
         eval_episodes=20,
         eval_random_seed=42,

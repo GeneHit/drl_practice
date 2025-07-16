@@ -14,14 +14,22 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
+from practice.utils_for_coding.baseline_utils import (
+    BaselineBase,
+    ConstantBaseline,
+)
 
 
 @dataclass(kw_only=True, frozen=True)
 class EnhancedReinforceConfig(BaseConfig):
     episode: int
     grad_acc: int = 1
-    use_baseline: bool
-    baseline_decay: float = 0.99
+    baseline: BaselineBase = ConstantBaseline()
+    """The baseline for the policy.
+
+    The baseline is used to reduce the variance of the policy gradient.
+    """
+
     entropy_coef: float = 0.01
     """The entropy coefficient for the entropy loss.
 
@@ -235,8 +243,8 @@ class _EnhancedReinforcePod:
         # Track episodes since last optimizer step
         self._accumulated_episodes = 0
         # Baseline for variance reduction
-        self._baseline_value = 0.0
-        self._baseline_initialized = False
+        self._baseline = config.baseline
+        # self._baseline.reset()  # No longer needed
 
     def action_and_log_prob(
         self, state: NDArray[ObsType], actions: Sequence[ActType] | None = None
@@ -309,24 +317,13 @@ class _EnhancedReinforcePod:
 
         # Convert to tensor
         returns_tensor = torch.tensor(returns)
-        # Update baseline with the average return of this episode
-        episode_return = returns_tensor[0].item()  # First element is the total return
-        if not self._config.use_baseline:
-            advantages = returns_tensor
+        # Update baseline
+        baseline_value = self._baseline.update(returns, list(log_probs))
+        if isinstance(baseline_value, list):
+            baseline_tensor = torch.tensor(baseline_value)
         else:
-            if not self._baseline_initialized:
-                self._baseline_value = episode_return
-                self._baseline_initialized = True
-            else:
-                # Constant baseline using exponential moving average:
-                #       b_t = decay * b_{t-1} + (1-decay) * G_t
-                self._baseline_value = (
-                    self._config.baseline_decay * self._baseline_value
-                    + (1 - self._config.baseline_decay) * episode_return
-                )
-
-            # Apply baseline to reduce variance: A(s,a) = G_t - b (constant baseline)
-            advantages = returns_tensor - self._baseline_value
+            baseline_tensor = torch.full_like(returns_tensor, float(baseline_value))
+        advantages = returns_tensor - baseline_tensor
 
         # Normalize advantages for stability
         if len(advantages) > 1:
@@ -356,5 +353,11 @@ class _EnhancedReinforcePod:
         self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._episode_count)
         self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._episode_count)
         self._writer.add_scalar("losses/total_loss", total_loss.item(), self._episode_count)
-        self._writer.add_scalar("losses/baseline", self._baseline_value, self._episode_count)
+        self._writer.add_scalar(
+            "losses/baseline",
+            float(baseline_value)
+            if not isinstance(baseline_value, list)
+            else float(baseline_value[0]),
+            self._episode_count,
+        )
         self._episode_count += 1

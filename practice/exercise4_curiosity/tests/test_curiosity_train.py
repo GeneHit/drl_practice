@@ -43,6 +43,7 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceTrainer,
 )
 from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils_for_coding.baseline_utils import ConstantBaseline
 
 
 @pytest.fixture
@@ -67,8 +68,7 @@ def test_config() -> EnhancedReinforceConfig:
         learning_rate=1e-3,
         gamma=0.999,
         grad_acc=1,
-        use_baseline=True,
-        baseline_decay=0.99,
+        baseline=ConstantBaseline(),
         entropy_coef=0.01,
         eval_episodes=3,  # Reduced from 20
         eval_random_seed=42,
