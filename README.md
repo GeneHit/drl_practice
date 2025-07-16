@@ -18,7 +18,7 @@ The things you need to do:
 | [1. q_learning](./practice/exercise1_q/README.md) | Q Table | FrozenLake | Taxi |
 | [2. dqn](./practice/exercise2_dqn/README.md) | Deep Q Network | 1D LunarLander-v3 | img LunarLander-v3 |
 | [3. reinforce](./practice/exercise3_reinforce/README.md) | Reinforce (Monte Carlo) | CartPole-v1 | MountainCar-v0 |
-| [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with enhanced Reinforce) | | MountainCar-v0 |
+| [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with Reinforce, baseline, shaping reward) | | MountainCar-v0 |
 
 
 ## Motivation

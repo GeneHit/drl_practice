@@ -55,7 +55,6 @@ def test_config() -> ReinforceConfig:
         episode=4,  # Reduced from 1000
         learning_rate=1e-3,
         gamma=0.999,
-        grad_acc=1,
         entropy_coef=0.01,
         eval_episodes=3,  # Reduced from 20
         eval_random_seed=42,
@@ -331,7 +330,6 @@ class TestReinforceTraining:
         assert test_config.episode > 0
         assert test_config.learning_rate > 0
         assert test_config.gamma > 0
-        assert test_config.grad_acc > 0
         assert test_config.eval_episodes > 0
 
         # Test artifact config

@@ -40,8 +40,13 @@ class ReinforceConfig(BaseConfig):
     """Configuration for vanilla REINFORCE algorithm."""
 
     episode: int
-    grad_acc: int = 1
-    entropy_coef: float = 0.01
+    """The number of episodes to train the policy."""
+
+    entropy_coef: float = 0.001
+    """The entropy coefficient for the entropy loss.
+
+    The entropy loss is added to the policy loss to encourage the policy to explore the environment.
+    """
 
 
 class ReinforceTrainer(TrainerBase):
@@ -248,35 +253,23 @@ class _ReinforcePod:
         returns.reverse()
 
         # Convert to tensor
-        returns_tensor = torch.tensor(returns, dtype=torch.float32, device=self._config.device)
-
-        # For vanilla REINFORCE, advantages are just the returns (no baseline)
-        advantages = returns_tensor
-
+        returns_ts = torch.tensor(returns, dtype=torch.float32)
         # Normalize advantages for stability
-        if len(advantages) > 1:
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        if len(returns_ts) > 1:
+            returns_ts = (returns_ts - returns_ts.mean()) / (returns_ts.std() + 1e-8)
 
         # Calculate policy loss and entropy loss
         log_probs_tensor = torch.stack(tuple(log_probs))
         entropies_tensor = torch.stack(tuple(entropies))
 
-        pg_loss = -(log_probs_tensor * advantages.to(self._config.device)).sum()
+        pg_loss = -(log_probs_tensor * returns_ts.to(self._config.device)).sum()
         entropy_loss = -self._config.entropy_coef * entropies_tensor.sum()
         total_loss = pg_loss + entropy_loss
 
-        # Scale loss by gradient accumulation factor to maintain proper gradient magnitude
-        scaled_loss = (total_loss / self._config.grad_acc).to(self._config.device)
-
         # Accumulate gradients
-        scaled_loss.backward()
-
-        self._accumulated_episodes += 1
-        # Perform optimizer step when we've accumulated enough episodes
-        if self._accumulated_episodes >= self._config.grad_acc:
-            self._ctx.optimizer.step()
-            self._ctx.optimizer.zero_grad()
-            self._accumulated_episodes = 0
+        total_loss.backward()
+        self._ctx.optimizer.step()
+        self._ctx.optimizer.zero_grad()
 
         # Log training metrics
         self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._episode_count)

@@ -24,7 +24,6 @@ def get_app_config() -> ReinforceConfig:
         episode=1000,
         learning_rate=1e-4,
         gamma=0.99,
-        grad_acc=1,
         entropy_coef=0.01,
         eval_episodes=20,
         eval_random_seed=42,

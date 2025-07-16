@@ -23,7 +23,13 @@ class EnhancedReinforceConfig(BaseConfig):
     use_baseline: bool
     baseline_decay: float = 0.99
     entropy_coef: float = 0.01
+    """The entropy coefficient for the entropy loss.
+
+    The entropy loss is added to the policy loss to encourage the policy to explore the environment.
+    """
+
     reward_configs: tuple[RewardConfig, ...] = ()
+    """The reward configs for the rewarders."""
 
 
 @dataclass(kw_only=True, frozen=True)
