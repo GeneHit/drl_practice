@@ -16,7 +16,7 @@ class ContextBase:
     eval_env: EnvType
     """The environment used for evaluation."""
     trained_target: nn.Module | NDArray[np.float32]
-    """The trained target network."""
+    """The trained policy/q-value network, or q-table."""
     optimizer: torch.optim.Optimizer
     """The optimizer used for training."""
 
