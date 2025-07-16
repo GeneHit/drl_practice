@@ -25,11 +25,11 @@ you can try (add project root to the python path):
 ```
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 ```
-### Good Code
-To ensure your code is high quality, please use the pre-commit:
+### Good Code Style
+To ensure your code is high-quality, please use the pre-commit:
 - when you submit a `git commit`:
     - it will run a range of checks.
-    - include self-add mypy and pytest check.
+    - include self-add mypy check.
 - commit will be submited when it passes all checks.
 
 Run below command in terminal to install the pre-commit for `git commit`.
@@ -62,7 +62,7 @@ tensorboard --logdir=Exercise_Result_Folder
 ```
 For example
 ```
-tensorboard --logdir=results/exercise3_reinforce/cartpole
+tensorboard --logdir=results/exercise3_reinforce/cartpole/tensorboard
 ```
 
 ### Exercise Command
