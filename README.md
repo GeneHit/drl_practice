@@ -24,5 +24,5 @@ The things you need to do:
 ## Motivation
 After studying the HuggingFace's
 [DRL course](https://huggingface.co/learn/deep-rl-course/unit0/introduction),
-I want to have a better understanding through the coding. So, some code
-is came from or bassed on the course's code. Thanks for this greate course.
+I want to have a deeper and broader understanding through the coding. Some code and config
+are based on the course. Thanks for this greate course.
