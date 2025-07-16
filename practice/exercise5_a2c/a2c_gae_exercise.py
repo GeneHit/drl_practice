@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 from torch import Tensor, nn
+from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -15,15 +16,55 @@ from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
 
 
+class ActorCritic(nn.Module):
+    """The actor-critic network for the A2C algorithm."""
+
+    def __init__(self, obs_dim: int, n_actions: int, hidden_size: int) -> None:
+        super().__init__()
+        # shared feedforward network
+        self.shared_fc1 = nn.Linear(obs_dim, hidden_size)
+        self.shared_fc2 = nn.Linear(hidden_size, hidden_size)
+
+        # actor head: output logits for each action
+        self.policy_logits = nn.Linear(hidden_size, n_actions)
+        # critic head: output value V(s)
+        self.value_head = nn.Linear(hidden_size, 1)
+
+        # initialize parameters, it is optional but helps to stabilize the training
+        for layer in [self.shared_fc1, self.shared_fc2, self.policy_logits, self.value_head]:
+            nn.init.orthogonal_(layer.weight, gain=int(nn.init.calculate_gain("relu")))
+            nn.init.constant_(layer.bias, 0)
+
+    def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
+        """The forward pass of the actor-critic network.
+
+        Args:
+            x: tensor, shape [batch_size, obs_dim]
+
+        Returns:
+            logits: tensor, shape [batch_size, n_actions]
+            value: tensor, shape [batch_size]
+        """
+        x = F.relu(self.shared_fc1(x))
+        x = F.relu(self.shared_fc2(x))
+
+        logits = self.policy_logits(x)
+        value = self.value_head(x).squeeze(-1)
+        return logits, value
+
+
 @dataclass(kw_only=True, frozen=True)
 class A2CConfig(BaseConfig):
     """The configuration for the A2C-GAE algorithm."""
 
-    rollout_num: int
-    """The number of rollouts to train the policy."""
+    episode: int
+    """The number of episodes to train the policy."""
 
     rollout_len: int
-    """The length of each rollout."""
+    """The length of each rollout.
+
+    The rollout is a sequence of states, actions, rewards, values, log_probs, entropies, dones.
+    """
 
     gae_lambda_or_n_step: float | int
     """The GAE lambda or TD(n) step.
@@ -39,21 +80,22 @@ class A2CConfig(BaseConfig):
     """The number of rollouts to accumulate gradients."""
 
 
-@dataclass(kw_only=True, frozen=True)
-class A2CContext(ContextBase):
-    """The context for the A2C algorithm."""
-
-    critic: nn.Module
-    """The critic network."""
-
-
 class A2CTrainer(TrainerBase):
-    """The trainer for the A2C algorithm."""
+    """The trainer for the A2C algorithm.
 
-    def __init__(self, config: A2CConfig, ctx: A2CContext) -> None:
+    Required: the actor-critic network, which means the actor and critic networks are shared.
+
+    The actor-critic network is a shared network that outputs the logits for each action and
+    the value of the state. This is a usual practice in the actor-critic family of algorithms.
+
+    In some cases, the actor and critic networks are not shared, even separated by 2 different
+    networks.
+    """
+
+    def __init__(self, config: A2CConfig, ctx: ContextBase) -> None:
         super().__init__(config=config, ctx=ctx)
         self._config: A2CConfig = config
-        self._ctx: A2CContext = ctx
+        self._ctx: ContextBase = ctx
 
     def train(self) -> None:
         """Train the policy network with a vectorized environment.
@@ -76,7 +118,7 @@ class A2CTrainer(TrainerBase):
             pod = _TDNPod(config=self._config, ctx=self._ctx, writer=writer)
 
         # Create variables for loop
-        for rollout_idx in tqdm(range(self._config.rollout_num), desc="Rollouts"):
+        for episode_idx in tqdm(range(self._config.episode), desc="Episodes"):
             # 1. Reset for new rollout
             state, _ = envs.reset()
 
@@ -101,7 +143,7 @@ class A2CTrainer(TrainerBase):
             pod.update()
 
             # 4. Clear the buffer
-            pod.reset(rollout_completed=rollout_idx)
+            pod.reset(episode_completed=episode_idx)
 
         writer.close()
 
@@ -114,6 +156,7 @@ class _RolloutStep:
     actions: NDArray[ActType]
     log_probs: Tensor
     entropies: Tensor
+    values: Tensor
     next_states: NDArray[ObsType]
     rewards: NDArray[np.float32]
     dones: NDArray[np.bool_]
@@ -136,6 +179,7 @@ class _RolloutBuffer:
         actions: NDArray[ActType],
         log_probs: Tensor,
         entropies: Tensor,
+        values: Tensor,
     ) -> None:
         """Add partial rollout to the buffer before acting.
 
@@ -147,6 +191,7 @@ class _RolloutBuffer:
             actions=actions,
             log_probs=log_probs,
             entropies=entropies,
+            values=values,
             next_states=np.zeros(states.shape, dtype=np.float32),
             rewards=np.zeros(len(states), dtype=np.float32),
             dones=np.zeros(len(states), dtype=np.bool_),
@@ -168,10 +213,10 @@ class _RolloutBuffer:
         """Get the data from the buffer."""
         return self._rollout
 
-    def clear(self, writer: SummaryWriter | None = None, rollout_completed: int = 0) -> None:
+    def clear(self, writer: SummaryWriter | None = None, episode_completed: int = 0) -> None:
         """Clear the buffer."""
         if writer is not None:
-            self._record_scalars(writer, rollout_completed)
+            self._record_scalars(writer, episode_completed)
 
         self._rollout.clear()
         self._temp_data = None
@@ -182,22 +227,22 @@ class _RolloutBuffer:
     def _record_scalars(self, writer: SummaryWriter, episodes_completed: int) -> None:
         """Record the scalars to the writer."""
         # TODO: record more scalars
-        writer.add_scalar("rollout/length", len(self._rollout), episodes_completed)
+        writer.add_scalar("episode/length", len(self._rollout), episodes_completed)
 
 
 class _A2CPod(abc.ABC):
     """The pod base for the A2C algorithm."""
 
-    def __init__(self, config: A2CConfig, ctx: A2CContext, writer: SummaryWriter) -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: SummaryWriter) -> None:
         self._config: A2CConfig = config
-        self._ctx: A2CContext = ctx
+        self._ctx: ContextBase = ctx
         self._writer: SummaryWriter = writer
         self._rollout: _RolloutBuffer = _RolloutBuffer()
 
-    def reset(self, rollout_completed: int | None = None) -> None:
+    def reset(self, episode_completed: int | None = None) -> None:
         """Reset the pod."""
-        if rollout_completed is not None:
-            self._rollout.clear(writer=self._writer, rollout_completed=rollout_completed)
+        if episode_completed is not None:
+            self._rollout.clear(writer=self._writer, episode_completed=episode_completed)
 
     def add_stepped_data(
         self,
@@ -224,13 +269,15 @@ class _A2CPod(abc.ABC):
             actions: The actions.
         """
         states_tensor = torch.from_numpy(states).float().to(self._config.device)
-        probs = self._ctx.network(states_tensor)
+        actor_critic = self._ctx.network
+        logits, value = actor_critic(states_tensor)
+        probs = F.softmax(logits, dim=-1)
         dist = torch.distributions.Categorical(probs)
         entropies = dist.entropy()
         actions = dist.sample()
         log_probs = dist.log_prob(actions)
         actions_np: NDArray[ActType] = actions.cpu().numpy().astype(np.int64)
-        self._rollout.add_before_acting(states, actions_np, log_probs, entropies)
+        self._rollout.add_before_acting(states, actions_np, log_probs, entropies, value)
         return actions_np
 
     @abc.abstractmethod
@@ -241,7 +288,7 @@ class _A2CPod(abc.ABC):
 class _TDNPod(_A2CPod):
     """The pod for the TD(n) A2C algorithm."""
 
-    def __init__(self, config: A2CConfig, ctx: A2CContext, writer: SummaryWriter) -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: SummaryWriter) -> None:
         super().__init__(config=config, ctx=ctx, writer=writer)
 
     def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
@@ -263,7 +310,7 @@ class _TDNPod(_A2CPod):
 class _GAEPod(_A2CPod):
     """The pod for the A2C-GAE algorithm."""
 
-    def __init__(self, config: A2CConfig, ctx: A2CContext, writer: SummaryWriter) -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: SummaryWriter) -> None:
         super().__init__(config=config, ctx=ctx, writer=writer)
 
     def update(self) -> None:

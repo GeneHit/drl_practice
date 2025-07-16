@@ -22,13 +22,18 @@ class Reinforce1DNet(nn.Module):
         self, state_dim: int, action_dim: int, hidden_dim: int = 128, layer_num: int = 2
     ) -> None:
         super().__init__()
-        layers = [nn.Linear(state_dim, hidden_dim), nn.ReLU()]
+        layers: list[nn.Module] = [nn.Linear(state_dim, hidden_dim)]
         for _ in range(layer_num - 1):
             layers.append(nn.Linear(hidden_dim, hidden_dim))
-            layers.append(nn.ReLU())
         layers.append(nn.Linear(hidden_dim, action_dim))
         layers.append(nn.Softmax(dim=-1))
         self.network = nn.Sequential(*layers)
+
+        # Initialize parameters
+        for layer in self.network:
+            if isinstance(layer, nn.Linear):
+                nn.init.orthogonal_(layer.weight, gain=int(nn.init.calculate_gain("relu")))
+                nn.init.constant_(layer.bias, 0)
 
     def forward(self, x: Tensor) -> Tensor:
         y: Tensor = self.network(x)  # make mypy happy
