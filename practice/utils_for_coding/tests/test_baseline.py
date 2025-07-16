@@ -9,7 +9,7 @@ from practice.utils_for_coding.baseline_utils import (
 
 
 def test_constant_baseline() -> None:
-    baseline = ConstantBaseline()
+    baseline = ConstantBaseline(decay=0.0)
     # Empty returns
     assert baseline.update([]) == 0.0
     # Typical returns

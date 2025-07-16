@@ -23,6 +23,8 @@ class ConstantBaseline(BaselineBase):
         self._baseline_initialized = False
 
     def update(self, returns: List[float], log_probs: Optional[List[Tensor]] = None) -> float:
+        if not returns:
+            return 0.0
         mean_return = sum(returns) / len(returns)
         if not self._baseline_initialized:
             self._baseline_value = mean_return

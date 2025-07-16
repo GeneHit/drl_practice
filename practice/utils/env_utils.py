@@ -54,7 +54,7 @@ def extract_episode_data_from_infos(infos: dict[str, Any]) -> tuple[list[float],
 
 
 def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:
-    stack = []
+    stack: list[str] = []
     while hasattr(env, "env"):
         stack.append(type(env).__name__)
         env = env.env

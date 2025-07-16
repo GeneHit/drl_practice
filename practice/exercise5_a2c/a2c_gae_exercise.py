@@ -86,8 +86,7 @@ class A2CTrainer(TrainerBase):
                 actions = pod.action(state)
 
                 # Step environment
-                # TODO: correct the type of actions
-                next_states, rewards, terms, truncs, _ = envs.step(actions.tolist())
+                next_states, rewards, terms, truncs, _ = envs.step(actions)
                 dones = np.logical_or(terms, truncs)
                 pod.add_stepped_data(
                     next_states=next_states, rewards=rewards.astype(np.float32), dones=dones

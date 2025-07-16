@@ -16,4 +16,4 @@ ActType: TypeAlias = np.int64
 ObsType: TypeAlias = Union[np.uint8, np.float32]
 ArrayType: TypeAlias = Union[np.bool_, np.float32]
 EnvType: TypeAlias = gym.Env[NDArray[ObsType], ActType]
-EnvsType: TypeAlias = gym.vector.VectorEnv[NDArray[ObsType], ActType, NDArray[ArrayType]]
+EnvsType: TypeAlias = gym.vector.VectorEnv[NDArray[ObsType], NDArray[ActType], NDArray[ArrayType]]

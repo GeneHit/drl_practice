@@ -145,7 +145,7 @@ class DQNTrainer(TrainerBase):
             actions = pod.action(states, step)
 
             # Step all environments
-            next_states, rewards, terms, truncs, infos = envs.step(actions.tolist())
+            next_states, rewards, terms, truncs, infos = envs.step(actions)
 
             # Cast rewards to numpy array for indexing
             rewards = np.asarray(rewards, dtype=np.float32)
