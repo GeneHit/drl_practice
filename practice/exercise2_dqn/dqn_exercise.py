@@ -123,10 +123,9 @@ class DQNTrainer(TrainerBase):
         pod = _DQNPod(config=self._config, ctx=self._ctx, writer=writer)
 
         # Create replay buffer using observation shape from context
-        obs_shape = self._ctx.env_state_shape
         replay_buffer = ReplayBuffer(
             capacity=self._config.replay_buffer_capacity,
-            state_shape=obs_shape,
+            state_shape=self._ctx.env_state_shape,
             state_dtype=np.float32,
             action_dtype=np.int64,
         )
@@ -139,8 +138,7 @@ class DQNTrainer(TrainerBase):
         episode_steps = 0
 
         # Training loop
-        pbar = tqdm(total=self._config.timesteps, desc="Training")
-        for step in range(self._config.timesteps):
+        for step in tqdm(range(self._config.timesteps), desc="Training"):
             # Get actions for all environments
             actions = pod.action(states, step)
 
@@ -186,10 +184,7 @@ class DQNTrainer(TrainerBase):
                 writer.add_scalar("episode/length", ep_lengths[idx], episode_steps)
                 episode_steps += 1
 
-            pbar.update(1)
-
         # Cleanup
-        pbar.close()
         writer.close()
 
 

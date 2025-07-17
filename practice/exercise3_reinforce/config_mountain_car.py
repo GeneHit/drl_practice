@@ -30,7 +30,6 @@ def get_app_config() -> ReinforceConfig:
         eval_video_num=10,
         env_config=EnvConfig(
             env_id="MountainCar-v0",
-            record_eval_video=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ReinforceTrainer,

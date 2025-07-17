@@ -91,7 +91,6 @@ def test_config() -> EnhancedReinforceConfig:
         ),
         env_config=EnvConfig(
             env_id="MountainCar-v0",
-            record_eval_video=True,
             # use a small max_steps to speed up the test
             max_steps=20,
         ),

@@ -61,7 +61,6 @@ def test_config() -> ReinforceConfig:
         eval_video_num=1,  # Reduced from 10
         env_config=EnvConfig(
             env_id="MountainCar-v0",
-            record_eval_video=True,
             # use a small max_steps to speed up the test
             max_steps=20,
         ),

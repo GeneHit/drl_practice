@@ -18,29 +18,29 @@ def get_app_config() -> A2CConfig:
     device = get_device()
     return A2CConfig(
         device=device,
-        total_steps=20000000,
+        total_steps=500000,
         rollout_len=32,
-        learning_rate=1e-4,
-        gamma=0.99,
-        gae_lambda_or_n_step=0.95,
-        entropy_coef=LinearSchedule(start_e=0.2, end_e=0.001, duration=2000000),
+        learning_rate=7e-4,
+        gamma=0.995,
+        gae_lambda_or_n_step=0.97,
+        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.001, duration=300000),
         value_loss_coef=0.5,
         max_grad_norm=0.5,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
         env_config=EnvConfig(
-            env_id="MountainCar-v0",
+            env_id="LunarLander-v3",
             vector_env_num=6,
             use_multi_processing=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=A2CTrainer,
             agent_type=A2CAgent,
-            output_dir="results/exercise5_a2c/mountain_car/",
+            output_dir="results/exercise5_a2c/lunar_1d/",
             save_result=True,
             model_filename="a2c_gae.pth",
-            repo_id="A2C-GAE-MountainCarV0",
+            repo_id="A2C-GAE-LunarLanderV3",
             algorithm_name="A2C-GAE",
             extra_tags=("A2C", "GAE"),
         ),
@@ -63,7 +63,7 @@ def generate_context(config: A2CConfig) -> ContextBase:
     assert obs_shape is not None
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
-    actor_critic = ActorCritic(obs_dim=obs_shape[0], n_actions=action_n, hidden_size=128)
+    actor_critic = ActorCritic(obs_dim=obs_shape[0], n_actions=action_n, hidden_size=256)
     # Load checkpoint if exists
     if config.checkpoint_pathname:
         checkpoint = torch.load(config.checkpoint_pathname, weights_only=False)
