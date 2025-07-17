@@ -32,7 +32,6 @@ def get_app_config() -> ReinforceConfig:
             env_id="CartPole-v1",
             # CartPole-v1 default 500, here set it to 1000 to see the performance of the agent.
             max_steps=1000,
-            record_eval_video=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ReinforceTrainer,

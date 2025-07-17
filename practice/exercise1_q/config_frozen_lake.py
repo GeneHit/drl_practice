@@ -34,7 +34,6 @@ def get_app_config() -> QTableConfig:
         env_config=EnvConfig(
             env_id="FrozenLake-v1",
             max_steps=99,
-            record_eval_video=True,
             env_kwargs={
                 "map_name": "4x4",
                 "is_slippery": False,

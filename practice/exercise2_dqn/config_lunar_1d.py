@@ -38,7 +38,6 @@ def get_app_config() -> DQNConfig:
             env_id="LunarLander-v3",
             vector_env_num=6,
             use_multi_processing=True,
-            record_eval_video=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,

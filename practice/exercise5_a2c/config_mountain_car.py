@@ -31,7 +31,6 @@ def get_app_config() -> A2CConfig:
             env_id="MountainCar-v0",
             vector_env_num=8,
             use_multi_processing=True,
-            record_eval_video=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=A2CTrainer,

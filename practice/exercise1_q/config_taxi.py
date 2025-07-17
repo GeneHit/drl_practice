@@ -34,7 +34,6 @@ def get_app_config() -> QTableConfig:
         env_config=EnvConfig(
             env_id="Taxi-v3",
             max_steps=99,
-            record_eval_video=True,
             env_kwargs={
                 "render_mode": "rgb_array",
             },

@@ -87,7 +87,6 @@ def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
 
     env_config = EnvConfig(
         env_id="CartPole-v1",
-        record_eval_video=True,
         max_steps=100,
     )
 

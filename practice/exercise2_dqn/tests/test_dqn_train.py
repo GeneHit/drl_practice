@@ -75,7 +75,6 @@ def test_config() -> DQNConfig:
             env_id="LunarLander-v3",
             vector_env_num=2,  # Reduced from 6
             use_multi_processing=False,  # Disabled for testing
-            record_eval_video=True,
             # use a small max_steps to speed up the test
             max_steps=50,
         ),

@@ -45,7 +45,6 @@ def get_app_config() -> DQNConfig:
             training_render_mode="rgb_array",
             image_shape=(84, 84),
             frame_stack=4,
-            record_eval_video=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,

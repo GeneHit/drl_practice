@@ -80,8 +80,6 @@ class EnvConfig(abc.ABC):
 
     training_render_mode: str | None = None
     """Render mode for training."""
-    record_eval_video: bool = False
-    """Whether to record the evaluation video."""
 
 
 @dataclass(frozen=True, kw_only=True)
