@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 from practice.base.chest import AgentBase
@@ -11,7 +13,10 @@ from practice.utils_for_coding.agent_utils import A2CAgent, NNAgent
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
     """Main training function for reinforcement learning algorithms."""
     trainer = config.artifact_config.trainer_type(config=config, ctx=ctx)
+
+    start_time = time.time()
     trainer.train()
+    train_duration_min = (time.time() - start_time) / 60
 
     # Create agent based on the configured agent type
     agent_type = config.artifact_config.agent_type
@@ -28,4 +33,9 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
         raise ValueError(f"Unsupported agent type: {agent_type}")
 
     # Evaluate and save results
-    evaluate_and_save_results(env=ctx.eval_env, agent=agent, config=config)
+    evaluate_and_save_results(
+        env=ctx.eval_env,
+        agent=agent,
+        config=config,
+        meta_data={"train_duration_min": f"{train_duration_min:.2f}"},
+    )

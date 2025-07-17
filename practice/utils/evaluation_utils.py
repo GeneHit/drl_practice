@@ -83,6 +83,7 @@ def evaluate_and_save_results(
     env: gym.Env[Any, Any],
     agent: AgentBase,
     config: BaseConfig,
+    meta_data: dict[str, Any] = {},
 ) -> None:
     """Evaluate agent and save all results (model, training data, evaluation data, config).
 
@@ -113,6 +114,7 @@ def evaluate_and_save_results(
         "mean_reward": mean_reward,
         "std_reward": std_reward,
         "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        **meta_data,
     }
 
     _save_model_and_result(env=env, agent=agent, config=config, eval_result=eval_result)
