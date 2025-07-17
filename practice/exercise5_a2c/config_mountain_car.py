@@ -8,7 +8,7 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import NNAgent
+from practice.utils_for_coding.agent_utils import A2CAgent
 
 
 def get_app_config() -> A2CConfig:
@@ -17,13 +17,16 @@ def get_app_config() -> A2CConfig:
     device = get_device()
     return A2CConfig(
         device=device,
-        episode=1000,
+        episode=100,
         rollout_len=16,
         learning_rate=5e-4,
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
         entropy_coef=0.01,
         grad_acc=1,
+        eval_episodes=50,
+        eval_random_seed=42,
+        eval_video_num=10,
         env_config=EnvConfig(
             env_id="MountainCar-v0",
             vector_env_num=8,
@@ -32,7 +35,7 @@ def get_app_config() -> A2CConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=A2CTrainer,
-            agent_type=NNAgent,
+            agent_type=A2CAgent,
             output_dir="results/exercise5_a2c/mountain_car/",
             save_result=True,
             model_filename="a2c_gae.pth",

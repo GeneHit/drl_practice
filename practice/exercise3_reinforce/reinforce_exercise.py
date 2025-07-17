@@ -267,8 +267,8 @@ class _ReinforcePod:
         log_probs_tensor = torch.stack(tuple(log_probs))
         entropies_tensor = torch.stack(tuple(entropies))
 
-        pg_loss = -(log_probs_tensor * returns_ts.to(self._config.device)).sum()
-        entropy_loss = -self._config.entropy_coef * entropies_tensor.sum()
+        pg_loss = -(log_probs_tensor * returns_ts.to(self._config.device)).mean()
+        entropy_loss = -self._config.entropy_coef * entropies_tensor.mean()
         total_loss = pg_loss + entropy_loss
 
         # Accumulate gradients

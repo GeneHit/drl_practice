@@ -332,8 +332,8 @@ class _EnhancedReinforcePod:
         # Calculate policy loss and entropy loss
         log_probs_tensor = torch.stack(tuple(log_probs))
         entropies_tensor = torch.stack(tuple(entropies))
-        pg_loss = -(log_probs_tensor * advantages.to(self._config.device)).sum()
-        entropy_loss = -self._config.entropy_coef * entropies_tensor.sum()
+        pg_loss = -(log_probs_tensor * advantages.to(self._config.device)).mean()
+        entropy_loss = -self._config.entropy_coef * entropies_tensor.mean()
         total_loss = pg_loss + entropy_loss
 
         # Scale loss by gradient accumulation factor to maintain proper gradient magnitude

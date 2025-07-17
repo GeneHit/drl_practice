@@ -2,7 +2,7 @@
 Practice the Deep Reinforcement Learning (DRL) with the gymnasium.
 
 ## How to practice
-Check the [Command Guide](./hands_on/README.md) doc, which provides the
+Check the [Command Guide](./practice/README.md) doc, which provides the
 step-by-step commands for installing and running every exercise.
 The things you need to do:
 1. Create the python env
@@ -19,6 +19,7 @@ The things you need to do:
 | [2. dqn](./practice/exercise2_dqn/README.md) | Deep Q Network | 1D LunarLander-v3 | img LunarLander-v3 |
 | [3. reinforce](./practice/exercise3_reinforce/README.md) | Reinforce (Monte Carlo) | CartPole-v1 | MountainCar-v0 |
 | [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with Reinforce, baseline, shaping reward) | | MountainCar-v0 |
+| [5. A2C](./practice/exercise5_a2c/README.md) | A2C + GAE or A2C + TD-n | MountainCar-v0 | |
 
 
 ## Motivation
