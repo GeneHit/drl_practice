@@ -64,7 +64,10 @@ class A2CConfig(BaseConfig):
     """The configuration for the A2C-GAE algorithm."""
 
     total_steps: int
-    """The step number of all environments to train the policy."""
+    """The sum of step of all environments to get the data for training the policy.
+
+    The update number is total_steps / (rollout_len * vector_env_num).
+    """
 
     rollout_len: int
     """The length of each rollout.
@@ -361,9 +364,10 @@ class _GAEPod(_A2CPod):
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         pg_loss = -(advantages * log_probs).mean()
         # the critic/value loss
-        value_loss = F.mse_loss(values, rewards)
+        value_loss = self._config.value_loss_coef * F.mse_loss(values, rewards)
         # the entropy loss
-        entropy_loss = -self._config.entropy_coef(self._rollout_count) * entropies.mean()
+        entropy_coef = self._config.entropy_coef(self._rollout_count)
+        entropy_loss = -entropy_coef * entropies.mean()
         # the total loss
         total_loss = pg_loss + value_loss + entropy_loss
 
@@ -381,6 +385,7 @@ class _GAEPod(_A2CPod):
         self._writer.add_scalar("losses/value_loss", value_loss.item(), self._rollout_count)
         self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._rollout_count)
         self._writer.add_scalar("losses/total_loss", total_loss.item(), self._rollout_count)
+        self._writer.add_scalar("losses/entropy_coef", entropy_coef, self._rollout_count)
         self._rollout_count += 1
 
     def _compute_advantages_and_filter(
