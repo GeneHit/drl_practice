@@ -9,22 +9,23 @@ from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import A2CAgent
-from practice.utils_for_coding.scheduler_utils import ConstantSchedule
+from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> A2CConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device()
+    total_step = 600000
     return A2CConfig(
         device=device,
-        total_steps=1200000,
+        total_steps=total_step,
         rollout_len=32,
-        learning_rate=7e-4,
+        learning_rate=1e-4,
         gamma=0.995,
         gae_lambda_or_n_step=0.97,
-        # entropy_coef=LinearSchedule(start_e=0.1, end_e=0.001, duration=1800000),
-        entropy_coef=ConstantSchedule(0.1),
+        entropy_coef=LinearSchedule(start_e=0.1, end_e=0.02, duration=total_step),
+        # entropy_coef=ConstantSchedule(0.1),
         value_loss_coef=0.01,
         max_grad_norm=0.5,
         eval_episodes=50,

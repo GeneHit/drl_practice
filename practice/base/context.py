@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from numpy.typing import NDArray
+from torch.optim.lr_scheduler import LRScheduler
 
 from practice.base.env_typing import EnvsType, EnvType
 
@@ -19,6 +20,8 @@ class ContextBase:
     """The trained policy/q-value network, or q-table."""
     optimizer: torch.optim.Optimizer
     """The optimizer used for training."""
+    lr_schedulers: tuple[LRScheduler, ...] = ()
+    """The learning rate schedulers used for training."""
 
     @property
     def env(self) -> EnvType:
@@ -49,3 +52,7 @@ class ContextBase:
         obs_shape = self.eval_env.observation_space.shape
         assert obs_shape is not None
         return obs_shape
+
+    def step_lr_schedulers(self) -> None:
+        for scheduler in self.lr_schedulers:
+            scheduler.step()
