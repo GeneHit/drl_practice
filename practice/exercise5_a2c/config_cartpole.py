@@ -1,8 +1,7 @@
 import gymnasium as gym
-import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
@@ -10,6 +9,7 @@ from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import A2CAgent
+from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
@@ -25,7 +25,7 @@ def get_app_config() -> A2CConfig:
         rollout_len=32,
         learning_rate=1e-4,
         critic_lr=5e-5,
-        critic_lr_gamma=0.995,
+        critic_lr_gamma=0.95,
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
         entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=200),
@@ -72,14 +72,7 @@ def generate_context(config: A2CConfig) -> ContextBase:
     action_n = int(eval_env.action_space.n)
     actor_critic = ActorCritic(obs_dim=obs_shape[0], n_actions=action_n, hidden_size=64)
     # Load checkpoint if exists
-    if config.checkpoint_pathname:
-        checkpoint = torch.load(config.checkpoint_pathname, weights_only=False)
-        if isinstance(checkpoint, dict):
-            # It's a state_dict
-            actor_critic.load_state_dict(checkpoint)
-        else:
-            # It's a full model, extract state_dict
-            actor_critic.load_state_dict(checkpoint.state_dict())
+    load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)
     actor_critic.to(config.device)
 
     optimizer = Adam(
@@ -89,19 +82,23 @@ def generate_context(config: A2CConfig) -> ContextBase:
             {"params": actor_critic.value_head.parameters(), "lr": config.critic_lr},
         ]
     )
-    scheduler = LambdaLR(
-        optimizer,
-        lr_lambda=[
-            lambda epoch: 1.0,  # group 0: shared lr
-            lambda epoch: 1.0,  # group 1: policy lr
-            lambda epoch: config.critic_lr_gamma**epoch,  # group 2: critic lr
-        ],
-    )
+    lr_schedulers: tuple[LRScheduler, ...] = ()
+    critic_lr_gamma = config.critic_lr_gamma
+    if critic_lr_gamma is not None:
+        scheduler = LambdaLR(
+            optimizer,
+            lr_lambda=[
+                lambda epoch: 1.0,  # group 0: shared lr
+                lambda epoch: 1.0,  # group 1: policy lr
+                lambda epoch: critic_lr_gamma**epoch,  # group 2: critic lr
+            ],
+        )
+        lr_schedulers = (scheduler,)
 
     return ContextBase(
         train_env=env,
         eval_env=eval_env,
         trained_target=actor_critic,
         optimizer=optimizer,
-        lr_schedulers=(scheduler,),
+        lr_schedulers=lr_schedulers,
     )

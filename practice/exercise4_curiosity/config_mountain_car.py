@@ -1,5 +1,4 @@
 import gymnasium as gym
-import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
@@ -18,6 +17,7 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
+from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.reward_utils import XDirectionShapingRewardConfig
 from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
@@ -85,15 +85,7 @@ def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
     policy = Reinforce1DNet(state_dim=obs_shape[0], action_dim=action_n)
-    # Load checkpoint if exists
-    if config.checkpoint_pathname:
-        checkpoint = torch.load(config.checkpoint_pathname, weights_only=False)
-        if isinstance(checkpoint, dict):
-            # It's a state_dict
-            policy.load_state_dict(checkpoint)
-        else:
-            # It's a full model, extract state_dict
-            policy.load_state_dict(checkpoint.state_dict())
+    load_checkpoint_if_exists(policy, config.checkpoint_pathname)
     policy.to(config.device)
 
     # Generate rewarders from reward_configs

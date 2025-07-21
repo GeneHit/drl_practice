@@ -99,7 +99,7 @@ class A2CConfig(BaseConfig):
     critic_lr: float
     """The learning rate for the critic."""
 
-    critic_lr_gamma: float
+    critic_lr_gamma: float | None = None
     """The gamma for the critic learning rate scheduler."""
 
 
