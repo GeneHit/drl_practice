@@ -96,8 +96,11 @@ class A2CConfig(BaseConfig):
     max_grad_norm: float | None = None
     """The maximum gradient norm for gradient clipping."""
 
-    critic_lr: float | None = None
+    critic_lr: float
     """The learning rate for the critic."""
+
+    critic_lr_gamma: float
+    """The gamma for the critic learning rate scheduler."""
 
 
 class A2CTrainer(TrainerBase):

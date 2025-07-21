@@ -4,7 +4,13 @@ This exercise implements a Advantage Actor-Critic (A2C) with [GAE](https://arxiv
 Optional: A2C with TD-n.
 
 ## Files
+- `a2c_gae_exercise.py`: A2C + GAE `EXERCISE`.
+- `config_mountain_car.py`: Configuration file for MountainCar-v1 environment
+- `config_lunar_1d.py`: Configuration file for LunarLander-v3 environment
 
+Different games:
+1. `MountainCar`, a easy game is used for verifying the implementation
+2. `LunarLander`, a harder game, you should train it to have a good score.
 
 ## Command
 Train
@@ -51,3 +57,10 @@ python -m pytest practice/exercise5_a2c/tests/ -v
 
 The training log of a [mean_reward: 499.94, std_reward: 0.42]
 ![alt text](../infos/e5_a2c_cartpole.png)
+
+### LunarLander
+1. different value_loss_coef
+2. learning_rate decay for critic
+3. bigger hidden_size: 256 -> 512 -> 1024 (best) -> 2048 -> 4096
+4. learning_rate decay for policy and shared_layer
+5. TODO: try other config for a better score.

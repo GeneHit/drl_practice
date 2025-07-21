@@ -2,7 +2,7 @@ import gymnasium as gym
 import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ExponentialLR, LRScheduler
+from torch.optim.lr_scheduler import LambdaLR
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
@@ -25,6 +25,7 @@ def get_app_config() -> A2CConfig:
         rollout_len=32,
         learning_rate=1e-4,
         critic_lr=5e-5,
+        critic_lr_gamma=0.995,
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
         entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=200),
@@ -85,25 +86,22 @@ def generate_context(config: A2CConfig) -> ContextBase:
         [
             {"params": actor_critic.shared_layers.parameters(), "lr": config.learning_rate},
             {"params": actor_critic.policy_logits.parameters(), "lr": config.learning_rate},
-            {
-                "params": actor_critic.value_head.parameters(),
-                "lr": config.critic_lr or config.learning_rate,
-            },
+            {"params": actor_critic.value_head.parameters(), "lr": config.critic_lr},
         ]
     )
-
-    lr_schedulers: tuple[LRScheduler, ...] = ()
-    if config.critic_lr is not None:
-        lr_scheduler = ExponentialLR(
-            optimizer=Adam(actor_critic.value_head.parameters(), lr=config.critic_lr),
-            gamma=0.995,
-        )
-        lr_schedulers = (lr_scheduler,)
+    scheduler = LambdaLR(
+        optimizer,
+        lr_lambda=[
+            lambda epoch: 1.0,  # group 0: shared lr
+            lambda epoch: 1.0,  # group 1: policy lr
+            lambda epoch: config.critic_lr_gamma**epoch,  # group 2: critic lr
+        ],
+    )
 
     return ContextBase(
         train_env=env,
         eval_env=eval_env,
         trained_target=actor_critic,
         optimizer=optimizer,
-        lr_schedulers=lr_schedulers,
+        lr_schedulers=(scheduler,),
     )
