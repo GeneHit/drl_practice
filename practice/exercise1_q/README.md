@@ -37,10 +37,10 @@ Push to hub
 
 ```bash
 # generate video and push to hub
-python practice/cli.py --config practice/exercise1_q/config_taxi.py --push_to_hub --username myuser
+python practice/cli.py --config practice/exercise1_q/config_taxi.py --mode push_to_hub --username myuser
 
 # only push to hub
-python practice/cli.py --config practice/exercise1_q/config_taxi.py --push_to_hub --username myuser --skip_play
+python practice/cli.py --config practice/exercise1_q/config_taxi.py --mode push_to_hub --username myuser --skip_play
 ```
 **Replace `myuser` with your HuggingFace account name.**
 

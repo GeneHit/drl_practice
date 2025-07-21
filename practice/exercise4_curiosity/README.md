@@ -32,10 +32,10 @@ python practice/cli.py --config practice/exercise4_curiosity/config_mountain_car
 Push to hub
 ```bash
 # generate video and push to hub
-python practice/cli.py --config practice/exercise4_curiosity/config_mountain_car.py --push_to_hub --username myuser
+python practice/cli.py --config practice/exercise4_curiosity/config_mountain_car.py --mode push_to_hub --username myuser
 
 # only push to hub
-python practice/cli.py --config practice/exercise4_curiosity/config_mountain_car.py --push_to_hub --username myuser --skip_play
+python practice/cli.py --config practice/exercise4_curiosity/config_mountain_car.py --mode push_to_hub --username myuser --skip_play
 ```
 
 Run the comprehensive test suite:
