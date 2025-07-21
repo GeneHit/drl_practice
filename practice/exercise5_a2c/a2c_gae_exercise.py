@@ -27,20 +27,22 @@ class ActorCritic(nn.Module):
         # shared feedforward network
         self.shared_layers = nn.Sequential(
             nn.Linear(obs_dim, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
             nn.ReLU(),
         )
 
         # actor head: output logits for each action
         self.policy_logits = nn.Linear(hidden_size, n_actions)
         # critic head: output value V(s)
-        self.value_head = nn.Linear(hidden_size, 1)
+        self.value_head = nn.Sequential(nn.Linear(hidden_size, 1))
 
         # initialize parameters, it is optional but helps to stabilize the training
         self.shared_layers.apply(init_weights)
-        for layer in [self.policy_logits, self.value_head]:
-            init_weights(layer)
+        init_weights(self.policy_logits)
+        self.value_head.apply(init_weights)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """The forward pass of the actor-critic network.
@@ -64,7 +66,10 @@ class A2CConfig(BaseConfig):
     """The configuration for the A2C-GAE algorithm."""
 
     total_steps: int
-    """The step number of all environments to train the policy."""
+    """The sum of step of all environments to get the data for training the policy.
+
+    The update number is total_steps / (rollout_len * vector_env_num).
+    """
 
     rollout_len: int
     """The length of each rollout.
@@ -90,6 +95,12 @@ class A2CConfig(BaseConfig):
 
     max_grad_norm: float | None = None
     """The maximum gradient norm for gradient clipping."""
+
+    critic_lr: float
+    """The learning rate for the critic."""
+
+    critic_lr_gamma: float | None = None
+    """The gamma for the critic learning rate scheduler."""
 
 
 class A2CTrainer(TrainerBase):
@@ -361,22 +372,31 @@ class _GAEPod(_A2CPod):
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         pg_loss = -(advantages * log_probs).mean()
         # the critic/value loss
-        value_loss = F.mse_loss(values, rewards)
+        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+        value_mse = F.mse_loss(values, rewards)
+        value_loss = self._config.value_loss_coef * value_mse
         # the entropy loss
-        entropy_loss = -self._config.entropy_coef(self._rollout_count) * entropies.mean()
+        entropy_coef = self._config.entropy_coef(self._rollout_count)
+        entropy = entropies.mean()
+        entropy_loss = -entropy_coef * entropy
         # the total loss
         total_loss = pg_loss + value_loss + entropy_loss
 
         # 4. Update the actor and critic
-        self._ctx.optimizer.zero_grad()
         total_loss.backward()
         if self._config.max_grad_norm is not None:
             torch.nn.utils.clip_grad_norm_(
                 self._ctx.network.parameters(), self._config.max_grad_norm
             )
         self._ctx.optimizer.step()
+        self._ctx.step_lr_schedulers()
+        self._ctx.optimizer.zero_grad()
 
         # 5. Log the loss
+        self._writer.add_scalar("other/value_mse", value_mse.item(), self._rollout_count)
+        self._writer.add_scalar("other/entropy", entropy.item(), self._rollout_count)
+        self._writer.add_scalar("other/entropy_coef", entropy_coef, self._rollout_count)
+
         self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._rollout_count)
         self._writer.add_scalar("losses/value_loss", value_loss.item(), self._rollout_count)
         self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._rollout_count)

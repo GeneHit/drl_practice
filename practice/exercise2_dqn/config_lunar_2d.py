@@ -1,6 +1,5 @@
 from typing import Union
 
-import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
@@ -15,6 +14,7 @@ from practice.exercise2_dqn.dqn_exercise import (
 )
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
+from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 
 
 def get_app_config() -> DQNConfig:
@@ -79,15 +79,7 @@ def generate_context(config: DQNConfig) -> ContextBase:
     else:
         raise ValueError(f"Unsupported observation space shape: {obs_shape}")
 
-    # Load checkpoint if exists
-    if config.checkpoint_pathname:
-        checkpoint = torch.load(config.checkpoint_pathname, weights_only=False)
-        if isinstance(checkpoint, dict):
-            # It's a state_dict
-            q_network.load_state_dict(checkpoint)
-        else:
-            # It's a full model, extract state_dict
-            q_network.load_state_dict(checkpoint.state_dict())
+    load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
     q_network.to(config.device)
 
     return ContextBase(

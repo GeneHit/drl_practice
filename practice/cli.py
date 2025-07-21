@@ -9,6 +9,7 @@ This CLI can run various RL exercises by loading Python config modules and suppo
 
 import argparse
 import sys
+import time
 from pathlib import Path
 from typing import cast
 
@@ -96,7 +97,7 @@ def _validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
 def _close_context_envs(context: ContextBase) -> None:
     """Close all environments in the context."""
     try:
-        context.env.close()
+        context.train_env.close()
     except Exception as e:
         print(f"Warning: Failed to close training environment: {e}")
 
@@ -120,8 +121,9 @@ def main() -> None:
         config, context_or_env = load_config_module(args.config, args.mode)
 
         # Execute the requested mode
+        time_str = time.strftime("%Y-%m-%d %H:%M:%S")
         if args.mode == "train":
-            print("=== Training Mode ===")
+            print(f"[{time_str}]=== Training Mode ===")
             context = cast(ContextBase, context_or_env)
             try:
                 train_and_evaluate_network(config=config, ctx=context)
@@ -129,7 +131,7 @@ def main() -> None:
                 _close_context_envs(context)
 
         elif args.mode == "play":
-            print("=== Play Mode ===")
+            print(f"[{time_str}]=== Play Mode ===")
             env = cast(EnvType, context_or_env)
             try:
                 play_and_generate_video_generic(config=config, env=env)
@@ -137,7 +139,7 @@ def main() -> None:
                 env.close()
 
         elif args.mode == "push_to_hub":
-            print("=== Push to Hub Mode ===")
+            print(f"[{time_str}]=== Push to Hub Mode ===")
             env = cast(EnvType, context_or_env)
             # Environment cleanup is handled by the CLI try-finally block
             try:

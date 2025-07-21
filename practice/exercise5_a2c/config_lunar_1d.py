@@ -1,5 +1,4 @@
 import gymnasium as gym
-import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
@@ -9,6 +8,7 @@ from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import A2CAgent
+from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
@@ -16,15 +16,20 @@ def get_app_config() -> A2CConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device()
+    # rollout = 200000 / 32 / 6 = 1042
+    total_step = 200000
     return A2CConfig(
         device=device,
-        total_steps=500000,
+        total_steps=total_step,
         rollout_len=32,
-        learning_rate=7e-4,
-        gamma=0.995,
+        learning_rate=1e-4,
+        critic_lr=5e-5,
+        critic_lr_gamma=0.995,
+        gamma=0.99,
         gae_lambda_or_n_step=0.97,
-        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.001, duration=300000),
-        value_loss_coef=0.5,
+        entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=200),
+        # entropy_coef=ConstantSchedule(0.1),
+        value_loss_coef=0.02,
         max_grad_norm=0.5,
         eval_episodes=50,
         eval_random_seed=42,
@@ -37,7 +42,7 @@ def get_app_config() -> A2CConfig:
         artifact_config=ArtifactConfig(
             trainer_type=A2CTrainer,
             agent_type=A2CAgent,
-            output_dir="results/exercise5_a2c/lunar_1d/",
+            output_dir="results/exercise5_a2c/lunar/",
             save_result=True,
             model_filename="a2c_gae.pth",
             repo_id="A2C-GAE-LunarLanderV3",
@@ -63,21 +68,25 @@ def generate_context(config: A2CConfig) -> ContextBase:
     assert obs_shape is not None
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
-    actor_critic = ActorCritic(obs_dim=obs_shape[0], n_actions=action_n, hidden_size=256)
+    actor_critic = ActorCritic(obs_dim=obs_shape[0], n_actions=action_n, hidden_size=1024)
     # Load checkpoint if exists
-    if config.checkpoint_pathname:
-        checkpoint = torch.load(config.checkpoint_pathname, weights_only=False)
-        if isinstance(checkpoint, dict):
-            # It's a state_dict
-            actor_critic.load_state_dict(checkpoint)
-        else:
-            # It's a full model, extract state_dict
-            actor_critic.load_state_dict(checkpoint.state_dict())
+    load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)
     actor_critic.to(config.device)
+
+    shared_and_policy_params = list(actor_critic.shared_layers.parameters()) + list(
+        actor_critic.policy_logits.parameters()
+    )
+    optimizer = Adam(
+        [
+            {"params": shared_and_policy_params, "lr": config.learning_rate},
+            {"params": actor_critic.value_head.parameters(), "lr": config.critic_lr},
+        ]
+    )
 
     return ContextBase(
         train_env=env,
         eval_env=eval_env,
         trained_target=actor_critic,
-        optimizer=Adam(actor_critic.parameters(), lr=config.learning_rate),
+        optimizer=optimizer,
+        lr_schedulers=(),
     )

@@ -91,6 +91,10 @@ class DQNConfig(BaseConfig):
     """Configuration for DQN algorithm."""
 
     timesteps: int
+    """The step number to train the policy.
+
+    The total step data is timesteps * vector_env_num.
+    """
     start_epsilon: float = 1.0
     end_epsilon: float = 0.01
     exploration_fraction: float = 0.1
