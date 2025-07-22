@@ -115,14 +115,17 @@ def a3c_train(config: A3CConfig) -> None:
 
     # Asynchronous workers and training
     start_time = time.time()
-    processes = []
-    for worker_id in range(config.num_workers):
-        p = Process(target=worker_process, args=(worker_id, config, actor_critic))
-        p.start()
-        processes.append(p)
-    # wait for all workers to finish
-    for p in processes:
-        p.join()
+    if config.num_workers == 1:
+        worker_process(0, config, actor_critic)
+    else:
+        processes = []
+        for worker_id in range(config.num_workers):
+            p = Process(target=worker_process, args=(worker_id, config, actor_critic))
+            p.start()
+            processes.append(p)
+        # wait for all workers to finish
+        for p in processes:
+            p.join()
 
     # Evaluation and save results
     train_duration_min = (time.time() - start_time) / 60
