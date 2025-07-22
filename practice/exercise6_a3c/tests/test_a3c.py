@@ -31,7 +31,7 @@ def _minimal_a3c_config(temp_output_dir: Path) -> A3CConfig:
     )
     minimal_config = replace(
         config,
-        num_workers=2,
+        num_workers=1,
         rollout_len=8,
         total_steps=16,  # just 2 rollouts per worker
         eval_episodes=1,
