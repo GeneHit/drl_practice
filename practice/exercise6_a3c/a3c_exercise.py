@@ -1,5 +1,4 @@
 import time
-from dataclasses import dataclass
 
 from gymnasium.spaces import Discrete
 from torch.multiprocessing import Process
@@ -7,18 +6,12 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
 from practice.base.context import ContextBase
-from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
+from practice.exercise5_a2c.a2c_gae_exercise import A2CTrainer, ActorCritic
+from practice.exercise6_a3c.config import A3CConfig
+from practice.exercise6_a3c.config_cartpole import get_app_config
 from practice.utils.env_utils import get_env_from_config
 from practice.utils.evaluation_utils import evaluate_and_save_results
 from practice.utils_for_coding.agent_utils import A2CAgent
-
-
-@dataclass(frozen=True, kw_only=True)
-class A3CConfig(A2CConfig):
-    """The configuration for the A3C algorithm."""
-
-    num_workers: int
-    """The number of workers."""
 
 
 def worker_process(
@@ -136,3 +129,9 @@ def a3c_train(config: A3CConfig) -> None:
         meta_data={"train_duration_min": f"{train_duration_min:.2f}"},
     )
     eval_env.close()
+
+
+if __name__ == "__main__":
+    # For online CI testing. DO NOT REMOVE THIS.
+    config = get_app_config()
+    a3c_train(config)

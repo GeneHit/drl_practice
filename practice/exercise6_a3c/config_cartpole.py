@@ -1,7 +1,7 @@
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CTrainer
-from practice.exercise6_a3c.a3c_exercise import A3CConfig
+from practice.exercise6_a3c.config import A3CConfig
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import A2CAgent
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
