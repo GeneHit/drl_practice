@@ -34,7 +34,7 @@ def _minimal_a3c_config(temp_output_dir: Path) -> A3CConfig:
         num_workers=1,
         rollout_len=8,
         total_steps=32,  # just 4 rollouts per worker
-        eval_episodes=1,
+        eval_episodes=2,
         eval_video_num=1,
         env_config=env_config,
         artifact_config=artifact_config,
