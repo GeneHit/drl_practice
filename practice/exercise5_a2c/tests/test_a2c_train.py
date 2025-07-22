@@ -31,9 +31,11 @@ def _minimal_a2c_config(temp_output_dir: Path) -> A2CConfig:
         use_multi_processing=False,
     )
     # total_steps = rollout_len * vector_env_num * 2 (just 2 updates)
+    rollout_len = 8
     minimal_config = replace(
         config,
-        total_steps=config.rollout_len * 2 * 2,
+        rollout_len=rollout_len,
+        total_steps=rollout_len * 2 * 2,
         eval_episodes=2,
         eval_video_num=1,
         env_config=env_config,
