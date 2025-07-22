@@ -1,19 +1,19 @@
 # A2C with GAE
 
-This exercise implements a Advantage Actor-Critic (A2C) with [GAE](https://arxiv.org/abs/1506.02438).
-Optional: A2C with TD-n.
+This exercise implements a Advantage Actor-Critic (A2C) with [GAE](https://arxiv.org/abs/1506.02438)
+(Optional: A2C + TD-n).
 
 ## Files
-- `a2c_gae_exercise.py`: A2C + GAE `EXERCISE`.
-- `config_mountain_car.py`: Configuration file for MountainCar-v1 environment
+- `a2c_gae_exercise.py`: A2C+GAE `EXERCISE`.
+- `config_cartpole.py`: Configuration file for CartPole-v1 environment
 - `config_lunar_1d.py`: Configuration file for LunarLander-v3 environment
 
 Different games:
-1. `MountainCar`, a easy game is used for verifying the implementation
+1. `CartPole`, a easy game is used for verifying the implementation
 2. `LunarLander`, a harder game, you should train it to have a good score.
 
 ## Command
-Train
+Train (change `cartpole` to `lunar_1d` if needed)
 ```bash
 # Train the model on CartPole-v1
 python practice/cli.py --config practice/exercise5_a2c/config_cartpole.py
@@ -50,7 +50,7 @@ python -m pytest practice/exercise5_a2c/tests/ -v
 6. try different total_step: 100K, 1M, 200K, 150K
 7. add nn.LayerNorm
 8. add critic_lr and ExponentialLR scheduler
-9. normalize the batch reward.
+9. normalize the batch return.
 10. Bad try:
     - rollout_len 43 from 32
     - use a common ExponentialLR for value, policy and shared_layers.

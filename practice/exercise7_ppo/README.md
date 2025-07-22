@@ -5,16 +5,16 @@ This exercise implements a Proximal Policy Optimization (PPO).
 
 ## Files
 - `ppo_exercise.py`: PPO `EXERCISE`.
-- `config_mountain_car.py`: Configuration file for MountainCar-v1 environment
+- `config_cartpole.py`: Configuration file for CartPole-v1 environment
 - `config_lunar_1d.py`: Configuration file for LunarLander-v3 environment
 
 Different games:
-1. `MountainCar`, a easy game is used for verifying the implementation
+1. `CartPole`, a easy game is used for verifying the implementation
 2. `LunarLander`, a harder game, you should train it to have a good score.
 
 
 ## Command
-Train
+Train (change `cartpole` to `lunar_1d` if needed)
 ```bash
 # Train the model on CartPole-v1
 python practice/cli.py --config practice/exercise7_ppo/config_cartpole.py
