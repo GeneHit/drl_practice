@@ -1,4 +1,5 @@
 import importlib.util
+import time
 from pathlib import Path
 from typing import Union, cast
 
@@ -62,3 +63,8 @@ def load_config_module(
             )
         env = module.get_env_for_play_and_hub(config)
         return cast(BaseConfig, config), cast(EnvType, env)
+
+
+def get_utc_time_str() -> str:
+    """Get the UTC-time string."""
+    return f"UTC {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())}"
