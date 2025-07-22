@@ -64,3 +64,7 @@ The training log of a [mean_reward: 499.94, std_reward: 0.42]
 3. bigger hidden_size: 256 -> 512 -> 1024 (best) -> 2048 -> 4096
 4. learning_rate decay for policy and shared_layer
 5. TODO: try other config for a better score.
+
+
+## Future Exercise
+1. A2C + PyTorch DistributedDataParallel (DDP)

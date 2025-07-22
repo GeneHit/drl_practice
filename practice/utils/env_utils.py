@@ -12,8 +12,11 @@ ObsFloat: TypeAlias = np.float32
 ObsInt: TypeAlias = np.uint8
 
 
-def get_device() -> torch.device:
+def get_device(target: str | None = None) -> torch.device:
     """Get the device."""
+    if target is not None:
+        return torch.device(target)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.backends.mps.is_available():
         device = torch.device("mps")

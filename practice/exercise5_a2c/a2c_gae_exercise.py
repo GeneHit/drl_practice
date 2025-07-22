@@ -105,6 +105,9 @@ class A2CConfig(BaseConfig):
     normalize_returns: bool = False
     """Whether to normalize the returns."""
 
+    hidden_size: int
+    """The hidden size for the actor-critic network."""
+
 
 class A2CTrainer(TrainerBase):
     """The trainer for the A2C algorithm.
@@ -118,10 +121,11 @@ class A2CTrainer(TrainerBase):
     networks.
     """
 
-    def __init__(self, config: A2CConfig, ctx: ContextBase) -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase, log_prefix: str = "") -> None:
         super().__init__(config=config, ctx=ctx)
         self._config: A2CConfig = config
         self._ctx: ContextBase = ctx
+        self._log_prefix: str = log_prefix
 
     def train(self) -> None:
         """Train the policy network with a vectorized environment.
@@ -150,7 +154,7 @@ class A2CTrainer(TrainerBase):
             self._config.rollout_len * self._config.env_config.vector_env_num
         )
         state, _ = envs.reset()
-        for rollout_idx in tqdm(range(num_updates), desc="Rollouts"):
+        for rollout_idx in tqdm(range(num_updates), desc=f"[{self._log_prefix}] Rollouts"):
             # 2. Run one rollout
             for _ in range(self._config.rollout_len):
                 # sample action and buffer partial data

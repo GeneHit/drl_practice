@@ -15,12 +15,10 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 def get_app_config() -> A2CConfig:
     """Get the application config."""
     # get cuda or mps if available
-    device = get_device()
-    # rollout = 200000 / 32 / 6 = 1042
-    total_step = 200000
     return A2CConfig(
-        device=device,
-        total_steps=total_step,
+        # use CPU is faster since nn model is small
+        device=get_device("cpu"),
+        total_steps=200000,
         rollout_len=32,
         learning_rate=1e-4,
         critic_lr=5e-5,
@@ -31,6 +29,7 @@ def get_app_config() -> A2CConfig:
         # entropy_coef=ConstantSchedule(0.1),
         value_loss_coef=0.02,
         max_grad_norm=0.5,
+        hidden_size=1024,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
@@ -68,7 +67,9 @@ def generate_context(config: A2CConfig) -> ContextBase:
     assert obs_shape is not None
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
-    actor_critic = ActorCritic(obs_dim=obs_shape[0], n_actions=action_n, hidden_size=1024)
+    actor_critic = ActorCritic(
+        obs_dim=obs_shape[0], n_actions=action_n, hidden_size=config.hidden_size
+    )
     # Load checkpoint if exists
     load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)
     actor_critic.to(config.device)
