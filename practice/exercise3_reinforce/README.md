@@ -1,14 +1,9 @@
-# Vanilla REINFORCE Implementation
+# Vanilla REINFORCE Exercise
 
 REINFORCE is a policy gradient method that directly optimizes the policy by using the gradient of the expected return.
 
 ## Files
 - `reinforce_exercise.py`: Main `EXERCISE` containing:
-  - `ReinforceConfig`: Configuration dataclass for the algorithm
-  - `EpisodeBuffer`: Simple buffer for storing episode data
-  - `ReinforceTrainer`: Main trainer class implementing the training loop
-  - `_ReinforcePod`: Internal class handling the core REINFORCE logic
-
 - `config_cartpole.py`: Configuration file for CartPole-v1 environment
 - `config_mountain_car.py`: Configuration file for MountainCar-v0 environment
 - `tests/test_reinforce_train.py`: Comprehensive test suite
@@ -16,7 +11,7 @@ REINFORCE is a policy gradient method that directly optimizes the policy by usin
 `You Need Find A Better Config for MountainCar-v0, it's hard`.
 
 ## Command
-Train
+Train  (change `cartpole` to `lunar_1d` if needed)
 ```bash
 # Train the model on CartPole-v1
 python practice/cli.py --config practice/exercise3_reinforce/config_cartpole.py
@@ -33,10 +28,10 @@ python practice/cli.py --config practice/exercise3_reinforce/config_cartpole.py 
 Push to hub
 ```bash
 # generate video and push to hub
-python practice/cli.py --config practice/exercise3_reinforce/config_lunar_1d.py --mode push_to_hub --username myuser
+python practice/cli.py --config practice/exercise3_reinforce/config_cartpole.py --mode push_to_hub --username myuser
 
 # only push to hub
-python practice/cli.py --config practice/exercise3_reinforce/config_lunar_1d.py --mode push_to_hub --username myuser --skip_play
+python practice/cli.py --config practice/exercise3_reinforce/config_cartpole.py --mode push_to_hub --username myuser --skip_play
 ```
 **Replace `myuser` with your HuggingFace account name.**
 
@@ -48,10 +43,8 @@ python -m pytest practice/exercise3_reinforce/tests/ -v
 
 ## Architecture
 
-Algorithm Features
-- **Vanilla REINFORCE**: Pure policy gradient implementation without baseline
-- **Entropy Regularization**: Configurable entropy bonus for exploration
-- **Gradient Accumulation**: Support for accumulating gradients over multiple episodes
+Algorithm Features:
+- Vanilla REINFORCE, Entropy Regularization, Gradient Accumulation
 
 Training Flow
 1. **Environment Setup**: Initialize environment and policy network
@@ -60,11 +53,6 @@ Training Flow
 4. **Policy Update**: Compute policy gradient and update parameters
 5. **Logging**: Record training metrics and performance
 
-Key Components
-- **ReinforceTrainer**: Orchestrates the training process
-- **_ReinforcePod**: Handles action sampling and policy updates
-- **EpisodeBuffer**: Stores episode data (rewards, log_probs, entropies)
-- **Reinforce1DNet**: Policy network (from hands_on implementation)
 
 ## Environments
 
@@ -80,13 +68,6 @@ MountainCar-v0
 - **Goal**: Reach the flag on the right side of the mountain
 - **Configuration**: `config_mountain_car.py`
 
-
-## Environment Support
-
-Currently supports 1D observation environments (like MountainCar-v0 and CartPole-v1). The implementation can be extended to support:
-- Different observation spaces
-- Different action spaces
-- Custom environments
 
 ## Future Enhancements
 

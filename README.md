@@ -1,5 +1,7 @@
 # drl_practice
-Practice the Deep Reinforcement Learning (DRL) with the gymnasium.
+Practice the Deep Reinforcement Learning (DRL) with the [gymnasium](https://gymnasium.farama.org/).
+- Easy hands-on on our laptop (like Mac/window/linux).
+- No complex Atari and Mojuco environments.
 
 ## How to practice
 Check the [Command Guide](./practice/README.md) doc, which provides the
@@ -20,7 +22,7 @@ The things you need to do:
 | [3. reinforce](./practice/exercise3_reinforce/README.md) | Reinforce (Monte Carlo) | CartPole-v1 | MountainCar-v0 |
 | [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with Reinforce, baseline, shaping reward) | | MountainCar-v0 |
 | [5. A2C](./practice/exercise5_a2c/README.md) | A2C + GAE or A2C + TD-n | CartPole-v1 | LunarLander-v3 |
-| 6. A3C | A3C (+GAE) | CartPole-v1 | LunarLander-v3 |
+| [6. A3C](./practice/exercise6_a3c/README.md) | A3C (using A2C+GAE) | CartPole-v1 | LunarLander-v3 |
 | [7. PPO](./practice/exercise7_ppo/README.md) | PPO | CartPole-v1 | LunarLander-v3 |
 | 8. DDPG | | CartPole-v1 | LunarLander-v3 |
 | 9. SAC | | CartPole-v1 | LunarLander-v3 |

@@ -70,3 +70,8 @@ tensorboard --logdir=results/exercise3_reinforce/cartpole/tensorboard
 2. [dqn](./exercise2_dqn/README.md)
 3. [vanilla reinforce](./exercise3_reinforce/README.md)
 4. [curiosity with enhanced reinforce](./exercise4_curiosity/README.md)
+
+
+## Other
+
+[CLI_README](./infos/CLI_README.md): the design document for the command cli.
