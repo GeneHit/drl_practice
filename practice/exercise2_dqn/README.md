@@ -35,10 +35,10 @@ python practice/cli.py --config practice/exercise2_dqn/config_lunar_1d.py --mode
 Push to hub
 ```bash
 # generate video and push to hub
-python practice/cli.py --config practice/exercise2_dqn/config_lunar_1d.py --push_to_hub --username myuser
+python practice/cli.py --config practice/exercise2_dqn/config_lunar_1d.py --mode push_to_hub --username myuser
 
 # only push to hub
-python practice/cli.py --config practice/exercise2_dqn/config_lunar_1d.py --push_to_hub --username myuser --skip_play
+python practice/cli.py --config practice/exercise2_dqn/config_lunar_1d.py --mode push_to_hub --username myuser --skip_play
 ```
 **Replace `myuser` with your HuggingFace account name.**
 

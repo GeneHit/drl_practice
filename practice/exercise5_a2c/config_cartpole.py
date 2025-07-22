@@ -32,6 +32,7 @@ def get_app_config() -> A2CConfig:
         # entropy_coef=ConstantSchedule(0.1),
         value_loss_coef=0.02,
         max_grad_norm=0.5,
+        normalize_returns=True,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,

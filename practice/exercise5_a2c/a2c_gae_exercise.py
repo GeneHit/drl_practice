@@ -102,6 +102,9 @@ class A2CConfig(BaseConfig):
     critic_lr_gamma: float | None = None
     """The gamma for the critic learning rate scheduler."""
 
+    normalize_returns: bool = False
+    """Whether to normalize the returns."""
+
 
 class A2CTrainer(TrainerBase):
     """The trainer for the A2C algorithm.
@@ -362,18 +365,19 @@ class _GAEPod(_A2CPod):
         # 1. Get the data from the buffer
         rollout = self._rollout.get_data()
 
-        # 2. Compute the advantages [rollout_len, N_env]
-        advantages, values, rewards, entropies = self._compute_advantages_and_filter(rollout)
+        # 2. Compute the advantages [d, ] (d: the valid data length)
+        advantages, log_probs, values, returns, entropies = self._compute_advantages_and_filter(
+            rollout
+        )
 
         # 3. Compute the loss
-        # the actor/policy loss
-        log_probs = torch.stack([step.log_probs for step in rollout])  # [rollout_len, N_env]
         # normalize the advantages
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         pg_loss = -(advantages * log_probs).mean()
         # the critic/value loss
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
-        value_mse = F.mse_loss(values, rewards)
+        if self._config.normalize_returns:
+            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+        value_mse = F.mse_loss(values, returns)
         value_loss = self._config.value_loss_coef * value_mse
         # the entropy loss
         entropy_coef = self._config.entropy_coef(self._rollout_count)
@@ -405,17 +409,19 @@ class _GAEPod(_A2CPod):
 
     def _compute_advantages_and_filter(
         self, rollout: list[_StepData]
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         """Compute the advantages and filter the bad transition between two episodes.
 
         Returns:
-            advantages: Tensor, shape [T, N]
+            advantages: Tensor, shape [d, ]
                 the valid advantages of the rollout
-            values: Tensor, shape [T, N]
+            log_probs: Tensor, shape [d, ]
+                the valid log_probs of the rollout
+            values: Tensor, shape [d, ]
                 the valid values of the rollout
-            rewards: Tensor, shape [T, N]
+            rewards: Tensor, shape [d, ]
                 the valid rewards of the rollout
-            entropies: Tensor, shape [T, N]
+            entropies: Tensor, shape [d, ]
                 the valid entropies of the rollout
         """
         t_1_data = rollout[-1]
@@ -449,7 +455,9 @@ class _GAEPod(_A2CPod):
         next_values[:-1] = values[1:]
 
         advantages = torch.empty_like(values)
+        returns = torch.empty_like(values)
         gae = torch.zeros_like(values[0])
+
         # compute the advantages in reverse order
         for t_step in range(t - 1, -1, -1):
             # the mask will cut off the
@@ -457,32 +465,51 @@ class _GAEPod(_A2CPod):
             delta = rewards[t_step] + gamma * next_values[t_step] - values[t_step]
             gae = delta + gamma * gae_lambda * gae * mask
             advantages[t_step] = gae
+            returns[t_step] = gae + values[t_step]
 
-        # filter the bad transition between two episodes
-        advantages, values, rewards, entropies = self._filter_bad_transition(
+        # filter the bad transition between two episodes: [T, N] -> [d, ]
+        return self._filter_bad_transition(
             dones=torch.stack([torch.from_numpy(step.dones).to(device) for step in rollout]),
+            log_probs=torch.stack([step.log_probs for step in rollout]),
             advantages=advantages,
             entropies=torch.stack([step.entropies for step in rollout]),
             values=values,
-            rewards=rewards,
+            returns=returns,
         )
 
-        return advantages, values, rewards, entropies
-
     def _filter_bad_transition(
-        self, dones: Tensor, advantages: Tensor, entropies: Tensor, values: Tensor, rewards: Tensor
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        self,
+        dones: Tensor,
+        log_probs: Tensor,
+        advantages: Tensor,
+        entropies: Tensor,
+        values: Tensor,
+        returns: Tensor,
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         """Filter the bad transition between two episodes.
-
-        Because pg_loss = -log_probs * advantages, so not need to filter the log_probs.
 
         See _RolloutBuffer for the reason and more details.
 
-        Args:
+        Have to throw away the data of the bad transition between two episodes, don't use its data
+        and compute graph of backward.
+
+        Parameters
+        ----------
             dones: Tensor, shape [T, N]
+            log_probs: Tensor, shape [T, N]
             advantages: Tensor, shape [T, N]
             entropies: Tensor, shape [T, N]
             values: Tensor, shape [T, N]
+            returns: Tensor, shape [T, N]
+
+        Returns
+        -------
+        The valid data of the rollout (d (<= T * N) is the valid data length):
+            advantages: Tensor, shape [d, ]
+            log_probs: Tensor, shape [d, ]
+            values: Tensor, shape [d, ]
+            returns: Tensor, shape [d, ]
+            entropies: Tensor, shape [d, ]
         """
         # filter the bad transition between two episodes: pre_dones == 1
         prev_dones = torch.empty_like(dones, dtype=torch.bool)
@@ -495,13 +522,15 @@ class _GAEPod(_A2CPod):
         # get the valid mask [T, N]
         valid_mask = ~prev_dones
 
-        # filter the data
-        advantages = advantages * valid_mask
-        entropies = entropies * valid_mask
-        values = values * valid_mask
-        rewards = rewards * valid_mask
+        # filter out the invalid data: [T, N] -> [d, ]
+        mask_flat = valid_mask.view(-1)
+        advantages = advantages.view(-1)[mask_flat]
+        log_probs = log_probs.view(-1)[mask_flat]
+        entropies = entropies.view(-1)[mask_flat]
+        values = values.view(-1)[mask_flat]
+        returns = returns.view(-1)[mask_flat]
 
-        return advantages, values, rewards, entropies
+        return advantages, log_probs, values, returns, entropies
 
 
 def _np2tensor(x: NDArray[np.float32], device: torch.device) -> Tensor:
