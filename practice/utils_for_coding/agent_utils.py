@@ -5,25 +5,27 @@ import torch.nn as nn
 from numpy.typing import NDArray
 
 from practice.base.chest import AgentBase
-from practice.base.env_typing import ActType
+from practice.base.env_typing import ActType, ActTypeC
 from practice.utils_for_coding.numpy_tensor_utils import get_tensor_expanding_axis
 
 
 class NNAgent(AgentBase):
     """Agent that uses a neural network to make decisions.
 
-    Only use for evaluation/gameplay, not for training.
+    Only be used for:
+    1. discrete action space.
+    2. evaluation/gameplay, not for training.
     """
 
     def __init__(self, net: nn.Module) -> None:
         self._net = net
         self._device = next(net.parameters()).device
+        self._net.eval()
 
     def action(self, state: NDArray[Any]) -> ActType:
         """Get action for single state using greedy policy."""
         # Always use greedy policy for trained agent evaluation
         state_tensor = get_tensor_expanding_axis(state).to(self._device)
-        self._net.eval()
         with torch.no_grad():
             logits = self._net(state_tensor).cpu()
         return ActType(logits.argmax().item())
@@ -41,18 +43,21 @@ class NNAgent(AgentBase):
 class A2CAgent(AgentBase):
     """Agent that uses a neural network to make decisions.
 
-    Only use for evaluation/gameplay, not for training.
+    Only be used for:
+    1. discrete action space.
+    2. evaluation/gameplay, not for training.
+    3. the network return both policy logits and value (like shared Actor-Critic network).
     """
 
     def __init__(self, net: nn.Module) -> None:
         self._net = net
         self._device = next(net.parameters()).device
+        self._net.eval()
 
     def action(self, state: NDArray[Any]) -> ActType:
         """Get action for single state using greedy policy."""
         # Always use greedy policy for trained agent evaluation
         state_tensor = get_tensor_expanding_axis(state).to(self._device)
-        self._net.eval()
         with torch.no_grad():
             policy_logits_or_value = self._net(state_tensor)
 
@@ -73,6 +78,36 @@ class A2CAgent(AgentBase):
     @classmethod
     def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "A2CAgent":
         """Load the A2C model."""
+        return cls(net=_load_model(pathname, device))
+
+
+class ContinuousActor(AgentBase):
+    """Agent that uses a neural network to make decisions.
+
+    Only be used for:
+    1. continuous action space.
+    2. evaluation/gameplay, not for training.
+    """
+
+    def __init__(self, net: nn.Module) -> None:
+        self._net = net
+        self._device = next(net.parameters()).device
+        self._net.eval()
+
+    def action(self, state: NDArray[Any]) -> ActTypeC:
+        """Get action for single state using greedy policy."""
+        state_tensor = get_tensor_expanding_axis(state).to(self._device)
+        with torch.no_grad():
+            action = self._net(state_tensor)
+        return ActTypeC(action.cpu().item())
+
+    def only_save_model(self, pathname: str) -> None:
+        """Save the continuous actor model."""
+        _save_model(self._net, pathname)
+
+    @classmethod
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ContinuousActor":
+        """Load the continuous actor model."""
         return cls(net=_load_model(pathname, device))
 
 

@@ -37,7 +37,7 @@ class ReplayBuffer:
         capacity: int,
         state_shape: tuple[int, ...],
         state_dtype: type[np.floating[Any]] = np.float32,
-        action_dtype: type[np.integer[Any]] = np.int64,
+        action_dtype: type[np.int64] | type[np.float32] = np.int64,
     ) -> None:
         self._capacity = capacity
         self._ptr = 0  # current write pointer
@@ -51,27 +51,6 @@ class ReplayBuffer:
         self._rewards = np.empty(capacity, dtype=np.float32)
         self._next_states = np.empty((capacity, *state_shape), dtype=state_dtype)
         self._dones = np.empty(capacity, dtype=np.bool_)
-
-    def add_one(
-        self,
-        state: NDArray[Any],
-        action: int,
-        reward: float,
-        next_state: NDArray[Any],
-        done: bool,
-    ) -> None:
-        self._warn_if_necessary(state)
-
-        # overwrite old data
-        self._states[self._ptr] = state
-        self._actions[self._ptr] = action
-        self._rewards[self._ptr] = reward
-        self._next_states[self._ptr] = next_state
-        self._dones[self._ptr] = done
-
-        # update pointer and count
-        self._ptr = (self._ptr + 1) % self._capacity
-        self._size = min(self._size + 1, self._capacity)
 
     def add_batch(
         self,

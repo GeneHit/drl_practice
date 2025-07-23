@@ -7,7 +7,7 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.utils.evaluation_utils import evaluate_and_save_results
-from practice.utils_for_coding.agent_utils import A2CAgent, NNAgent
+from practice.utils_for_coding.agent_utils import A2CAgent, ContinuousActor, NNAgent
 
 
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
@@ -29,6 +29,8 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
         agent = NNAgent(net=ctx.network)
     elif agent_type == A2CAgent:
         agent = A2CAgent(net=ctx.network)
+    elif agent_type == ContinuousActor:
+        agent = ContinuousActor(net=ctx.network)
     else:
         raise ValueError(f"Unsupported agent type: {agent_type}")
 
