@@ -1,8 +1,8 @@
-
 gymnasium==1.2.0
 # required by the LunarLander-v3 environment: box2d, cv2
 # 1. Box2D
 gymnasium[box2d]
+gymnasium[mujoco]
 # 2. Other: opencv-python, decorator, matplotlib, moviepy, pandas, proglog,
 #           python-dotenv, pytz, seaborn, tzdata
 gymnasium[other]

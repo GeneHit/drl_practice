@@ -1,10 +1,13 @@
+import time
+
 import gymnasium as gym
 
 
 def main() -> None:
     # First, create the environment
     # env = gym.make("FrozenLake-v1", map_name="4x4", is_slippery=False)
-    env = gym.make("LunarLander-v3")
+    # env = gym.make("LunarLander-v3")
+    env = gym.make("HalfCheetah-v5", render_mode="human")
 
     # obs = env.observation_space.sample()
     # print("Sample observation", obs)
@@ -24,7 +27,8 @@ def main() -> None:
     # Then reset this environment
     env.reset()
 
-    for _ in range(20):
+    for _ in range(50):
+        time.sleep(0.05)
         # Take a random action
         action = env.action_space.sample()
         print("Action taken:", action)
