@@ -70,6 +70,10 @@ tensorboard --logdir=results/exercise3_reinforce/cartpole/tensorboard
 2. [dqn](./exercise2_dqn/README.md)
 3. [vanilla reinforce](./exercise3_reinforce/README.md)
 4. [curiosity with enhanced reinforce](./exercise4_curiosity/README.md)
+5. [A2C with GAE](./exercise5_a2c/README.md)
+6. [A3C](./exercise6_a3c/README.md)
+7. [PPO](./exercise7_ppo/README.md)
+8. [TD3](./exercise8_td3/README.md)
 
 
 ## Other

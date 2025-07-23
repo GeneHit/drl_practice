@@ -7,17 +7,17 @@ import torch.nn as nn
 from numpy.typing import NDArray
 from torch.optim.lr_scheduler import LRScheduler
 
-from practice.base.env_typing import EnvsType, EnvType
+from practice.base.env_typing import EnvsType, EnvsTypeC, EnvType, EnvTypeC
 
 
 @dataclass(kw_only=True, frozen=True)
 class ContextBase:
-    train_env: EnvType | EnvsType
+    train_env: EnvType | EnvsType | EnvsTypeC
     """The environment used for training."""
-    eval_env: EnvType
+    eval_env: EnvType | EnvTypeC
     """The environment used for evaluation."""
     trained_target: nn.Module | NDArray[np.float32]
-    """The trained policy/q-value network, or q-table."""
+    """The trained dqn/policy/actor network, or q-table."""
     optimizer: torch.optim.Optimizer
     """The optimizer used for training."""
     lr_schedulers: tuple[LRScheduler, ...] = ()
@@ -44,6 +44,7 @@ class ContextBase:
 
     @property
     def table(self) -> NDArray[np.float32]:
+        """The q-table."""
         assert isinstance(self.trained_target, np.ndarray)
         return self.trained_target
 
