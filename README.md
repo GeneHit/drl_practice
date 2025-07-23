@@ -1,7 +1,8 @@
 # drl_practice
 Practice the Deep Reinforcement Learning (DRL) with the [gymnasium](https://gymnasium.farama.org/).
 - Easy hands-on on our laptop (like Mac/window/linux).
-- No complex Atari and Mojuco environments.
+- No Atari environments (because of Mac).
+- No long-time training.
 
 ## How to practice
 Check the [Command Guide](./practice/README.md) doc, which provides the
@@ -14,18 +15,21 @@ The things you need to do:
 
 
 ## Exercises
+Don't choose too hard game and big neural network. But you can try it by yourself.
 
-| Exercise | Algorithm | Easy Game (for verification) | Hard Game (challenge) |
-|----------|-----------|-----------|-----------|
-| [1. q_learning](./practice/exercise1_q/README.md) | Q Table | FrozenLake | Taxi |
-| [2. dqn](./practice/exercise2_dqn/README.md) | Deep Q Network | 1D LunarLander-v3 | img LunarLander-v3 |
-| [3. reinforce](./practice/exercise3_reinforce/README.md) | Reinforce (Monte Carlo) | CartPole-v1 | MountainCar-v0 |
-| [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with Reinforce, baseline, shaping reward) | | MountainCar-v0 |
-| [5. A2C](./practice/exercise5_a2c/README.md) | A2C + GAE or A2C + TD-n | CartPole-v1 | LunarLander-v3 |
-| [6. A3C](./practice/exercise6_a3c/README.md) | A3C (using A2C+GAE) | CartPole-v1 | LunarLander-v3 |
-| [7. PPO](./practice/exercise7_ppo/README.md) | PPO | CartPole-v1 | LunarLander-v3 |
-| 8. DDPG | | CartPole-v1 | LunarLander-v3 |
-| 9. SAC | | CartPole-v1 | LunarLander-v3 |
+| Exercise | Algorithm | Verification Game | For Challenge | State | Action |
+|----------|-----------|-------------------|---------------|-------|--------|
+| [1. q_learning](./practice/exercise1_q/README.md) | Q Table | FrozenLake | Taxi | D | D |
+| [2. dqn](./practice/exercise2_dqn/README.md) | Deep Q Network | 1D LunarLander-v3 | img LunarLander-v3 | C | D |
+| [3. reinforce](./practice/exercise3_reinforce/README.md) | Reinforce (Monte Carlo) | CartPole-v1 | MountainCar-v0 | C | D |
+| [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with Reinforce, baseline, shaping reward) | | MountainCar-v0 | C | D |
+| [5. A2C](./practice/exercise5_a2c/README.md) | A2C + GAE or A2C + TD-n | CartPole-v1 | LunarLander-v3 | C | D |
+| [6. A3C](./practice/exercise6_a3c/README.md) | A3C (using A2C+GAE) | CartPole-v1 | LunarLander-v3 | C | D |
+| [7. PPO](./practice/exercise7_ppo/README.md) | PPO | CartPole-v1 | LunarLander-v3 | C | D |
+| [8. TD3](./practice/exercise8_td3/README.md) | Twin Delayed DDPG (TD3) | Pendulum-v1 | Walker2d-v5 | C | C |
+| 9. SAC | | Pendulum-v1 | Walker2d-v5 | C | C |
+
+where, C: continuous; D: discrete
 
 
 ## Motivation
@@ -33,3 +37,9 @@ After studying the HuggingFace's
 [DRL course](https://huggingface.co/learn/deep-rl-course/unit0/introduction),
 I want to have a deeper and broader understanding through the coding. Some code and config
 are based on the course. Thanks for this greate course.
+
+
+## Other
+
+[RL Algorithms](./practice/infos/rl_algorithm.md)
+[OpenAI's Spining Up](https://spinningup.openai.com/en/latest/)
