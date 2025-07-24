@@ -64,6 +64,7 @@ def push_model_to_hub(
 ) -> None:
     """Common function to push model files to hub."""
     output_dir = Path(artifact_config.output_dir)
+    repo_local_path = output_dir / "hub"
 
     _push_to_hub(
         repo_id=repo_id,
@@ -75,9 +76,10 @@ def push_model_to_hub(
         ],
         eval_result_pathname=str(output_dir / artifact_config.eval_result_filename),
         metadata=metadata,
-        local_repo_path=str(output_dir / "hub"),
+        local_repo_path=str(repo_local_path),
         copy_file=True,
     )
+    shutil.rmtree(repo_local_path)
 
 
 def _get_env_name_and_metadata(
@@ -186,7 +188,6 @@ def _push_to_hub(
         path_in_repo=".",
         commit_message=f"upload via upload_folder {get_utc_time_str()}",
     )
-    shutil.rmtree(repo_local_path)
 
     # print a new line to avoid uploading process bar.
     print(f"Pushed to the Hub. See: {repo_url}\n")
