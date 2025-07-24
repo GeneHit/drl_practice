@@ -1,5 +1,5 @@
 import importlib.util
-import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Union, cast
 
@@ -67,4 +67,4 @@ def load_config_module(
 
 def get_utc_time_str() -> str:
     """Get the UTC-time string."""
-    return f"UTC {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())}"
+    return datetime.now(timezone.utc).isoformat()

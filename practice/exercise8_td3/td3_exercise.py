@@ -286,9 +286,9 @@ class _TD3Pod:
         )
 
         # log
-        self._writer.add_scalar("action/noise_std", noise_std)
-        self._writer.add_scalar("action/mean", action.mean().item())
-        self._writer.add_scalar("action/std", action.std().item())
+        self._writer.add_scalar("action/noise_std", noise_std, step)
+        self._writer.add_scalar("action/mean", action.mean().item(), step)
+        self._writer.add_scalar("action/std", action.std().item(), step)
 
         # Ensure action shape is (num_envs, action_dim)
         return cast(NDArray[ActTypeC], noised_action.numpy())

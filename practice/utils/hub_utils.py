@@ -9,6 +9,7 @@ from huggingface_hub.repocard import metadata_eval_result, metadata_save
 
 from practice.base.config import ArtifactConfig, BaseConfig
 from practice.base.env_typing import EnvType
+from practice.utils.cli_utils import get_utc_time_str
 
 
 def push_to_hub_generic(config: BaseConfig, env: EnvType, username: str) -> None:
@@ -74,8 +75,8 @@ def push_model_to_hub(
         ],
         eval_result_pathname=str(output_dir / artifact_config.eval_result_filename),
         metadata=metadata,
-        local_repo_path=str(output_dir),
-        copy_file=False,
+        local_repo_path=str(output_dir / "hub"),
+        copy_file=True,
     )
 
 
@@ -183,7 +184,8 @@ def _push_to_hub(
         repo_id=repo_id,
         folder_path=repo_local_path,
         path_in_repo=".",
-        commit_message="test hub",
+        commit_message=f"upload via upload_folder {get_utc_time_str()}",
     )
+    shutil.rmtree(repo_local_path)
 
-    print(f"Pushed to the Hub. You can view your model here: {repo_url}")
+    print(f"Pushed to the Hub. See: {repo_url}")
