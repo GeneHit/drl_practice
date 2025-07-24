@@ -206,7 +206,7 @@ class TD3Trainer(TrainerBase):
         start_step = self._config.update_start_step // envs.num_envs
         for step in tqdm(range(timestep), desc="Training"):
             # Get actions for all environments
-            actions = pod.action(states)
+            actions = pod.action(states, step)
             # Step the environment
             next_states, rewards, terminated, truncated, infos = envs.step(actions)
 
@@ -268,10 +268,7 @@ class _TD3Pod:
         self._noise_clip = as_tensor_on(self._config.noise_clip, self._tau)
         self._one = as_tensor_on(1, self._tau)
 
-        # maintained value for exploration noise
-        self._step = 0
-
-    def action(self, state: NDArray[ObsType]) -> NDArray[ActTypeC]:
+    def action(self, state: NDArray[ObsType], step: int) -> NDArray[ActTypeC]:
         """Get the action for the given state.
 
         Parameters
@@ -282,17 +279,16 @@ class _TD3Pod:
         with torch.no_grad():
             action = self._ctx.network(state_tensor).cpu()
 
-        noise_std = self._config.exploration_noise(self._step)
+        noise_std = self._config.exploration_noise(step)
         noise = torch.randn_like(action) * noise_std
         noised_action = torch.clamp(
             action + noise, -self._config.max_action, self._config.max_action
         )
 
         # log
-        self._writer.add_scalar("action/noise_std", noise_std, self._step)
-        self._writer.add_scalar("action/mean", action.mean().item(), self._step)
-        self._writer.add_scalar("action/std", action.std().item(), self._step)
-        self._step += 1
+        self._writer.add_scalar("action/noise_std", noise_std)
+        self._writer.add_scalar("action/mean", action.mean().item())
+        self._writer.add_scalar("action/std", action.std().item())
 
         # Ensure action shape is (num_envs, action_dim)
         return cast(NDArray[ActTypeC], noised_action.numpy())

@@ -9,7 +9,6 @@ from numpy.typing import NDArray
 from practice.base.config import EnvConfig
 from practice.base.env_typing import ActType, EnvsType, EnvsTypeC, EnvType, EnvTypeC
 
-ObsFloat: TypeAlias = np.float32
 ObsInt: TypeAlias = np.uint8
 
 
@@ -85,21 +84,6 @@ def make_discrete_env_with_kwargs(
     return env
 
 
-class CastObsFloat32Wrapper(gym.Wrapper):  # type: ignore
-    def reset(
-        self, *, seed: int | None = None, options: dict[str, Any] | None = None
-    ) -> tuple[NDArray[ObsFloat], dict[str, Any]]:
-        obs, info = self.env.reset(seed=seed, options=options)
-        # force obs to be float32
-        return obs.astype(np.float32), info
-
-    def step(self, action: Any) -> tuple[NDArray[ObsFloat], float, bool, bool, dict[str, Any]]:
-        obs, reward, term, trunc, info = self.env.step(action)
-        # force obs to be float32
-        obs = cast(NDArray[ObsFloat], obs.astype(ObsFloat))
-        return obs, float(reward), term, trunc, info
-
-
 def make_env_with_kwargs(
     env_id: str, max_steps: int | None = None, kwargs: dict[str, Any] = {}
 ) -> EnvType:
@@ -111,11 +95,11 @@ def make_env_with_kwargs(
         type: numpy.int64, act.dtype: int64, act.shape: (), act_n: int
     """
     env = gym.make(id=env_id, **kwargs)
-    env = CastObsFloat32Wrapper(env)
     # Add episode statistics tracking - tracks cumulative rewards and episode lengths
     env = gym.wrappers.RecordEpisodeStatistics(env)
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+    env = gym.wrappers.DtypeObservation(env, dtype=np.float32)
 
     return env
 
@@ -162,7 +146,7 @@ def make_image_env_for_vectorized(
 
 def make_1d_env_for_vectorized(
     env_id: str, render_mode: str | None = None, max_steps: int | None = None
-) -> gym.Env[NDArray[ObsFloat], ActType]:
+) -> gym.Env[NDArray[np.float32], ActType]:
     """Make the 1D environment.
 
     Args:
@@ -177,7 +161,6 @@ def make_1d_env_for_vectorized(
     env.observation_space.shape=(8,), np.float32
     """
     env = gym.make(env_id, render_mode=render_mode)
-    env = CastObsFloat32Wrapper(env)
     # Add episode statistics tracking - tracks cumulative rewards and episode lengths
     env = gym.wrappers.RecordEpisodeStatistics(env)
     # Add auto-reset wrapper - provides terminal_observation for final observations
@@ -186,8 +169,9 @@ def make_1d_env_for_vectorized(
     # Add time limit wrapper if max_steps is specified
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+    env = gym.wrappers.DtypeObservation(env, dtype=np.float32)
 
-    return cast(gym.Env[NDArray[ObsFloat], ActType], env)
+    return cast(gym.Env[NDArray[np.float32], ActType], env)
 
 
 def _make_vector_env(

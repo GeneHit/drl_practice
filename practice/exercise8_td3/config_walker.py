@@ -23,8 +23,8 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 def get_app_config() -> TD3Config:
     """Get the application config."""
-    # timestep = total_steps // vector_env_num = 240000 // 6 = 40000
-    total_steps = 240000
+    # timestep = total_steps // vector_env_num = 1800000 // 6 = 300000
+    total_steps = 1800000
     return TD3Config(
         device=get_device("cpu"),
         total_steps=total_steps,
@@ -32,33 +32,33 @@ def get_app_config() -> TD3Config:
         learning_rate=3e-4,
         critic_lr=3e-4,
         gamma=0.99,
-        replay_buffer_capacity=int(total_steps * 1.0),
+        replay_buffer_capacity=int(total_steps * 0.6),
         batch_size=128,
         update_start_step=20000,
         policy_delay=2,
         policy_noise=0.2,
         noise_clip=0.5,
-        exploration_noise=LinearSchedule(0.3, 0.0, 10000),
-        max_action=2.0,
+        exploration_noise=LinearSchedule(0.3, 0.05, 100000),
+        max_action=1.0,
         tau=0.005,
         max_grad_norm=0.5,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
         env_config=EnvConfig(
-            env_id="Pendulum-v1",
+            env_id="Walker2d-v5",
             vector_env_num=6,
             use_multi_processing=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=TD3Trainer,
             agent_type=ContinuousAgent,
-            output_dir="results/exercise8_td3/pendulum/",
+            output_dir="results/exercise8_td3/walker/",
             save_result=True,
-            model_filename="td3_pendulum.pth",
-            repo_id="TD3-PendulumV1",
+            model_filename="td3_walker2d.pth",
+            repo_id="TD3-Walker2dV5",
             algorithm_name="TD3",
-            extra_tags=("TD3", "DDPG", "Pendulum"),
+            extra_tags=("TD3", "DDPG", "Walker2d"),
         ),
     )
 
@@ -83,6 +83,7 @@ def generate_context(config: TD3Config) -> TD3Context:
 
     obs_shape = eval_env.observation_space.shape
     act_shape = eval_env.action_space.shape
+    # make mypy happy
     assert obs_shape is not None
     assert act_shape is not None
 

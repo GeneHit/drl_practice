@@ -186,4 +186,4 @@ def _push_to_hub(
         commit_message="test hub",
     )
 
-    print("Pushed to the Hub. You can view your model here: ", repo_url)
+    print(f"Pushed to the Hub. You can view your model here: {repo_url}")
