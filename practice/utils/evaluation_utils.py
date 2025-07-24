@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from practice.base.chest import AgentBase
 from practice.base.config import BaseConfig
-from practice.utils.env_utils import describe_wrappers
+from practice.utils.env_utils import dump_env_wrappers
 
 
 def evaluate_agent(
@@ -139,11 +139,12 @@ def _save_model_and_result(
     agent.only_save_model(str(out_dir / artifact_config.model_filename))
     # save the eval result
     with open(out_dir / artifact_config.eval_result_filename, "w") as f:
-        json.dump(eval_result, f)
+        json.dump(eval_result, f, indent=4)
 
-    wrappers = describe_wrappers(env)
+    # save the env setup
+    env_setup = {"user_config": config.to_dict()["env_config"], **dump_env_wrappers(env)}
+    with open(out_dir / artifact_config.env_setup_filename, "w") as f:
+        json.dump(env_setup, f, indent=4)
+
     # save all the config data
-    config.save_to_json(
-        filepath=str(out_dir / artifact_config.params_filename),
-        with_data={"env_wrappers": wrappers},
-    )
+    config.save_to_json(filepath=str(out_dir / artifact_config.params_filename))

@@ -1,3 +1,5 @@
+import inspect
+import json
 from typing import Any, Callable, TypeAlias, cast
 
 import gymnasium as gym
@@ -54,15 +56,6 @@ def extract_episode_data_from_infos(infos: dict[str, Any]) -> tuple[list[float],
                 episode_lengths.extend(completed_lengths.tolist())
 
     return episode_rewards, episode_lengths
-
-
-def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:
-    stack: list[str] = []
-    while hasattr(env, "env"):
-        stack.append(type(env).__name__)
-        env = env.env
-    stack.append(type(env).__name__)  # base env
-    return list(reversed(stack))
 
 
 def make_discrete_env_with_kwargs(
@@ -270,3 +263,41 @@ def verify_env_with_continuous_action(env: EnvTypeC) -> None:
     assert isinstance(env.action_space, Box), "Env must be continuous action space"
     assert env.action_space.shape is not None
     assert len(env.action_space.shape) == 1, "Env must be continuous action space"
+
+
+def dump_env_wrappers(env: gym.Env[Any, Any]) -> dict[str, Any]:
+    """Traverse the env wrapper stack and dump each wrapper's class and init-args to JSON."""
+    wrappers = []
+    curr = env
+    while isinstance(curr, gym.Wrapper):
+        cls = curr.__class__
+        # try to extract the named parameters from the __init__ signature
+        sig = inspect.signature(cls.__init__)
+        params = {}
+        for name, _ in sig.parameters.items():
+            if name == "self" or name == "env":
+                continue
+            # if the wrapper object has the same name attribute, record it
+            if hasattr(curr, name):
+                val = getattr(curr, name)
+                try:
+                    json.dumps(val)  # only record JSON serializable
+                    params[name] = val
+                except TypeError:
+                    params[name] = str(val)
+        wrappers.append(
+            {
+                "class": f"{cls.__module__}.{cls.__name__}",
+                "params": params,
+            }
+        )
+        curr = curr.env
+
+    # the bottom most is the original environment
+    base = curr
+    spec = getattr(base, "spec", None)
+    base_info = {
+        "class": f"{base.__class__.__module__}.{base.__class__.__name__}",
+        "id": spec.id if spec else None,
+    }
+    return {"wrappers": wrappers, "base_env": base_info}
