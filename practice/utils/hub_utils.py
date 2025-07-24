@@ -79,7 +79,11 @@ def push_model_to_hub(
         local_repo_path=str(repo_local_path),
         copy_file=True,
     )
-    shutil.rmtree(repo_local_path)
+    # remove the local repo
+    try:
+        shutil.rmtree(repo_local_path)
+    except FileNotFoundError:
+        pass
 
 
 def _get_env_name_and_metadata(
