@@ -41,5 +41,5 @@ are based on the course. Thanks for this greate course.
 
 ## Other
 
-[RL Algorithms](./practice/infos/rl_algorithm.md)
-[OpenAI's Spining Up](https://spinningup.openai.com/en/latest/)
+1. [RL Algorithms](./practice/infos/rl_algorithm.md)
+2. [OpenAI's Spining Up](https://spinningup.openai.com/en/latest/)

@@ -1,14 +1,16 @@
+import inspect
+import json
 from typing import Any, Callable, TypeAlias, cast
 
 import gymnasium as gym
 import numpy as np
 import torch
+from gymnasium.spaces import Box
 from numpy.typing import NDArray
 
 from practice.base.config import EnvConfig
-from practice.base.env_typing import ActType, EnvsType, EnvType
+from practice.base.env_typing import ActType, EnvsType, EnvsTypeC, EnvType, EnvTypeC
 
-ObsFloat: TypeAlias = np.float32
 ObsInt: TypeAlias = np.uint8
 
 
@@ -56,15 +58,6 @@ def extract_episode_data_from_infos(infos: dict[str, Any]) -> tuple[list[float],
     return episode_rewards, episode_lengths
 
 
-def describe_wrappers(env: gym.Env[Any, Any]) -> list[str]:
-    stack: list[str] = []
-    while hasattr(env, "env"):
-        stack.append(type(env).__name__)
-        env = env.env
-    stack.append(type(env).__name__)  # base env
-    return list(reversed(stack))
-
-
 def make_discrete_env_with_kwargs(
     env_id: str, kwargs: dict[str, Any], max_steps: int | None = None
 ) -> gym.Env[np.int64, np.int64]:
@@ -84,21 +77,6 @@ def make_discrete_env_with_kwargs(
     return env
 
 
-class CastObsFloat32Wrapper(gym.Wrapper):  # type: ignore
-    def reset(
-        self, *, seed: int | None = None, options: dict[str, Any] | None = None
-    ) -> tuple[NDArray[ObsFloat], dict[str, Any]]:
-        obs, info = self.env.reset(seed=seed, options=options)
-        # force obs to be float32
-        return obs.astype(np.float32), info
-
-    def step(self, action: Any) -> tuple[NDArray[ObsFloat], float, bool, bool, dict[str, Any]]:
-        obs, reward, term, trunc, info = self.env.step(action)
-        # force obs to be float32
-        obs = cast(NDArray[ObsFloat], obs.astype(ObsFloat))
-        return obs, float(reward), term, trunc, info
-
-
 def make_env_with_kwargs(
     env_id: str, max_steps: int | None = None, kwargs: dict[str, Any] = {}
 ) -> EnvType:
@@ -110,11 +88,11 @@ def make_env_with_kwargs(
         type: numpy.int64, act.dtype: int64, act.shape: (), act_n: int
     """
     env = gym.make(id=env_id, **kwargs)
-    env = CastObsFloat32Wrapper(env)
     # Add episode statistics tracking - tracks cumulative rewards and episode lengths
     env = gym.wrappers.RecordEpisodeStatistics(env)
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+    env = gym.wrappers.DtypeObservation(env, dtype=np.float32)
 
     return env
 
@@ -161,7 +139,7 @@ def make_image_env_for_vectorized(
 
 def make_1d_env_for_vectorized(
     env_id: str, render_mode: str | None = None, max_steps: int | None = None
-) -> gym.Env[NDArray[ObsFloat], ActType]:
+) -> gym.Env[NDArray[np.float32], ActType]:
     """Make the 1D environment.
 
     Args:
@@ -176,7 +154,6 @@ def make_1d_env_for_vectorized(
     env.observation_space.shape=(8,), np.float32
     """
     env = gym.make(env_id, render_mode=render_mode)
-    env = CastObsFloat32Wrapper(env)
     # Add episode statistics tracking - tracks cumulative rewards and episode lengths
     env = gym.wrappers.RecordEpisodeStatistics(env)
     # Add auto-reset wrapper - provides terminal_observation for final observations
@@ -185,8 +162,9 @@ def make_1d_env_for_vectorized(
     # Add time limit wrapper if max_steps is specified
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+    env = gym.wrappers.DtypeObservation(env, dtype=np.float32)
 
-    return cast(gym.Env[NDArray[ObsFloat], ActType], env)
+    return cast(gym.Env[NDArray[np.float32], ActType], env)
 
 
 def _make_vector_env(
@@ -270,3 +248,56 @@ def get_env_from_config(config: EnvConfig) -> tuple[EnvType | EnvsType, EnvType]
     eval_env = get_env_fn(render_mode="rgb_array", max_steps=None)()
 
     return train_envs, eval_env
+
+
+def verify_vector_env_with_continuous_action(envs: EnvsTypeC) -> None:
+    if not hasattr(envs, "num_envs"):
+        raise TypeError("train_env is a single environment, use env property instead")
+    assert isinstance(envs.single_action_space, Box), "Env must be continuous action space"
+    assert len(envs.single_action_space.shape) == 1, "Env must be continuous action space"
+
+
+def verify_env_with_continuous_action(env: EnvTypeC) -> None:
+    if not hasattr(env, "action_space"):
+        raise TypeError("train_env is a single environment, use env property instead")
+    assert isinstance(env.action_space, Box), "Env must be continuous action space"
+    assert env.action_space.shape is not None
+    assert len(env.action_space.shape) == 1, "Env must be continuous action space"
+
+
+def dump_env_wrappers(env: gym.Env[Any, Any]) -> dict[str, Any]:
+    """Traverse the env wrapper stack and dump each wrapper's class and init-args to JSON."""
+    wrappers = []
+    curr = env
+    while isinstance(curr, gym.Wrapper):
+        cls = curr.__class__
+        # try to extract the named parameters from the __init__ signature
+        sig = inspect.signature(cls.__init__)
+        params = {}
+        for name, _ in sig.parameters.items():
+            if name == "self" or name == "env":
+                continue
+            # if the wrapper object has the same name attribute, record it
+            if hasattr(curr, name):
+                val = getattr(curr, name)
+                try:
+                    json.dumps(val)  # only record JSON serializable
+                    params[name] = val
+                except TypeError:
+                    params[name] = str(val)
+        wrappers.append(
+            {
+                "class": f"{cls.__module__}.{cls.__name__}",
+                "params": params,
+            }
+        )
+        curr = curr.env
+
+    # the bottom most is the original environment
+    base = curr
+    spec = getattr(base, "spec", None)
+    base_info = {
+        "class": f"{base.__class__.__module__}.{base.__class__.__name__}",
+        "id": spec.id if spec else None,
+    }
+    return {"wrappers": wrappers, "base_env": base_info}

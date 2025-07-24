@@ -73,6 +73,8 @@ class QTable(AgentBase):
 
     This class is focused on action selection using a trained Q-table.
     It does not handle training-specific operations.
+
+    Check practice/utils_for_coding/agent_utils.py for more Agents.
     """
 
     def __init__(self, q_table: NDArray[np.float32]) -> None:

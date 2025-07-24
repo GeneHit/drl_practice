@@ -340,7 +340,7 @@ class TestPushModelToHub:
         assert call_args[1]["repo_id"] == repo_id
         assert call_args[1]["model_card"] == model_card
         assert call_args[1]["metadata"] == mock_metadata
-        assert call_args[1]["copy_file"] is False
+        assert call_args[1]["copy_file"] is True
 
         # Verify file paths
         expected_files = [
@@ -497,7 +497,7 @@ class TestHubUtilsIntegration:
         # Verify push parameters
         assert push_call_args[1]["repo_id"] == f"{username}/{test_config.artifact_config.repo_id}"
         assert push_call_args[1]["metadata"] == mock_metadata
-        assert push_call_args[1]["copy_file"] is False
+        assert push_call_args[1]["copy_file"] is True
 
     def test_config_validation(self, test_config: BaseConfig) -> None:
         """Test that configuration has all required fields for hub operations."""

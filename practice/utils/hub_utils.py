@@ -9,6 +9,7 @@ from huggingface_hub.repocard import metadata_eval_result, metadata_save
 
 from practice.base.config import ArtifactConfig, BaseConfig
 from practice.base.env_typing import EnvType
+from practice.utils.cli_utils import get_utc_time_str
 
 
 def push_to_hub_generic(config: BaseConfig, env: EnvType, username: str) -> None:
@@ -63,6 +64,7 @@ def push_model_to_hub(
 ) -> None:
     """Common function to push model files to hub."""
     output_dir = Path(artifact_config.output_dir)
+    repo_local_path = output_dir / "hub"
 
     _push_to_hub(
         repo_id=repo_id,
@@ -74,9 +76,14 @@ def push_model_to_hub(
         ],
         eval_result_pathname=str(output_dir / artifact_config.eval_result_filename),
         metadata=metadata,
-        local_repo_path=str(output_dir),
-        copy_file=False,
+        local_repo_path=str(repo_local_path),
+        copy_file=True,
     )
+    # remove the local repo
+    try:
+        shutil.rmtree(repo_local_path)
+    except FileNotFoundError:
+        pass
 
 
 def _get_env_name_and_metadata(
@@ -183,7 +190,8 @@ def _push_to_hub(
         repo_id=repo_id,
         folder_path=repo_local_path,
         path_in_repo=".",
-        commit_message="test hub",
+        commit_message=f"upload via upload_folder {get_utc_time_str()}",
     )
 
-    print("Pushed to the Hub. You can view your model here: ", repo_url)
+    # print a new line to avoid uploading process bar.
+    print(f"Pushed to the Hub. See: {repo_url}\n")

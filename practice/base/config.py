@@ -33,6 +33,9 @@ class ArtifactConfig(abc.ABC):
     train_result_filename: str = "train_result.json"
     """The filename for the train result."""
     eval_result_filename: str = "eval_result.json"
+    """The filename for the eval result."""
+    env_setup_filename: str = "env_setup.json"
+    """The filename for the env setup."""
 
     # Hub parameters (optional)
     repo_id: str

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from practice.base.env_typing import ActType
+from practice.base.env_typing import ActType, ActTypeC
 
 
 class AgentBase(abc.ABC):
@@ -18,7 +18,7 @@ class AgentBase(abc.ABC):
     """
 
     @abc.abstractmethod
-    def action(self, state: Any) -> ActType:
+    def action(self, state: Any) -> ActType | NDArray[ActTypeC]:
         """Get the action for the given single state.
 
         # TODO: have a better type for action output.
