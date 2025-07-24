@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -81,7 +81,7 @@ class A2CAgent(AgentBase):
         return cls(net=_load_model(pathname, device))
 
 
-class ContinuousActor(AgentBase):
+class ContinuousAgent(AgentBase):
     """Agent that uses a neural network to make decisions.
 
     Only be used for:
@@ -94,19 +94,20 @@ class ContinuousActor(AgentBase):
         self._device = next(net.parameters()).device
         self._net.eval()
 
-    def action(self, state: NDArray[Any]) -> ActTypeC:
+    def action(self, state: NDArray[Any]) -> NDArray[ActTypeC]:
         """Get action for single state using greedy policy."""
         state_tensor = get_tensor_expanding_axis(state).to(self._device)
         with torch.no_grad():
             action = self._net(state_tensor)
-        return ActTypeC(action.cpu().item())
+        # Return as 1D numpy array (action_dim,)
+        return cast(NDArray[ActTypeC], action.cpu().numpy().reshape(-1))
 
     def only_save_model(self, pathname: str) -> None:
         """Save the continuous actor model."""
         _save_model(self._net, pathname)
 
     @classmethod
-    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ContinuousActor":
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ContinuousAgent":
         """Load the continuous actor model."""
         return cls(net=_load_model(pathname, device))
 

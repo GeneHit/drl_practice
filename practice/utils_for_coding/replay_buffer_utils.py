@@ -8,27 +8,32 @@ from numpy.typing import NDArray
 
 @dataclass(frozen=True, kw_only=True)
 class Experience:
-    """The experience of the agent.
+    """
+    The experience of the agent for one or a batch of steps.
 
-    Usually be used for the network input, where the input is a batch of experiences.
+    Attributes:
+        states:      State at the start [batch, state_dim]
+        actions:     Action taken        [batch, action_dim]
+        rewards:     Reward received     [batch]
+        next_states: Next state          [batch, state_dim]
+        dones:       Done mask (0/1)     [batch]
     """
 
     states: torch.Tensor
-    """The state of the environment at the start of the experience."""
     actions: torch.Tensor
-    """The action taken by the agent."""
     rewards: torch.Tensor
-    """The reward received by the agent."""
     next_states: torch.Tensor
-    """The state of the environment at the end of the experience."""
     dones: torch.Tensor
-    """Whether the experience is terminal or truncated.
 
-    2 Cases:
-    >> 1. done = terminated or truncated
-    >> 2. done = terminaled.
-    It depends on the outside caller, where how it consider the truncation.
-    """
+    def to(self, device: torch.device, dtype: torch.dtype | None = None) -> "Experience":
+        """Move all tensors to a device and/or dtype."""
+        return Experience(
+            states=self.states.to(device, dtype),
+            actions=self.actions.to(device, dtype),
+            rewards=self.rewards.to(device, dtype),
+            next_states=self.next_states.to(device, dtype),
+            dones=self.dones.to(device, dtype),
+        )
 
 
 class ReplayBuffer:
@@ -36,8 +41,9 @@ class ReplayBuffer:
         self,
         capacity: int,
         state_shape: tuple[int, ...],
-        state_dtype: type[np.floating[Any]] = np.float32,
+        state_dtype: type[np.float32] | type[np.uint8] = np.float32,
         action_dtype: type[np.int64] | type[np.float32] = np.int64,
+        action_shape: tuple[int, ...] | None = None,  # NEW
     ) -> None:
         self._capacity = capacity
         self._ptr = 0  # current write pointer
@@ -47,7 +53,11 @@ class ReplayBuffer:
 
         # pre-allocate continuous memory
         self._states = np.empty((capacity, *state_shape), dtype=state_dtype)
-        self._actions = np.empty(capacity, dtype=action_dtype)
+        # Support for continuous action spaces
+        if action_dtype == np.float32 and action_shape is not None:
+            self._actions = np.empty((capacity, *action_shape), dtype=action_dtype)
+        else:
+            self._actions = np.empty(capacity, dtype=action_dtype)
         self._rewards = np.empty(capacity, dtype=np.float32)
         self._next_states = np.empty((capacity, *state_shape), dtype=state_dtype)
         self._dones = np.empty(capacity, dtype=np.bool_)
@@ -73,11 +83,13 @@ class ReplayBuffer:
         # batch writing
         attr_names = ["_states", "_actions", "_rewards", "_next_states", "_dones"]
         for i, data in enumerate([states, actions, rewards, next_states, dones]):
+            arr = getattr(self, attr_names[i])
+            # If arr is 2D and data is 2D, allow assignment
             if isinstance(indices, list):
-                getattr(self, attr_names[i])[indices[0]] = data[:head_size]
-                getattr(self, attr_names[i])[indices[1]] = data[head_size:]
+                arr[indices[0]] = data[:head_size]
+                arr[indices[1]] = data[head_size:]
             else:
-                getattr(self, attr_names[i])[indices] = data
+                arr[indices] = data
 
         # update pointer and count
         self._ptr = (self._ptr + batch_size) % self._capacity

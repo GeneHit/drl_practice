@@ -119,13 +119,11 @@ class DQNTrainer(TrainerBase):
         writer = SummaryWriter(
             log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
         )
-
         # Use environment from context - must be vector environment for DQN training
         envs = self._ctx.envs
 
         # Create trainer pod
         pod = _DQNPod(config=self._config, ctx=self._ctx, writer=writer)
-
         # Create replay buffer using observation shape from context
         replay_buffer = ReplayBuffer(
             capacity=self._config.replay_buffer_capacity,
@@ -144,18 +142,18 @@ class DQNTrainer(TrainerBase):
         # Training loop
         for step in tqdm(range(self._config.timesteps), desc="Training"):
             # Get actions for all environments
-            actions = pod.action(states, step)
-
+            actions = pod.action(states)
             # Step all environments
             next_states, rewards, terms, truncs, infos = envs.step(actions)
 
             # Cast rewards to numpy array for indexing
             rewards = np.asarray(rewards, dtype=np.float32)
-
             # Handle terminal observations and create proper training transitions
             dones = np.logical_or(terms, truncs, dtype=np.bool_)
 
             # Only store transitions for states that were not terminal in the previous step
+            # we use AutoReset wrapper, so the envs will be reset automatically when it's done
+            # when any done in n step, the next_states of n+1 step is the first of the next episode
             pre_non_terminal_mask = ~prev_dones
             if np.any(pre_non_terminal_mask):
                 # Only store transitions where the previous step didn't end an episode
@@ -173,10 +171,11 @@ class DQNTrainer(TrainerBase):
 
             # Training updates
             if step >= self._config.update_start_step:
+                if len(replay_buffer) < self._config.batch_size:
+                    continue
                 if step % self._config.train_interval == 0:
-                    experiences = replay_buffer.sample(self._config.batch_size)
-                    loss = pod.update(experiences)
-                    writer.add_scalar("training/loss", loss, step)
+                    # sample batch and update
+                    pod.update(replay_buffer.sample(self._config.batch_size))
 
                 if step % self._config.target_update_interval == 0:
                     pod.sync_target_net()
@@ -219,18 +218,17 @@ class _DQNPod:
         # Get action space info
         assert isinstance(self._ctx.eval_env.action_space, Discrete)
         self._action_n = int(self._ctx.eval_env.action_space.n)
+        self._step = 0
 
     def sync_target_net(self) -> None:
         """Synchronize target network with current Q-network."""
         self._target_net.load_state_dict(self._ctx.network.state_dict())
 
-    def action(self, state: NDArray[ObsType], step: int, eval: bool = False) -> NDArray[ActType]:
+    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
         """Get action(s) for state(s).
 
         Args:
             state: Single state or batch of states
-            step: Current step in the training process
-            eval: If True, use greedy policy (epsilon=0)
 
         Returns:
             actions: NDArray[ActType]
@@ -240,20 +238,12 @@ class _DQNPod:
         is_single = len(state.shape) == len(self._ctx.env_state_shape)
         state_batch = state if not is_single else state.reshape(1, *state.shape)
 
-        if eval:
-            # Evaluation phase: always greedy
-            state_tensor = torch.from_numpy(state_batch).to(self._config.device)
-            with torch.no_grad():
-                q_values = self._ctx.network(state_tensor).cpu()
-                actions = q_values.argmax(dim=1).numpy().astype(ActType)
-            return cast(NDArray[ActType], actions)
-
         # Training phase: epsilon-greedy
         batch_size = state_batch.shape[0]
         actions = np.zeros(batch_size, dtype=ActType)
 
         # Random mask for exploration
-        epsilon = self._epsilon_schedule(step)
+        epsilon = self._epsilon_schedule(self._step)
         random_mask = np.random.random(batch_size) < epsilon
         # Random actions for exploration
         num_random = int(np.sum(random_mask))
@@ -270,11 +260,12 @@ class _DQNPod:
                 actions[~random_mask] = greedy_actions
 
         # Log epsilon
-        self._writer.add_scalar("training/epsilon", epsilon, step)
+        self._writer.add_scalar("action/epsilon", epsilon, self._step)
+        self._step += 1
 
         return cast(NDArray[ActType], actions)
 
-    def update(self, experiences: Experience) -> float:
+    def update(self, experiences: Experience) -> None:
         """Update Q-network using experiences.
 
         Args:
@@ -284,22 +275,18 @@ class _DQNPod:
             loss: The TD loss value for logging
         """
         # Move all inputs to device
-        states = experiences.states.to(self._config.device)
-        actions = experiences.actions.view(-1, 1).to(self._config.device)
-        rewards = experiences.rewards.to(self._config.device)
-        next_states = experiences.next_states.to(self._config.device)
-        dones = experiences.dones.to(self._config.device)
+        exps = experiences.to(self._config.device)
 
         # Compute TD target using target network
         with torch.no_grad():
-            target_max: Tensor = self._target_net(next_states).max(dim=1)[0]
-            td_target = rewards.flatten() + self._config.gamma * target_max * (
-                1 - dones.flatten().float()
+            target_max: Tensor = self._target_net(exps.next_states).max(dim=1)[0]
+            td_target = exps.rewards.flatten() + self._config.gamma * target_max * (
+                1 - exps.dones.flatten().float()
             )
 
         # Get current Q-values for the actions taken
         self._ctx.network.train()
-        current_q = self._ctx.network(states).gather(1, actions).squeeze()
+        current_q = self._ctx.network(exps.states).gather(1, exps.actions.view(-1, 1)).squeeze()
 
         # Compute loss and update
         self._ctx.optimizer.zero_grad()
@@ -307,4 +294,4 @@ class _DQNPod:
         loss.backward()
         self._ctx.optimizer.step()
 
-        return float(loss.item())
+        self._writer.add_scalar("loss/td_loss", loss.cpu().item(), self._step)

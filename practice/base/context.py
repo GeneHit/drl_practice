@@ -4,6 +4,7 @@ from typing import cast
 import numpy as np
 import torch
 import torch.nn as nn
+from gymnasium.spaces import Box, Discrete
 from numpy.typing import NDArray
 from torch.optim.lr_scheduler import LRScheduler
 
@@ -25,17 +26,32 @@ class ContextBase:
 
     @property
     def env(self) -> EnvType:
+        """The discrete-action environment used for training."""
         # Check if it's a vector environment by checking for num_envs attribute
-        if hasattr(self.train_env, "num_envs"):
+        env = cast(EnvType, self.train_env)
+        if hasattr(env, "num_envs"):
             raise TypeError("train_env is a vector environment, use envs property instead")
-        return cast(EnvType, self.train_env)
+        assert isinstance(env.action_space, Discrete), "Env must be discrete action space"
+        return env
 
     @property
     def envs(self) -> EnvsType:
+        """The discrete vector environment used for training."""
         # Check if it's a vector environment by checking for num_envs attribute
-        if not hasattr(self.train_env, "num_envs"):
+        envs = cast(EnvsType, self.train_env)
+        if not hasattr(envs, "num_envs"):
             raise TypeError("train_env is a single environment, use env property instead")
-        return cast(EnvsType, self.train_env)
+        assert isinstance(envs.single_action_space, Discrete), "Env must be discrete action space"
+        return envs
+
+    @property
+    def continuous_envs(self) -> EnvsTypeC:
+        """The continuous vector environment used for training."""
+        envs = cast(EnvsTypeC, self.train_env)
+        if not hasattr(envs, "num_envs"):
+            raise TypeError("train_env is a single environment, use env property instead")
+        assert isinstance(envs.single_action_space, Box), "Env must be continuous action space"
+        return envs
 
     @property
     def network(self) -> nn.Module:

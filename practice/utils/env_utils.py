@@ -3,10 +3,11 @@ from typing import Any, Callable, TypeAlias, cast
 import gymnasium as gym
 import numpy as np
 import torch
+from gymnasium.spaces import Box
 from numpy.typing import NDArray
 
 from practice.base.config import EnvConfig
-from practice.base.env_typing import ActType, EnvsType, EnvType
+from practice.base.env_typing import ActType, EnvsType, EnvsTypeC, EnvType, EnvTypeC
 
 ObsFloat: TypeAlias = np.float32
 ObsInt: TypeAlias = np.uint8
@@ -270,3 +271,18 @@ def get_env_from_config(config: EnvConfig) -> tuple[EnvType | EnvsType, EnvType]
     eval_env = get_env_fn(render_mode="rgb_array", max_steps=None)()
 
     return train_envs, eval_env
+
+
+def verify_vector_env_with_continuous_action(envs: EnvsTypeC) -> None:
+    if not hasattr(envs, "num_envs"):
+        raise TypeError("train_env is a single environment, use env property instead")
+    assert isinstance(envs.single_action_space, Box), "Env must be continuous action space"
+    assert len(envs.single_action_space.shape) == 1, "Env must be continuous action space"
+
+
+def verify_env_with_continuous_action(env: EnvTypeC) -> None:
+    if not hasattr(env, "action_space"):
+        raise TypeError("train_env is a single environment, use env property instead")
+    assert isinstance(env.action_space, Box), "Env must be continuous action space"
+    assert env.action_space.shape is not None
+    assert len(env.action_space.shape) == 1, "Env must be continuous action space"

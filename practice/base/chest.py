@@ -18,7 +18,7 @@ class AgentBase(abc.ABC):
     """
 
     @abc.abstractmethod
-    def action(self, state: Any) -> ActType | ActTypeC:
+    def action(self, state: Any) -> ActType | NDArray[ActTypeC]:
         """Get the action for the given single state.
 
         # TODO: have a better type for action output.
