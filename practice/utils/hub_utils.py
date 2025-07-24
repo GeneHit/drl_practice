@@ -188,4 +188,5 @@ def _push_to_hub(
     )
     shutil.rmtree(repo_local_path)
 
-    print(f"Pushed to the Hub. See: {repo_url}")
+    # print a new line to avoid uploading process bar.
+    print(f"Pushed to the Hub. See: {repo_url}\n")
