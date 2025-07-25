@@ -4,10 +4,10 @@ import torch.optim as optim
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.env_typing import EnvsTypeC, EnvTypeC
-from practice.exercise8_td3.td3_exercise import (
-    TD3Actor,
-    TD3Config,
-    TD3Trainer,
+from practice.exercise9_sac.sac_exercise import (
+    SACActor,
+    SACConfig,
+    SACTrainer,
 )
 from practice.utils.env_utils import (
     get_device,
@@ -18,52 +18,53 @@ from practice.utils.env_utils import (
 from practice.utils_for_coding.agent_utils import ContinuousAgent
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import DoubleQCritic
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
-def get_app_config() -> TD3Config:
+def get_app_config() -> SACConfig:
     """Get the application config."""
-    # timestep = total_steps // vector_env_num = 2400000 // 6 = 400000
-    total_steps = 2400000
-    return TD3Config(
-        device=get_device(),
+    # timestep = total_steps // vector_env_num = 120000 // 6 = 20000
+    total_steps = 120000
+    return SACConfig(
+        device=get_device("cpu"),
         total_steps=total_steps,
-        hidden_sizes=(400, 300),
-        learning_rate=2e-4,
+        hidden_sizes=(256, 256),
+        learning_rate=1e-4,
         critic_lr=3e-4,
-        gamma=0.995,
-        replay_buffer_capacity=int(total_steps * 0.6),
-        batch_size=256,
-        update_start_step=10000,
-        policy_delay=2,
-        policy_noise=0.2,
-        noise_clip=0.5,
-        exploration_noise=LinearSchedule(0.4, 0.05, 200000),
-        max_action=1.0,
-        tau=0.05,
+        gamma=0.99,
+        replay_buffer_capacity=int(total_steps * 0.8),
+        batch_size=64,
+        update_start_step=1000,
+        max_action=2.0,
+        tau=0.005,
         max_grad_norm=0.5,
+        alpha=0.8,
+        alpha_lr=3e-4,
+        target_entropy=-1.0,  # -1 = - action_dimension
+        log_std_min=-20,
+        log_std_max=2,
+        use_layer_norm=False,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
         env_config=EnvConfig(
-            env_id="Walker2d-v5",
+            env_id="Pendulum-v1",
             vector_env_num=6,
             use_multi_processing=True,
         ),
         artifact_config=ArtifactConfig(
-            trainer_type=TD3Trainer,
+            trainer_type=SACTrainer,
             agent_type=ContinuousAgent,
-            output_dir="results/exercise8_td3/walker/",
+            output_dir="results/exercise9_sac/pendulum/",
             save_result=True,
-            model_filename="td3_walker2d.pth",
-            repo_id="TD3-Walker2dV5",
-            algorithm_name="TD3",
-            extra_tags=("TD3", "DDPG", "Walker2d"),
+            model_filename="sac_pendulum.pth",
+            repo_id="SAC-PendulumV1",
+            algorithm_name="SAC",
+            extra_tags=("SAC", "Pendulum"),
         ),
     )
 
 
-def get_env_for_play_and_hub(config: TD3Config) -> EnvTypeC:
+def get_env_for_play_and_hub(config: SACConfig) -> EnvTypeC:
     """Get the environment for playing and hub."""
     train_env, eval_env = get_env_from_config(config.env_config)
     # use cast for type checking
@@ -72,8 +73,8 @@ def get_env_for_play_and_hub(config: TD3Config) -> EnvTypeC:
     return cast(EnvTypeC, eval_env)
 
 
-def generate_context(config: TD3Config) -> ACContext:
-    """Generate the context for the TD3 algorithm."""
+def generate_context(config: SACConfig) -> ACContext:
+    """Generate the context for the SAC algorithm."""
     train_envs, eval_env = get_env_from_config(config.env_config)
     # use cast for type checking
     t_envs = cast(EnvsTypeC, train_envs)
@@ -83,20 +84,23 @@ def generate_context(config: TD3Config) -> ACContext:
 
     obs_shape = eval_env.observation_space.shape
     act_shape = eval_env.action_space.shape
-    # make mypy happy
     assert obs_shape is not None
     assert act_shape is not None
 
-    actor = TD3Actor(
+    actor = SACActor(
         state_dim=obs_shape[0],
         action_dim=act_shape[0],
         max_action=config.max_action,
         hidden_sizes=config.hidden_sizes,
+        log_std_min=config.log_std_min,
+        log_std_max=config.log_std_max,
+        use_layer_norm=config.use_layer_norm,
     )
     critic = DoubleQCritic(
         state_dim=obs_shape[0],
         action_dim=act_shape[0],
         hidden_sizes=config.hidden_sizes,
+        use_layer_norm=config.use_layer_norm,
     )
     actor.to(config.device)
     critic.to(config.device)
