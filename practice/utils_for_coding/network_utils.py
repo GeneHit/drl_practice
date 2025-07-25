@@ -36,6 +36,19 @@ def load_checkpoint_if_exists(model: nn.Module, checkpoint_pathname: str) -> Non
         model.load_state_dict(checkpoint.state_dict())
 
 
+def soft_update(source: nn.Module, target: nn.Module, tau: torch.Tensor | float) -> None:
+    """Soft update a target network.
+
+    Args:
+        source: The source network.
+        target: The target network.
+        tau: The soft update factor.
+    """
+    for param, target_param in zip(source.parameters(), target.parameters()):
+        # equivalent to: tau * param + (1 - tau) * target_param
+        target_param.data.lerp_(param.data, tau)
+
+
 class MLP(nn.Module):
     def __init__(
         self,

@@ -16,7 +16,7 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils.env_utils import extract_episode_data_from_infos
 from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import MLP
+from practice.utils_for_coding.network_utils import MLP, soft_update
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
@@ -102,6 +102,7 @@ class TD3Trainer(TrainerBase):
                 - sample batch
                 - update critic
                 - update actor/target_network if necessary
+            - log episode metrics
         """
         # 1. initializations
         # Initialize tensorboard writer
@@ -263,8 +264,8 @@ class _TD3Pod:
             self._ctx.optimizer.step()
 
             # update target networks (soft update)
-            _soft_update(self._ctx.network, self._target_actor, self._tau)
-            _soft_update(self._ctx.critic, self._target_critic, self._tau)
+            soft_update(self._ctx.network, self._target_actor, self._tau)
+            soft_update(self._ctx.critic, self._target_critic, self._tau)
 
             self._writer.add_scalar("loss/actor", actor_loss.item(), step)
         # log
@@ -315,9 +316,3 @@ class _TD3Pod:
                 experience.rewards + self._gamma * (self._one - experience.dones.float()) * next_q
             ).view(-1, 1)
         return target_q
-
-
-def _soft_update(source: nn.Module, target: nn.Module, tau: torch.Tensor | float) -> None:
-    for param, target_param in zip(source.parameters(), target.parameters()):
-        # equivalent to: tau * param + (1 - tau) * target_param
-        target_param.data.lerp_(param.data, tau)

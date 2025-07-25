@@ -1,3 +1,4 @@
+import copy
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +16,8 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils.env_utils import extract_episode_data_from_infos
 from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import MLP
+from practice.utils_for_coding.network_utils import MLP, soft_update
+from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 
 
@@ -158,6 +160,7 @@ class SACTrainer(TrainerBase):
             - update if > update_start_step:
                 - sample batch
                 - update actor, critic, alpha, and target networks
+            - log episode metrics
         """
         # 1. initializations
         # Initialize tensorboard writer
@@ -224,7 +227,7 @@ class SACTrainer(TrainerBase):
             if step >= start_step:
                 if len(replay_buffer) < self._config.batch_size:
                     continue
-                pod.update(replay_buffer.sample(self._config.batch_size))
+                pod.update(replay_buffer.sample(self._config.batch_size), step)
 
             # Log episode metrics
             ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
@@ -241,9 +244,19 @@ class _SACPod:
         self._config: SACConfig = config
         self._ctx: ACContext = ctx
         self._writer: SummaryWriter = writer
-
         assert isinstance(self._ctx.network, SACActor)
         self._actor = self._ctx.network
+
+        self._target_actor = copy.deepcopy(self._actor)
+        self._target_critic = copy.deepcopy(self._ctx.critic)
+        self._alpha = torch.tensor(config.alpha, device=self._config.device, requires_grad=True)
+        self._alpha_optimizer = torch.optim.Adam([self._alpha], lr=config.alpha_lr)
+
+        # convert to tensor on device， avoiding unnecessary device transfers
+        self._tau = torch.tensor(self._config.tau, dtype=torch.float32, device=self._config.device)
+        self._gamma = as_tensor_on(self._config.gamma, self._tau)
+        self._one = as_tensor_on(1, self._tau)
+        self._target_entropy = as_tensor_on(self._config.target_entropy, self._tau)
 
     def action(self, state: NDArray[ObsType], step: int) -> NDArray[ActTypeC]:
         """Sample an action from the actor network.
@@ -252,9 +265,107 @@ class _SACPod:
             action: The sampled action for training.
         """
         with torch.no_grad():
-            a = self._actor.sample(torch.from_numpy(state).float().to(self._config.device))
-        return a.cpu().numpy()
+            a = self._actor.sample(torch.from_numpy(state).float().to(self._config.device)).cpu()
 
-    def update(self, experience: Experience) -> None:
-        """Update the actor network."""
-        raise NotImplementedError("Not implemented")
+        self._writer.add_scalar("actor/mean", a.mean().item(), step)
+        self._writer.add_scalar("actor/std", a.std().item(), step)
+        return a.numpy()
+
+    def update(self, experience: Experience, step: int) -> None:
+        """Update the actor network.
+
+        Steps:
+        1. update critic. Formula:
+            L_critic = mean((Qi(s, a) - target_q)^2, ...)
+        2. update actor. Formula:
+            L_actor = alpha * log_prob(a) - Q(s, a)
+        3. update alpha. Formula:
+            L_alpha = -alpha * (log_prob(a) + target_entropy)
+        4. update target networks. Formula:
+            target_actor = tau * actor + (1 - tau) * target_actor
+            target_critic = tau * critic + (1 - tau) * target_critic
+        """
+        exp = experience.to(self._config.device)
+
+        # 1. update critic
+        # calculate target and current Q-value
+        target_q = self._get_target_q(exp)
+        q = self._ctx.critic(exp.states, exp.actions)
+        # Return Sequence: standard TD3/SAC, use Q1/Q2, usually train together
+        # Return Single: the standard DDPG, use one Q.
+        qs = q if isinstance(q, Sequence) else (q,)
+        # calculate critic loss
+        critic_loss = torch.stack([nn.functional.mse_loss(qi, target_q) for qi in qs]).mean()
+        # update critic
+        self._ctx.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        if self._config.max_grad_norm is not None:
+            nn.utils.clip_grad_norm_(self._ctx.critic.parameters(), self._config.max_grad_norm)
+        self._ctx.critic_optimizer.step()
+
+        # 2. update actor
+        # calculate actor loss
+        a = self._actor.sample(exp.states)
+        log_prob = self._actor.log_prob(exp.states, a)
+        actor_loss = (self._alpha * log_prob - target_q).mean()
+        # update actor
+        self._ctx.optimizer.zero_grad()
+        actor_loss.backward()
+        if self._config.max_grad_norm is not None:
+            nn.utils.clip_grad_norm_(self._actor.parameters(), self._config.max_grad_norm)
+        self._ctx.optimizer.step()
+
+        # 3. update alpha
+        # calculate alpha loss
+        alpha_loss = -self._alpha * (log_prob + self._target_entropy).mean()
+        # update alpha
+        self._alpha_optimizer.zero_grad()
+        alpha_loss.backward()
+        self._alpha_optimizer.step()
+
+        # 4. update target networks
+        soft_update(self._actor, self._target_actor, self._tau)
+        soft_update(self._ctx.critic, self._target_critic, self._tau)
+
+        # log
+        self._writer.add_scalar("loss/actor", actor_loss.item(), step)
+        self._writer.add_scalar("loss/critic", critic_loss.item(), step)
+        self._writer.add_scalar("loss/alpha", alpha_loss.item(), step)
+        for i, qi in enumerate(qs):
+            self._writer.add_scalar(f"q_value/critic_{i}", qi.mean().item(), step)
+        self._writer.add_scalar("alpha", self._alpha.item(), step)
+
+    def _get_target_q(self, experience: Experience) -> torch.Tensor:
+        """Get the target Q-value for the given experience.
+
+        Steps:
+        1. get next action and log_prob from target actor
+            Formula: a' = actor(s'), log_prob(a') = log_prob(actor(s'))
+        2. get next Q-value from target critic
+        3. calculate target Q-value with rewards, next Q-value, and entropy regularization.
+            Formula:
+                target_q = r + gamma * (1 - d) * (min(Qi(s', a'), ...) - alpha * log_prob(a'))
+        """
+        with torch.no_grad():
+            # next action from target actor
+            next_a = self._actor.sample(experience.next_states)
+            # next log_prob from target actor
+            next_log_prob = self._actor.log_prob(experience.next_states, next_a)
+
+            # next Q-value from target critic
+            target_critic_q = self._target_critic(experience.next_states, next_a)
+            # Return Sequence: standard TD3/SAC, use Q1/Q2, usually train together
+            # Return Single: the standard DDPG, use one Q.
+            if isinstance(target_critic_q, Sequence):
+                next_q: torch.Tensor = torch.min(*target_critic_q)
+            else:
+                next_q = target_critic_q
+            # next_q shape [batch, 1]，rewards shape [batch]
+            if next_q.dim() == 2 and next_q.size(1) == 1:
+                next_q = next_q.squeeze(-1)
+
+            # calculate target Q-value with rewards, next Q-value, and entropy regularization
+            target_q = experience.rewards + self._gamma * (self._one - experience.dones.float()) * (
+                next_q - self._alpha * next_log_prob
+            )
+        return target_q
