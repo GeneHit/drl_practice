@@ -5,10 +5,8 @@ import torch.optim as optim
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.env_typing import EnvsTypeC, EnvTypeC
 from practice.exercise8_td3.td3_exercise import (
-    ContinuousActor,
+    TD3Actor,
     TD3Config,
-    TD3Context,
-    TD3Critic,
     TD3Trainer,
 )
 from practice.utils.env_utils import (
@@ -18,6 +16,8 @@ from practice.utils.env_utils import (
     verify_vector_env_with_continuous_action,
 )
 from practice.utils_for_coding.agent_utils import ContinuousAgent
+from practice.utils_for_coding.context_utils import ACContext
+from practice.utils_for_coding.network_utils import DoubleQCritic
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
@@ -72,7 +72,7 @@ def get_env_for_play_and_hub(config: TD3Config) -> EnvTypeC:
     return cast(EnvTypeC, eval_env)
 
 
-def generate_context(config: TD3Config) -> TD3Context:
+def generate_context(config: TD3Config) -> ACContext:
     """Generate the context for the TD3 algorithm."""
     train_envs, eval_env = get_env_from_config(config.env_config)
     # use cast for type checking
@@ -87,13 +87,13 @@ def generate_context(config: TD3Config) -> TD3Context:
     assert obs_shape is not None
     assert act_shape is not None
 
-    actor = ContinuousActor(
+    actor = TD3Actor(
         state_dim=obs_shape[0],
         action_dim=act_shape[0],
         max_action=config.max_action,
         hidden_sizes=config.hidden_sizes,
     )
-    critic = TD3Critic(
+    critic = DoubleQCritic(
         state_dim=obs_shape[0],
         action_dim=act_shape[0],
         hidden_sizes=config.hidden_sizes,
@@ -104,7 +104,7 @@ def generate_context(config: TD3Config) -> TD3Context:
     actor_optimizer = optim.Adam(actor.parameters(), lr=config.learning_rate)
     critic_optimizer = optim.Adam(critic.parameters(), lr=config.critic_lr)
 
-    return TD3Context(
+    return ACContext(
         train_env=t_envs,
         eval_env=e_env,
         trained_target=actor,

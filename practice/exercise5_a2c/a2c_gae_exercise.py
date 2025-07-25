@@ -93,9 +93,6 @@ class A2CConfig(BaseConfig):
     grad_acc: int = 1
     """The number of rollouts to accumulate gradients."""
 
-    max_grad_norm: float | None = None
-    """The maximum gradient norm for gradient clipping."""
-
     critic_lr: float
     """The learning rate for the critic."""
 

@@ -1,7 +1,6 @@
 import json
 import os
 import random
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +10,7 @@ from tqdm import tqdm
 
 from practice.base.chest import AgentBase
 from practice.base.config import BaseConfig
+from practice.utils.cli_utils import get_utc_time_str
 from practice.utils.env_utils import dump_env_wrappers
 
 
@@ -111,9 +111,9 @@ def evaluate_and_save_results(
 
     # Create evaluation result dictionary
     eval_result = {
-        "mean_reward": mean_reward,
-        "std_reward": std_reward,
-        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "mean_reward": f"{mean_reward:.2f}",
+        "std_reward": f"{std_reward:.2f}",
+        "datetime": get_utc_time_str(),
         **meta_data,
     }
 

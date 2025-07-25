@@ -12,46 +12,22 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
-from practice.base.context import ContextBase
 from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils.env_utils import extract_episode_data_from_infos
-from practice.utils_for_coding.network_utils import init_weights
+from practice.utils_for_coding.context_utils import ACContext
+from practice.utils_for_coding.network_utils import MLP
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 
 
-class MLP(nn.Module):
-    def __init__(
-        self,
-        input_dim: int,
-        output_dim: int,
-        hidden_sizes: Sequence[int],
-        activation: type[nn.Module] = nn.ReLU,
-        output_activation: type[nn.Module] | None = None,
-    ) -> None:
-        super().__init__()
-        layers: list[nn.Module] = []
-        prev_dim = input_dim
+class TD3Actor(nn.Module):
+    """The actor network for TD3.
 
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(prev_dim, hidden_size))
-            layers.append(activation())
-            prev_dim = hidden_size
+    The output is scaled to [-1,1] by `max_action`, for continuous action space.
+    """
 
-        layers.append(nn.Linear(prev_dim, output_dim))
-        if output_activation is not None:
-            layers.append(output_activation())
-
-        self.model = nn.Sequential(*layers)
-        self.model.apply(init_weights)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return cast(torch.Tensor, self.model(x))
-
-
-class ContinuousActor(nn.Module):
     def __init__(
         self, state_dim: int, action_dim: int, max_action: float, hidden_sizes: Sequence[int]
     ) -> None:
@@ -67,38 +43,6 @@ class ContinuousActor(nn.Module):
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         return cast(torch.Tensor, self.net(state) * self.max_action)
-
-
-class TD3Critic(nn.Module):
-    """Critic is a function that takes a state and an action and returns a Q-value.
-
-    Have 2 Q-networks to reduce overestimation bias.
-    """
-
-    def __init__(self, state_dim: int, action_dim: int, hidden_sizes: Sequence[int]) -> None:
-        super().__init__()
-        input_dim = state_dim + action_dim
-
-        self.q1 = MLP(
-            input_dim=input_dim,
-            output_dim=1,
-            hidden_sizes=hidden_sizes,
-            activation=nn.ReLU,
-        )
-        self.q2 = MLP(
-            input_dim=input_dim,
-            output_dim=1,
-            hidden_sizes=hidden_sizes,
-            activation=nn.ReLU,
-        )
-
-    def forward(
-        self, state: torch.Tensor, action: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        sa = torch.cat([state, action], dim=-1)
-        q1_val = self.q1(sa)
-        q2_val = self.q2(sa)
-        return q1_val, q2_val
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -136,28 +80,15 @@ class TD3Config(BaseConfig):
     tau: float = 0.005
     """The soft update factor for the target networks."""
 
-    max_grad_norm: float | None = None
-    """The maximum gradient norm for gradient clipping."""
-
-
-@dataclass(frozen=True, kw_only=True)
-class TD3Context(ContextBase):
-    """The context for the TD3 algorithm."""
-
-    critic: nn.Module
-    """The critic network."""
-    critic_optimizer: torch.optim.Optimizer
-    """The optimizer for the critic."""
-
 
 class TD3Trainer(TrainerBase):
     """The trainer for the TD3 algorithm."""
 
-    def __init__(self, config: TD3Config, ctx: TD3Context) -> None:
+    def __init__(self, config: TD3Config, ctx: ACContext) -> None:
         super().__init__(config, ctx)
 
         self._config: TD3Config = config
-        self._ctx: TD3Context = ctx
+        self._ctx: ACContext = ctx
 
     def train(self) -> None:
         """Train the TD3 algorithm.
@@ -167,7 +98,7 @@ class TD3Trainer(TrainerBase):
         2. loop:
             - interact with environment
             - collect valid data
-            - update:
+            - update if > update_start_step:
                 - sample batch
                 - update critic
                 - update actor/target_network if necessary
@@ -225,7 +156,7 @@ class TD3Trainer(TrainerBase):
                     states=states[pre_non_terminal_mask],
                     actions=actions[pre_non_terminal_mask],
                     rewards=rewards[pre_non_terminal_mask],
-                    next_states=next_states[pre_non_terminal_mask].copy(),
+                    next_states=next_states[pre_non_terminal_mask],
                     dones=dones[pre_non_terminal_mask],
                 )
 
@@ -250,9 +181,9 @@ class TD3Trainer(TrainerBase):
 class _TD3Pod:
     """The TD3 pod for training."""
 
-    def __init__(self, config: TD3Config, ctx: TD3Context, writer: SummaryWriter) -> None:
+    def __init__(self, config: TD3Config, ctx: ACContext, writer: SummaryWriter) -> None:
         self._config: TD3Config = config
-        self._ctx: TD3Context = ctx
+        self._ctx: ACContext = ctx
         self._writer: SummaryWriter = writer
 
         self._target_actor = copy.deepcopy(self._ctx.network)

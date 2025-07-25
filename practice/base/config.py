@@ -103,6 +103,8 @@ class BaseConfig(abc.ABC):
     """The discount factor."""
     checkpoint_pathname: str = ""
     """The pathname of the checkpoint to load."""
+    max_grad_norm: float | None = None
+    """The maximum gradient norm for gradient clipping."""
 
     # Evaluation parameters
     eval_episodes: int = 100

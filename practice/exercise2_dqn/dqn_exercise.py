@@ -161,7 +161,7 @@ class DQNTrainer(TrainerBase):
                     states=states[pre_non_terminal_mask],
                     actions=actions[pre_non_terminal_mask],
                     rewards=rewards[pre_non_terminal_mask],
-                    next_states=next_states[pre_non_terminal_mask].copy(),
+                    next_states=next_states[pre_non_terminal_mask],
                     dones=dones[pre_non_terminal_mask],
                 )
 
