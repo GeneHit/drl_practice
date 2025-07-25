@@ -14,9 +14,12 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
-from practice.utils.env_utils import extract_episode_data_from_infos
 from practice.utils_for_coding.network_utils import init_weights
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
+from practice.utils_for_coding.writer_utils import (
+    log_episode_stats_if_has,
+    log_stats,
+)
 
 
 class ActorCritic(nn.Module):
@@ -90,9 +93,6 @@ class A2CConfig(BaseConfig):
     value_loss_coef: float = 0.5
     """The coefficient for the value loss."""
 
-    grad_acc: int = 1
-    """The number of rollouts to accumulate gradients."""
-
     critic_lr: float
     """The learning rate for the critic."""
 
@@ -129,7 +129,10 @@ class A2CTrainer(TrainerBase):
 
         The A2C algorithm is implemented as follows:
         1. Reset
-        2. Run one rollout and buffer the data
+        2. Run one rollout:
+            a. interact with the environment
+            b. buffer the data
+            c. log the episode data if has
         3. Update the policy/value network
         4. Reset the buffer
         5. go to 2, until the total steps is reached
@@ -173,11 +176,7 @@ class A2CTrainer(TrainerBase):
                 state = next_states
 
                 # record the episode data
-                episode_rewards, episode_lengths = extract_episode_data_from_infos(infos)
-                episode_num += len(episode_rewards)
-                if episode_rewards:
-                    writer.add_scalar("episode/reward", np.mean(episode_rewards), episode_num)
-                    writer.add_scalar("episode/length", np.mean(episode_lengths), episode_num)
+                episode_num += log_episode_stats_if_has(writer, infos, episode_num)
 
             # 3. Update the policy/value network
             pod.update()
@@ -362,7 +361,15 @@ class _GAEPod(_A2CPod):
         self._pre_last_dones: Tensor | None = None
 
     def update(self) -> None:
-        """Update the actor and critic."""
+        """Update the actor and critic.
+
+        Steps:
+        1. Get the data from the buffer
+        2. Compute the advantages [d, ] (d: the valid data length)
+        3. Compute the loss
+        4. Update the actor and critic
+        5. Log the stats if necessary in background
+        """
         # 1. Get the data from the buffer
         rollout = self._rollout.get_data()
 
@@ -397,15 +404,22 @@ class _GAEPod(_A2CPod):
         self._ctx.step_lr_schedulers()
         self._ctx.optimizer.zero_grad()
 
-        # 5. Log the loss
-        self._writer.add_scalar("other/value_mse", value_mse.item(), self._rollout_count)
-        self._writer.add_scalar("other/entropy", entropy.item(), self._rollout_count)
-        self._writer.add_scalar("other/entropy_coef", entropy_coef, self._rollout_count)
-
-        self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._rollout_count)
-        self._writer.add_scalar("losses/value_loss", value_loss.item(), self._rollout_count)
-        self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._rollout_count)
-        self._writer.add_scalar("losses/total_loss", total_loss.item(), self._rollout_count)
+        # 5. Log the stats
+        log_stats(
+            data={
+                "losses/policy_loss": pg_loss,
+                "losses/value_loss": value_loss,
+                "losses/entropy_loss": entropy_loss,
+                "losses/total_loss": total_loss,
+                "other/value_mse": value_mse,
+                "other/entropy": entropy,
+                "other/entropy_coef": entropy_coef,
+            },
+            writer=self._writer,
+            step=self._rollout_count,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )
         self._rollout_count += 1
 
     def _compute_advantages_and_filter(

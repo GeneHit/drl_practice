@@ -14,12 +14,16 @@ from tqdm import tqdm
 from practice.base.config import BaseConfig
 from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
-from practice.utils.env_utils import extract_episode_data_from_infos
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, soft_update
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
+from practice.utils_for_coding.writer_utils import (
+    log_action_stats,
+    log_episode_stats_if_has,
+    log_stats,
+)
 
 
 class TD3Actor(nn.Module):
@@ -102,7 +106,7 @@ class TD3Trainer(TrainerBase):
                 - sample batch
                 - update critic
                 - update actor/target_network if necessary
-            - log episode metrics
+            - log episode data if has
         """
         # 1. initializations
         # Initialize tensorboard writer
@@ -172,11 +176,7 @@ class TD3Trainer(TrainerBase):
                 pod.update(replay_buffer.sample(self._config.batch_size), step)
 
             # Log episode metrics
-            ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-            for idx, reward in enumerate(ep_rewards):
-                writer.add_scalar("episode/reward", reward, episode_steps)
-                writer.add_scalar("episode/length", ep_lengths[idx], episode_steps)
-                episode_steps += 1
+            episode_steps += log_episode_stats_if_has(writer, infos, episode_steps)
 
 
 class _TD3Pod:
@@ -218,9 +218,14 @@ class _TD3Pod:
         )
 
         # log
-        self._writer.add_scalar("action/noise_std", noise_std, step)
-        self._writer.add_scalar("action/mean", action.mean().item(), step)
-        self._writer.add_scalar("action/std", action.std().item(), step)
+        log_action_stats(
+            actions=action,
+            data={"noise_std": noise_std},
+            writer=self._writer,
+            step=step,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )
 
         # Ensure action shape is (num_envs, action_dim)
         return cast(NDArray[ActTypeC], noised_action.numpy())
@@ -231,18 +236,20 @@ class _TD3Pod:
         Steps:
         1. update critic
         2. update actor/target_network if necessary
+        3. log the stats if necessary in background
         """
         exp = experience.to(self._config.device)
         # 1. update critic
+        # 1.1 get target Q-value
         target_q = self._get_target_q(exp)
-        # calculate critic loss
+        # 1.2 get critic Q-value
         q = self._ctx.critic(exp.states, exp.actions)
-
         # Return Sequence: standard TD3, use Q1/Q2, usually train together
         # Return Single: the standard DDPG, use one Q.
         qs = q if isinstance(q, Sequence) else (q,)
+        # 1.3 compute critic loss
         critic_loss = torch.stack([nn.functional.mse_loss(qi, target_q) for qi in qs]).mean()
-        # update critic
+        # 1.4 update critic
         self._ctx.critic_optimizer.zero_grad()
         critic_loss.backward()
         if self._config.max_grad_norm is not None:
@@ -266,13 +273,27 @@ class _TD3Pod:
             # update target networks (soft update)
             soft_update(self._ctx.network, self._target_actor, self._tau)
             soft_update(self._ctx.critic, self._target_critic, self._tau)
+            log_stats(
+                data={"loss/actor": actor_loss},
+                writer=self._writer,
+                step=step,
+                log_interval=self._config.log_interval,
+                unblocked=True,
+            )
 
-            self._writer.add_scalar("loss/actor", actor_loss.item(), step)
-        # log
-        self._writer.add_scalar("loss/critic", critic_loss.item(), step)
-        for i, qi in enumerate(qs):
-            self._writer.add_scalar(f"q_value/critic_{i}", qi.mean().item(), step)
-        self._writer.add_scalar("q_value/target", target_q.mean().item(), step)
+        # log the stats if necessary in background
+        data = {
+            "loss/critic": critic_loss,
+            "q_value/target": target_q,
+            **{f"q_value/critic_{i}": qi for i, qi in enumerate(qs)},
+        }
+        log_stats(
+            data=data,
+            writer=self._writer,
+            step=step,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )
 
     def _get_target_q(self, experience: Experience) -> torch.Tensor:
         """Get the target Q-value for the given experience.

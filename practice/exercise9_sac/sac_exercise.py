@@ -14,11 +14,15 @@ from tqdm import tqdm
 from practice.base.config import BaseConfig
 from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
-from practice.utils.env_utils import extract_episode_data_from_infos
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, soft_update
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
+from practice.utils_for_coding.writer_utils import (
+    log_action_stats,
+    log_episode_stats_if_has,
+    log_stats,
+)
 
 
 class SACActor(nn.Module):
@@ -83,9 +87,10 @@ class SACActor(nn.Module):
         action_scaled = action * self.max_action
 
         # 4. calculate log_prob
-        log_prob: torch.Tensor = normal.log_prob(z)
-        # adjust for Tanh squashing
-        log_prob = log_prob - torch.log(1 - action.pow(2) + 1e-6)
+        log_prob: torch.Tensor = normal.log_prob(z) - torch.log(
+            torch.clamp(1 - action.pow(2), min=1e-6)
+        )
+        log_prob = log_prob.sum(dim=-1, keepdim=True)  # [batch, 1]
         return action_scaled, log_prob, z
 
 
@@ -219,11 +224,7 @@ class SACTrainer(TrainerBase):
                 pod.update(replay_buffer.sample(self._config.batch_size), step)
 
             # Log episode metrics
-            ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-            for idx, reward in enumerate(ep_rewards):
-                writer.add_scalar("episode/reward", reward, episode_steps)
-                writer.add_scalar("episode/length", ep_lengths[idx], episode_steps)
-                episode_steps += 1
+            episode_steps += log_episode_stats_if_has(writer, infos, episode_steps)
 
 
 class _SACPod:
@@ -266,10 +267,14 @@ class _SACPod:
             )
             a = a.cpu()
 
-        self._writer.add_scalar("actor/mean", a.mean().item(), step)
-        self._writer.add_scalar("actor/std", a.std().item(), step)
-        self._writer.add_scalar("actor/log_prob", log_prob.cpu().mean().item(), step)
-        self._writer.add_scalar("actor/z", z.cpu().mean().item(), step)
+        log_action_stats(
+            actions=a,
+            data={"log_prob": log_prob, "z": z},
+            writer=self._writer,
+            step=step,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )
         return a.numpy()
 
     def update(self, experience: Experience, step: int) -> None:
@@ -282,22 +287,24 @@ class _SACPod:
             L_actor = alpha * log_prob(a) - Q0(s, a)
         3. update alpha. Formula:
             L_alpha = -alpha * (log_prob(a) + target_entropy)
-        4. update target networks. Formula:
+        4. soft update target networks. Formula:
             target_actor = tau * actor + (1 - tau) * target_actor
             target_critic = tau * critic + (1 - tau) * target_critic
+        5. log the stats if necessary in background
         """
         exp = experience.to(self._config.device)
 
         # 1. update critic
-        # calculate target and current Q-value
+        # 1.1 calculate target Q-value
         target_q = self._get_target_q(exp)
+        # 1.2 get critic Q-value
         q = self._ctx.critic(exp.states, exp.actions)
         # Return Sequence: standard TD3/SAC, use Q1/Q2, usually train together
         # Return Single: the standard DDPG, use one Q.
         qs = q if isinstance(q, Sequence) else (q,)
-        # calculate critic loss
+        # 1.3 calculate critic loss
         critic_loss = torch.stack([nn.functional.mse_loss(qi, target_q) for qi in qs]).mean()
-        # update critic
+        # 1.4 update critic
         self._ctx.critic_optimizer.zero_grad()
         critic_loss.backward()
         if self._config.max_grad_norm is not None:
@@ -305,23 +312,26 @@ class _SACPod:
         self._ctx.critic_optimizer.step()
 
         # 2. update actor
-        # calculate actor loss
+        # 2.1 sample action in current policy
         new_action, log_prob, _ = self._actor.sample(exp.states)
+        # 2.2 get critic Q-value
         q_new = self._ctx.critic(exp.states, new_action)
         if isinstance(q_new, Sequence):
             q_new = q_new[0]
-        actor_loss = (self._alpha * log_prob - q_new).mean()
-        # update actor
+        # 2.3 calculate actor loss
+        actor_loss = (self._alpha.detach() * log_prob - q_new).mean()
+        # 2.4 update actor
         self._ctx.optimizer.zero_grad()
         actor_loss.backward()
         if self._config.max_grad_norm is not None:
             nn.utils.clip_grad_norm_(self._actor.parameters(), self._config.max_grad_norm)
         self._ctx.optimizer.step()
 
-        # 3. update alpha
+        # 3. soft update alpha
         # calculate alpha loss
-        alpha = self._alpha
-        alpha_loss = -alpha * (log_prob.detach() + self._target_entropy).mean()
+        with torch.no_grad():
+            _, log_prob_for_alpha, _ = self._actor.sample(exp.states)
+        alpha_loss = -(self._log_alpha * (log_prob_for_alpha + self._target_entropy)).mean()
         # update alpha
         self._alpha_optimizer.zero_grad()
         alpha_loss.backward()
@@ -332,12 +342,21 @@ class _SACPod:
         soft_update(self._ctx.critic, self._target_critic, self._tau)
 
         # log
-        self._writer.add_scalar("loss/actor", actor_loss.item(), step)
-        self._writer.add_scalar("loss/critic", critic_loss.item(), step)
-        self._writer.add_scalar("loss/alpha", alpha_loss.item(), step)
-        for i, qi in enumerate(qs):
-            self._writer.add_scalar(f"q_value/critic_{i}", qi.mean().item(), step)
-        self._writer.add_scalar("alpha", alpha.item(), step)
+        data = {
+            "loss/actor": actor_loss,
+            "loss/critic": critic_loss,
+            "loss/alpha": alpha_loss,
+            "loss/alpha_value": self._alpha,
+            "q_value/target": target_q,
+            **{f"q_value/critic_{i}": qi for i, qi in enumerate(qs)},
+        }
+        log_stats(
+            data=data,
+            writer=self._writer,
+            step=step,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )
 
     def _get_target_q(self, experience: Experience) -> torch.Tensor:
         """Get the target Q-value for the given experience.
@@ -352,7 +371,7 @@ class _SACPod:
         """
         with torch.no_grad():
             # next action and log_prob from target actor
-            next_a, next_log_prob, _ = self._actor.sample(experience.next_states)
+            next_a, next_log_prob, _ = self._target_actor.sample(experience.next_states)
 
             # next Q-value from target critic
             target_critic_q = self._target_critic(experience.next_states, next_a)
@@ -368,6 +387,6 @@ class _SACPod:
 
             # calculate target Q-value with rewards, next Q-value, and entropy regularization
             target_q = experience.rewards + self._gamma * (self._one - experience.dones.float()) * (
-                next_q - self._alpha * next_log_prob
+                next_q - self._alpha.detach() * next_log_prob
             )
         return target_q

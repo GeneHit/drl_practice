@@ -27,8 +27,8 @@ def get_app_config() -> SACConfig:
     return SACConfig(
         device=get_device("cpu"),
         total_steps=total_steps,
-        hidden_sizes=(128, 128),
-        learning_rate=3e-4,
+        hidden_sizes=(256, 256),
+        learning_rate=1e-4,
         critic_lr=3e-4,
         gamma=0.99,
         replay_buffer_capacity=int(total_steps * 0.8),
@@ -37,7 +37,7 @@ def get_app_config() -> SACConfig:
         max_action=2.0,
         tau=0.005,
         max_grad_norm=0.5,
-        alpha=0.2,
+        alpha=0.8,
         alpha_lr=3e-4,
         target_entropy=-1.0,  # -1 = - action_dimension
         log_std_min=-20,
