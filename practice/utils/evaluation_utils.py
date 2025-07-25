@@ -111,8 +111,8 @@ def evaluate_and_save_results(
 
     # Create evaluation result dictionary
     eval_result = {
-        "mean_reward": f"{mean_reward:.2f}",
-        "std_reward": f"{std_reward:.2f}",
+        "mean_reward": mean_reward,
+        "std_reward": std_reward,
         "datetime": get_utc_time_str(),
         **meta_data,
     }
