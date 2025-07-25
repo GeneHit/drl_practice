@@ -22,7 +22,7 @@ Different games:
 ## Command
 Train (change `pendulum` to `walker` if needed)
 ```bash
-# Train the model on CartPole-v1
+# Train the model on Pendulum-v1
 python practice/cli.py --config practice/exercise9_sac/config_pendulum.py
 ```
 

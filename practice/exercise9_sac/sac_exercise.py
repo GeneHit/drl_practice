@@ -32,6 +32,7 @@ class SACActor(nn.Module):
         hidden_sizes: Sequence[int],
         log_std_min: float,
         log_std_max: float,
+        use_layer_norm: bool,
     ) -> None:
         super().__init__()
         self.net = MLP(
@@ -39,7 +40,7 @@ class SACActor(nn.Module):
             output_dim=hidden_sizes[-1],
             hidden_sizes=hidden_sizes[:-1],
             activation=nn.ReLU,
-            use_layer_norm=True,
+            use_layer_norm=use_layer_norm,
         )
         self.mean_linear = nn.Linear(hidden_sizes[-1], action_dim)
         self.log_std_linear = nn.Linear(hidden_sizes[-1], action_dim)
@@ -58,38 +59,13 @@ class SACActor(nn.Module):
         action = torch.tanh(mean) * self.max_action
         return action
 
-    def sample(self, state: torch.Tensor) -> torch.Tensor:
+    def sample(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Sample an action when training.
 
         Returns:
             action: The sampled action.
         """
-        normal = self._get_normal_with_forward(state)
-        # reparameterization trick
-        z = normal.rsample()
-        action = torch.tanh(z)
-        # scaled to environment action space
-        action_scaled = action * self.max_action
-        return action_scaled
-
-    def log_prob(self, state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        """Calculate the log probability of the action.
-
-        Returns:
-            log_prob: The log probability of the action.
-        """
-        normal = self._get_normal_with_forward(state)
-        log_prob: torch.Tensor = normal.log_prob(action)
-        # adjust for Tanh squashing
-        log_prob = log_prob - torch.log(1 - action.pow(2) + 1e-6)
-        return log_prob
-
-    def _get_normal_with_forward(self, state: torch.Tensor) -> torch.distributions.Normal:
-        """Get the normal distribution with the forward pass.
-
-        Returns:
-            normal: The normal distribution.
-        """
+        # 1. get mean and std
         x = self.net(state)
         mean = self.mean_linear(x)
         log_std = self.log_std_linear(x)
@@ -97,7 +73,20 @@ class SACActor(nn.Module):
         log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
-        return normal
+
+        # 2. reparameterization trick
+        z = normal.rsample()
+
+        # 3. scale to environment action space
+        action = torch.tanh(z)
+        # scaled to environment action space
+        action_scaled = action * self.max_action
+
+        # 4. calculate log_prob
+        log_prob: torch.Tensor = normal.log_prob(z)
+        # adjust for Tanh squashing
+        log_prob = log_prob - torch.log(1 - action.pow(2) + 1e-6)
+        return action_scaled, log_prob, z
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -249,14 +238,21 @@ class _SACPod:
 
         self._target_actor = copy.deepcopy(self._actor)
         self._target_critic = copy.deepcopy(self._ctx.critic)
-        self._alpha = torch.tensor(config.alpha, device=self._config.device, requires_grad=True)
-        self._alpha_optimizer = torch.optim.Adam([self._alpha], lr=config.alpha_lr)
+        self._log_alpha = torch.tensor(
+            np.log(config.alpha), device=config.device, requires_grad=True
+        )
+        self._alpha_optimizer = torch.optim.Adam([self._log_alpha], lr=config.alpha_lr)
 
         # convert to tensor on device， avoiding unnecessary device transfers
         self._tau = torch.tensor(self._config.tau, dtype=torch.float32, device=self._config.device)
         self._gamma = as_tensor_on(self._config.gamma, self._tau)
         self._one = as_tensor_on(1, self._tau)
         self._target_entropy = as_tensor_on(self._config.target_entropy, self._tau)
+
+    @property
+    def _alpha(self) -> torch.Tensor:
+        """Get the alpha value."""
+        return self._log_alpha.exp()
 
     def action(self, state: NDArray[ObsType], step: int) -> NDArray[ActTypeC]:
         """Sample an action from the actor network.
@@ -265,10 +261,15 @@ class _SACPod:
             action: The sampled action for training.
         """
         with torch.no_grad():
-            a = self._actor.sample(torch.from_numpy(state).float().to(self._config.device)).cpu()
+            a, log_prob, z = self._actor.sample(
+                torch.from_numpy(state).float().to(self._config.device)
+            )
+            a = a.cpu()
 
         self._writer.add_scalar("actor/mean", a.mean().item(), step)
         self._writer.add_scalar("actor/std", a.std().item(), step)
+        self._writer.add_scalar("actor/log_prob", log_prob.cpu().mean().item(), step)
+        self._writer.add_scalar("actor/z", z.cpu().mean().item(), step)
         return a.numpy()
 
     def update(self, experience: Experience, step: int) -> None:
@@ -278,7 +279,7 @@ class _SACPod:
         1. update critic. Formula:
             L_critic = mean((Qi(s, a) - target_q)^2, ...)
         2. update actor. Formula:
-            L_actor = alpha * log_prob(a) - Q(s, a)
+            L_actor = alpha * log_prob(a) - Q0(s, a)
         3. update alpha. Formula:
             L_alpha = -alpha * (log_prob(a) + target_entropy)
         4. update target networks. Formula:
@@ -305,9 +306,11 @@ class _SACPod:
 
         # 2. update actor
         # calculate actor loss
-        a = self._actor.sample(exp.states)
-        log_prob = self._actor.log_prob(exp.states, a)
-        actor_loss = (self._alpha * log_prob - target_q).mean()
+        new_action, log_prob, _ = self._actor.sample(exp.states)
+        q_new = self._ctx.critic(exp.states, new_action)
+        if isinstance(q_new, Sequence):
+            q_new = q_new[0]
+        actor_loss = (self._alpha * log_prob - q_new).mean()
         # update actor
         self._ctx.optimizer.zero_grad()
         actor_loss.backward()
@@ -317,7 +320,8 @@ class _SACPod:
 
         # 3. update alpha
         # calculate alpha loss
-        alpha_loss = -self._alpha * (log_prob + self._target_entropy).mean()
+        alpha = self._alpha
+        alpha_loss = -alpha * (log_prob.detach() + self._target_entropy).mean()
         # update alpha
         self._alpha_optimizer.zero_grad()
         alpha_loss.backward()
@@ -333,7 +337,7 @@ class _SACPod:
         self._writer.add_scalar("loss/alpha", alpha_loss.item(), step)
         for i, qi in enumerate(qs):
             self._writer.add_scalar(f"q_value/critic_{i}", qi.mean().item(), step)
-        self._writer.add_scalar("alpha", self._alpha.item(), step)
+        self._writer.add_scalar("alpha", alpha.item(), step)
 
     def _get_target_q(self, experience: Experience) -> torch.Tensor:
         """Get the target Q-value for the given experience.
@@ -347,10 +351,8 @@ class _SACPod:
                 target_q = r + gamma * (1 - d) * (min(Qi(s', a'), ...) - alpha * log_prob(a'))
         """
         with torch.no_grad():
-            # next action from target actor
-            next_a = self._actor.sample(experience.next_states)
-            # next log_prob from target actor
-            next_log_prob = self._actor.log_prob(experience.next_states, next_a)
+            # next action and log_prob from target actor
+            next_a, next_log_prob, _ = self._actor.sample(experience.next_states)
 
             # next Q-value from target critic
             target_critic_q = self._target_critic(experience.next_states, next_a)
