@@ -23,24 +23,24 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 def get_app_config() -> TD3Config:
     """Get the application config."""
-    # timestep = total_steps // vector_env_num = 1800000 // 6 = 300000
-    total_steps = 1800000
+    # timestep = total_steps // vector_env_num = 2400000 // 6 = 400000
+    total_steps = 2400000
     return TD3Config(
-        device=get_device("cpu"),
+        device=get_device(),
         total_steps=total_steps,
-        hidden_sizes=(256, 256),
-        learning_rate=3e-4,
+        hidden_sizes=(400, 300),
+        learning_rate=2e-4,
         critic_lr=3e-4,
-        gamma=0.99,
+        gamma=0.995,
         replay_buffer_capacity=int(total_steps * 0.6),
-        batch_size=128,
-        update_start_step=20000,
+        batch_size=256,
+        update_start_step=10000,
         policy_delay=2,
         policy_noise=0.2,
         noise_clip=0.5,
-        exploration_noise=LinearSchedule(0.3, 0.05, 100000),
+        exploration_noise=LinearSchedule(0.4, 0.05, 200000),
         max_action=1.0,
-        tau=0.005,
+        tau=0.05,
         max_grad_norm=0.5,
         eval_episodes=50,
         eval_random_seed=42,

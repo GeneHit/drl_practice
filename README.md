@@ -43,3 +43,4 @@ are based on the course. Thanks for this greate course.
 
 1. [RL Algorithms](./practice/infos/rl_algorithm.md)
 2. [OpenAI's Spining Up](https://spinningup.openai.com/en/latest/)
+3. [Stable Baseline3](https://stable-baselines3.readthedocs.io/en/master/index.html)
