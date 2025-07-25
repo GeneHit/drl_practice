@@ -1,14 +1,13 @@
 # TD3
 
 This exercise implements a [Twin Delayed DDPG](https://arxiv.org/pdf/1802.09477) (TD3).
-More: [Deep Deterministic Policy Gradient](https://arxiv.org/abs/1509.02971) (DDPG)
+- Pseudocode: see OpenAI's [SpiningUp](https://spinningup.openai.com/en/latest/algorithms/td3.html).
+- More: [Deep Deterministic Policy Gradient](https://arxiv.org/abs/1509.02971) (DDPG)
 
 - **TD3** improves upon **DDPG** by introducing:
   - Twin Q-networks to reduce overestimation
   - Delayed policy updates for stability
   - Target policy smoothing to reduce Q-function errors
-
-Pendulum-v1 | Walker2d-v5
 
 ## Files
 - `td3_exercise.py`: TD3 `EXERCISE`.
