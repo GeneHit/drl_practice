@@ -46,7 +46,7 @@ class ContextBase:
 
     @property
     def continuous_envs(self) -> EnvsTypeC:
-        """The continuous vector environment used for training."""
+        """The vector environment (with continuous action space) used for training."""
         envs = cast(EnvsTypeC, self.train_env)
         if not hasattr(envs, "num_envs"):
             raise TypeError("train_env is a single environment, use env property instead")
