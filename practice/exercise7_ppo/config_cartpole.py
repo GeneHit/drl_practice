@@ -53,7 +53,7 @@ def get_app_config() -> PPOConfig:
         ),
         num_epochs=8,
         minibatch_num=4,
-        clip_coef=0.2
+        clip_coef=0.2,
     )
 
 

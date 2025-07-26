@@ -375,20 +375,20 @@ class _GAEPod(_PPOPod):
         )
         # normalize the advantages
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        
+
         # 3. Update the policy and value network
         config = self._config
         batch_size = advantages.shape[0]
         entropy_coef = config.entropy_coef(self._rollout_count)
         # initialize to log the loss of the last minibatch
-        pg_loss = value_loss = entropy = entropy_loss = value_mse = total_loss = None
         minibatch_size = batch_size // config.minibatch_num
-        
+
+        assert config.num_epochs > 0, "The number of epochs must be greater than 0."
         for epoch in range(config.num_epochs):
             indices = np.arange(batch_size)
             np.random.shuffle(indices)
             for start in range(0, batch_size, minibatch_size):
-                mb_inds = indices[start:start + minibatch_size]
+                mb_inds = indices[start : start + minibatch_size]
 
                 # 3.1 Update the policy network
                 logits, values_pred = self._ctx.network(states[mb_inds])
@@ -399,9 +399,10 @@ class _GAEPod(_PPOPod):
 
                 ratio = torch.exp(log_probs_new - log_probs[mb_inds])
                 unclipped_pg_loss = ratio * advantages[mb_inds]
-                clipped_pg_loss = torch.clamp(
-                    ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef
-                ) * advantages[mb_inds]
+                clipped_pg_loss = (
+                    torch.clamp(ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef)
+                    * advantages[mb_inds]
+                )
                 pg_loss = -torch.mean(torch.min(unclipped_pg_loss, clipped_pg_loss))
 
                 # 3.2 Update the value network
@@ -423,7 +424,6 @@ class _GAEPod(_PPOPod):
                     )
                 self._ctx.optimizer.step()
                 self._ctx.step_lr_schedulers()
-        
 
         # 4. Log only the loss of the last minibatch for simplicity
         self._writer.add_scalar("other/value_mse", value_mse.item(), self._rollout_count)
@@ -438,7 +438,7 @@ class _GAEPod(_PPOPod):
 
     def _compute_advantages_and_filter(
         self, rollout: list[_StepData]
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         """Compute the advantages and filter the bad transition between two episodes.
 
         Returns:
@@ -503,8 +503,12 @@ class _GAEPod(_PPOPod):
             log_probs=torch.stack([step.log_probs for step in rollout]),
             advantages=advantages,
             returns=returns,
-            states=torch.stack([_np2tensor(step.states, device) for step in rollout]),
-            actions=torch.stack([_np2tensor(step.actions, device) for step in rollout])
+            states=torch.stack(
+                [_np2tensor(step.states.astype(np.float32), device) for step in rollout]
+            ),
+            actions=torch.stack(
+                [_np2tensor(step.actions.astype(np.float32), device) for step in rollout]
+            ),
         )
 
     def _filter_bad_transition(
