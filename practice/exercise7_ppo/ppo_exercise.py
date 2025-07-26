@@ -448,7 +448,7 @@ class _GAEPod(_PPOPod):
                 the valid log_probs of the rollout
             rewards: Tensor, shape [d, ]
                 the valid rewards of the rollout
-            states: Tensor, shape [d, ]
+            states: Tensor, shape [d, obs_dim]
                 the valid states of the rollout
             actions: Tensor, shape [d, ]
                 the valid actions of the rollout
