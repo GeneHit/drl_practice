@@ -40,7 +40,7 @@ class NNAgent(AgentBase):
         return cls(net=_load_model(pathname, device))
 
 
-class A2CAgent(AgentBase):
+class ACAgent(AgentBase):
     """Agent that uses a neural network to make decisions.
 
     Only be used for:
@@ -76,7 +76,7 @@ class A2CAgent(AgentBase):
         _save_model(self._net, pathname)
 
     @classmethod
-    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "A2CAgent":
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ACAgent":
         """Load the A2C model."""
         return cls(net=_load_model(pathname, device))
 

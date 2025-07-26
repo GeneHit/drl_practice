@@ -8,18 +8,16 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
 from practice.exercise7_ppo.ppo_exercise import ActorCritic, PPOConfig, PPOTrainer
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import A2CAgent
+from practice.utils_for_coding.agent_utils import ACAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> PPOConfig:
     """Get the application config."""
-    # get cuda or mps if available
-    # rollout_len = 32, so 150000 / 32 / 6 = 781
     return PPOConfig(
         # use CPU is faster since nn model is small
-        device=get_device("cpu"),
+        device=get_device("cpu"),  # "cuda" or "mps" or "cpu"
         total_steps=300000,
         rollout_len=128,
         learning_rate=3e-4,
@@ -43,7 +41,7 @@ def get_app_config() -> PPOConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=PPOTrainer,
-            agent_type=A2CAgent,
+            agent_type=ACAgent,
             output_dir="results/exercise7_ppo/cartpole/",
             save_result=True,
             model_filename="ppo.pth",
