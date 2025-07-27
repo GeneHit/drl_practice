@@ -26,7 +26,6 @@ def get_app_config() -> A2CConfig:
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
         entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=200),
-        # entropy_coef=ConstantSchedule(0.1),
         value_loss_coef=0.02,
         max_grad_norm=0.5,
         hidden_size=1024,
@@ -46,14 +45,16 @@ def get_app_config() -> A2CConfig:
             model_filename="a2c_gae.pth",
             repo_id="A2C-GAE-LunarLanderV3",
             algorithm_name="A2C-GAE",
-            extra_tags=("A2C", "GAE"),
+            extra_tags=("policy-gradient", "pytorch", "a2c", "gae"),
         ),
     )
 
 
 def get_env_for_play_and_hub(config: A2CConfig) -> EnvType:
     """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
+    train_env, eval_env = get_env_from_config(config.env_config)
+    train_env.close()
+
     return eval_env
 
 

@@ -74,6 +74,9 @@ tensorboard --logdir=results/exercise3_reinforce/cartpole/tensorboard
 6. [A3C](./exercise6_a3c/README.md)
 7. [PPO](./exercise7_ppo/README.md)
 8. [TD3](./exercise8_td3/README.md)
+9. [SAC](./exercise9_sac/README.md)
+10. [PPO+Curiosity+DDP](./exercise10_ddp_ppo/README.md)
+11. [SAC+PER+DDP](./exercise11_ddp_sac/README.md)
 
 
 ## Other

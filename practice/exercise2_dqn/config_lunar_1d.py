@@ -4,28 +4,28 @@ from torch.optim import Adam
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
-from practice.exercise2_dqn.dqn_exercise import (
-    DQNConfig,
-    DQNTrainer,
-    QNet1D,
-)
+from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNTrainer, QNet1D
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
+from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> DQNConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device()
+    timesteps = 200000
     return DQNConfig(
         device=device,
-        timesteps=200000,
+        timesteps=timesteps,
         learning_rate=1e-4,
         gamma=0.99,
-        start_epsilon=1.0,
-        end_epsilon=0.01,
-        exploration_fraction=0.1,
+        epsilon_schedule=LinearSchedule(
+            start_e=1.0,
+            end_e=0.01,
+            duration=int(0.1 * timesteps),
+        ),
         replay_buffer_capacity=120000,
         batch_size=64,
         train_interval=1,
@@ -34,6 +34,7 @@ def get_app_config() -> DQNConfig:
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
+        log_interval=50,
         env_config=EnvConfig(
             env_id="LunarLander-v3",
             vector_env_num=6,
@@ -82,5 +83,6 @@ def generate_context(config: DQNConfig) -> ContextBase:
 
 def get_env_for_play_and_hub(config: DQNConfig) -> EnvType:
     """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
+    train_env, eval_env = get_env_from_config(config.env_config)
+    train_env.close()
     return eval_env

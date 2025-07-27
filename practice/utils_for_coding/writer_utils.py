@@ -24,7 +24,6 @@ def log_episode_stats_if_has(
     -------
         int: The number of ended episodes.
     """
-
     ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
     for idx, reward in enumerate(ep_rewards):
         writer.add_scalar("episode/reward", reward, episode_steps)
@@ -80,7 +79,7 @@ def log_stats(
     writer: SummaryWriter,
     step: int,
     log_interval: int = 1,
-    unblocked: bool = True,
+    unblocked: bool = False,
 ) -> None:
     """Log the stats.
 

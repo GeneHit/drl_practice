@@ -44,6 +44,7 @@ from practice.exercise2_dqn.dqn_exercise import (
     QNet1D,
 )
 from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 @pytest.fixture
@@ -60,9 +61,11 @@ def test_config() -> DQNConfig:
         timesteps=100,  # Reduced from 200000
         learning_rate=1e-3,  # Increased for faster learning
         gamma=0.99,
-        start_epsilon=1.0,
-        end_epsilon=0.1,  # Higher for more exploration in short training
-        exploration_fraction=0.5,  # Increased for short training
+        epsilon_schedule=LinearSchedule(
+            start_e=1.0,
+            end_e=0.1,
+            duration=int(0.5 * 100),
+        ),
         replay_buffer_capacity=100,  # Reduced from 120000
         batch_size=8,  # Reduced from 64
         train_interval=1,
@@ -71,6 +74,7 @@ def test_config() -> DQNConfig:
         eval_episodes=3,  # Reduced from 100
         eval_random_seed=42,
         eval_video_num=1,  # Reduced from 10
+        log_interval=10,
         env_config=EnvConfig(
             env_id="LunarLander-v3",
             vector_env_num=2,  # Reduced from 6

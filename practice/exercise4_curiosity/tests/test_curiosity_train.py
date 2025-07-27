@@ -67,7 +67,6 @@ def test_config() -> EnhancedReinforceConfig:
         episode=4,  # Reduced from 10000
         learning_rate=1e-3,
         gamma=0.999,
-        grad_acc=1,
         baseline=ConstantBaseline(),
         entropy_coef=0.01,
         eval_episodes=3,  # Reduced from 20

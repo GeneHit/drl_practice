@@ -47,7 +47,7 @@ def get_app_config() -> A3CConfig:
             model_filename="a3c.pth",
             repo_id="A3C-CartPoleV1",
             algorithm_name="A3C with GAE",
-            extra_tags=("A3C", "GAE"),
+            extra_tags=("policy-gradient", "pytorch", "a3c", "gae"),
         ),
     )
 

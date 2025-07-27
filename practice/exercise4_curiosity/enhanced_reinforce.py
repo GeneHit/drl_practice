@@ -1,7 +1,6 @@
-import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 import torch
 from numpy.typing import NDArray
@@ -18,12 +17,14 @@ from practice.utils_for_coding.baseline_utils import (
     BaselineBase,
     ConstantBaseline,
 )
+from practice.utils_for_coding.writer_utils import log_stats
 
 
 @dataclass(kw_only=True, frozen=True)
 class EnhancedReinforceConfig(BaseConfig):
     episode: int
-    grad_acc: int = 1
+    """The number of episodes to train the policy."""
+
     baseline: BaselineBase = ConstantBaseline()
     """The baseline for the policy.
 
@@ -45,7 +46,69 @@ class ReinforceContext(ContextBase):
     rewarders: tuple[RewardBase, ...] = ()
 
 
-class EpisodeBuffer:
+class EnhancedReinforceTrainer(TrainerBase):
+    """A trainer for the enhanced reinforce algorithm.
+
+    This trainer is used to train the policy network with a single environment.
+    """
+
+    def __init__(self, config: EnhancedReinforceConfig, ctx: ReinforceContext) -> None:
+        super().__init__(config=config, ctx=ctx)
+        self._config: EnhancedReinforceConfig = config
+        self._ctx: ReinforceContext = ctx
+
+    def train(self) -> None:
+        """Train the policy network with a single environment."""
+        # Initialize tensorboard writer
+        writer = SummaryWriter(
+            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
+        )
+        env = self._ctx.env
+        # Create training pod and buffer
+        pod = _EnhancedReinforcePod(config=self._config, ctx=self._ctx, writer=writer)
+        episode_buffer = _EpisodeBuffer()
+
+        for episode_idx in tqdm(range(self._config.episode), desc="Training"):
+            # 1. Resets for new episode
+            state, _ = env.reset()
+            done = False
+
+            # 2. Run one episode
+            while not done:
+                # Sample action
+                action, log_prob, entropy = pod.action_and_log_prob(state.reshape(1, -1))
+
+                # Step environment
+                next_state, reward, term, trunc, _ = env.step(action)
+                done = bool(term or trunc)
+
+                # Store data in episode buffer
+                episode_buffer.add(float(reward), log_prob, entropy)
+                # Calculate intrinsic rewards
+                for rewarder in self._ctx.rewarders:
+                    intrinsic_reward = rewarder.get_reward(
+                        state.reshape(1, -1), next_state.reshape(1, -1), episode_idx
+                    )[0]
+                    episode_buffer.add_intrinsic_reward(
+                        intrinsic_reward=float(intrinsic_reward),
+                        rewarder_name=rewarder.__class__.__name__,
+                    )
+
+                # Update state
+                state = next_state
+
+            # 3. Process completed episode
+            # Update policy with the episode data
+            rewards, log_probs, entropies = episode_buffer.get_episode_data()
+            pod.update(rewards, log_probs, entropies)
+            # Clear episode buffer and log rewarder data if present
+            episode_buffer.clear(writer, episode_idx)
+
+        # Close writer
+        writer.close()
+
+
+class _EpisodeBuffer:
     """Simple buffer to store episode data for REINFORCE."""
 
     def __init__(self) -> None:
@@ -144,85 +207,6 @@ class EpisodeBuffer:
                 )
 
 
-class EnhancedReinforceTrainer(TrainerBase):
-    """A trainer for the enhanced reinforce algorithm.
-
-    This trainer is used to train the policy network with a single environment.
-    """
-
-    def __init__(self, config: EnhancedReinforceConfig, ctx: ReinforceContext) -> None:
-        super().__init__(config=config, ctx=ctx)
-        self._config: EnhancedReinforceConfig = config
-        self._ctx: ReinforceContext = ctx
-
-    def train(self) -> None:
-        """Train the policy network with a single environment."""
-        # Initialize tensorboard writer
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
-        )
-        env = self._ctx.env
-        # Create training pod and buffer
-        pod = _EnhancedReinforcePod(config=self._config, ctx=self._ctx, writer=writer)
-        episode_buffer = EpisodeBuffer()
-
-        # Create variables for loop
-        pbar = tqdm(total=self._config.episode, desc="Training")
-        episodes_completed = 0
-        start_time = time.time()
-        global_step = 0
-
-        while episodes_completed < self._config.episode:
-            # 1. Resets for new episode
-            episode_buffer.clear()
-            state, _ = env.reset()
-            done = False
-
-            # 2. Run one episode
-            while not done:
-                # Sample action
-                action, log_prob, entropy = pod.action_and_log_prob(state.reshape(1, -1))
-
-                # Step environment
-                next_state, reward, term, trunc, _ = env.step(action)
-                done = bool(term or trunc)
-
-                # Store data in episode buffer
-                episode_buffer.add(float(reward), log_prob, entropy)
-                # Calculate intrinsic rewards
-                for rewarder in self._ctx.rewarders:
-                    intrinsic_reward = rewarder.get_reward(
-                        state.reshape(1, -1), next_state.reshape(1, -1), episodes_completed
-                    )[0]
-                    episode_buffer.add_intrinsic_reward(
-                        intrinsic_reward=float(intrinsic_reward),
-                        rewarder_name=rewarder.__class__.__name__,
-                    )
-
-                # Update state
-                state = next_state
-                global_step += 1
-
-            # 3. Process completed episode
-            # Update policy with the episode data
-            rewards, log_probs, entropies = episode_buffer.get_episode_data()
-            pod.update(rewards, log_probs, entropies)
-            # Clear episode buffer and log rewarder data if present
-            episode_buffer.clear(writer, episodes_completed)
-
-            # Log performance metrics periodically
-            writer.add_scalar(
-                "charts/SPS",
-                int(episodes_completed / (time.time() - start_time)),
-                episodes_completed,
-            )
-            episodes_completed += 1
-            pbar.update(1)
-
-        # Close writer
-        writer.close()
-
-
 class _EnhancedReinforcePod:
     def __init__(
         self,
@@ -240,11 +224,8 @@ class _EnhancedReinforcePod:
         self._ctx.network.train()
 
         self._episode_count = 0
-        # Track episodes since last optimizer step
-        self._accumulated_episodes = 0
         # Baseline for variance reduction
         self._baseline = config.baseline
-        # self._baseline.reset()  # No longer needed
 
     def action_and_log_prob(
         self, state: NDArray[ObsType], actions: Sequence[ActType] | None = None
@@ -336,28 +317,26 @@ class _EnhancedReinforcePod:
         entropy_loss = -self._config.entropy_coef * entropies_tensor.mean()
         total_loss = pg_loss + entropy_loss
 
-        # Scale loss by gradient accumulation factor to maintain proper gradient magnitude
-        scaled_loss = (total_loss / self._config.grad_acc).to(self._config.device)
-
-        # Accumulate gradients
-        scaled_loss.backward()
-
-        self._accumulated_episodes += 1
-        # Perform optimizer step when we've accumulated enough episodes
-        if self._accumulated_episodes >= self._config.grad_acc:
-            self._ctx.optimizer.step()
-            self._ctx.optimizer.zero_grad()
-            self._accumulated_episodes = 0
+        # compute gradients and update the network
+        self._ctx.optimizer.zero_grad()
+        total_loss.backward()
+        self._ctx.optimizer.step()
 
         # Log training metrics
-        self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._episode_count)
-        self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._episode_count)
-        self._writer.add_scalar("losses/total_loss", total_loss.item(), self._episode_count)
-        self._writer.add_scalar(
-            "losses/baseline",
+        baseline_value = (
             float(baseline_value)
-            if not isinstance(baseline_value, list)
-            else float(baseline_value[0]),
-            self._episode_count,
+            if not isinstance(baseline_value, Sequence)
+            else float(baseline_value[0])
+        )
+        log_stats(
+            data={
+                "loss/policy": pg_loss,
+                "loss/entropy": entropy_loss,
+                "loss/total": total_loss,
+                "other/baseline": baseline_value,
+            },
+            writer=self._writer,
+            step=self._episode_count,
+            log_interval=1,
         )
         self._episode_count += 1

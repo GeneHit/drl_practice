@@ -14,9 +14,12 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
-from practice.utils.env_utils import extract_episode_data_from_infos
 from practice.utils_for_coding.network_utils import init_weights
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
+from practice.utils_for_coding.writer_utils import (
+    log_episode_stats_if_has,
+    log_stats,
+)
 
 
 class ActorCritic(nn.Module):
@@ -177,19 +180,13 @@ class PPOTrainer(TrainerBase):
 
                 # update state
                 state = next_states
-
                 # record the episode data
-                episode_rewards, episode_lengths = extract_episode_data_from_infos(infos)
-                episode_num += len(episode_rewards)
-                if episode_rewards:
-                    writer.add_scalar("episode/reward", np.mean(episode_rewards), episode_num)
-                    writer.add_scalar("episode/length", np.mean(episode_lengths), episode_num)
+                episode_num += log_episode_stats_if_has(writer, infos, episode_num)
 
             # 3. Update the policy/value network
             pod.update()
-
             # 4. Clear the buffer
-            pod.reset(rollout_idx=rollout_idx)
+            pod.reset()
 
         writer.close()
 
@@ -268,21 +265,13 @@ class _RolloutBuffer:
         """Get the data from the buffer."""
         return self._rollout
 
-    def clear(self, writer: SummaryWriter | None = None, rollout_idx: int = 0) -> None:
+    def clear(self) -> None:
         """Clear the buffer."""
-        if writer is not None:
-            self._record_scalars(writer, rollout_idx)
-
         self._rollout.clear()
         self._temp_data = None
 
     def __len__(self) -> int:
         return len(self._rollout)
-
-    def _record_scalars(self, writer: SummaryWriter, rollout_idx: int) -> None:
-        """Record the scalars to the writer."""
-        # TODO: record more scalars
-        pass
 
 
 class _PPOPod(abc.ABC):
@@ -294,10 +283,9 @@ class _PPOPod(abc.ABC):
         self._writer: SummaryWriter = writer
         self._rollout: _RolloutBuffer = _RolloutBuffer()
 
-    def reset(self, rollout_idx: int | None = None) -> None:
+    def reset(self) -> None:
         """Reset the pod."""
-        if rollout_idx is not None:
-            self._rollout.clear(writer=self._writer, rollout_idx=rollout_idx)
+        self._rollout.clear()
 
     def add_stepped_data(
         self,
@@ -352,7 +340,10 @@ class _TDNPod(_PPOPod):
         super().__init__(config=config, ctx=ctx, writer=writer)
 
     def update(self) -> None:
-        """Update the actor and critic."""
+        """Update the actor and critic.
+
+        Can skip TD(n) here, because the exercise doesn't use TD(n) default.
+        """
         raise NotImplementedError("TD(n) PPO is not implemented yet.")
 
 
@@ -424,14 +415,21 @@ class _GAEPod(_PPOPod):
                 self._ctx.step_lr_schedulers()
 
         # 4. Log only the loss of the last minibatch for simplicity
-        self._writer.add_scalar("other/value_mse", value_mse.item(), self._rollout_count)
-        self._writer.add_scalar("other/entropy", entropy.item(), self._rollout_count)
-        self._writer.add_scalar("other/entropy_coef", entropy_coef, self._rollout_count)
-
-        self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._rollout_count)
-        self._writer.add_scalar("losses/value_loss", value_loss.item(), self._rollout_count)
-        self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._rollout_count)
-        self._writer.add_scalar("losses/total_loss", total_loss.item(), self._rollout_count)
+        log_stats(
+            data={
+                "loss/policy": pg_loss,
+                "loss/value": value_loss,
+                "loss/entropy": entropy_loss,
+                "loss/total": total_loss,
+                "other/value_mse": value_mse,
+                "other/entropy": entropy,
+                "other/entropy_coef": entropy_coef,
+            },
+            writer=self._writer,
+            step=self._rollout_count,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )
         self._rollout_count += 1
 
     def _compute_advantages_and_filter(
