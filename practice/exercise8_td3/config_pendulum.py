@@ -58,7 +58,7 @@ def get_app_config() -> TD3Config:
             model_filename="td3_pendulum.pth",
             repo_id="TD3-PendulumV1",
             algorithm_name="TD3",
-            extra_tags=("TD3", "DDPG", "Pendulum"),
+            extra_tags=("policy-gradient", "pytorch", "ddpg"),
         ),
     )
 

@@ -38,8 +38,8 @@ def get_app_config() -> ReinforceConfig:
             save_result=True,
             model_filename="reinforce.pth",
             repo_id="Reinforce-MountainCarV0",
-            algorithm_name="Reinforce",
-            extra_tags=("reinforce", "policy-gradient"),
+            algorithm_name="Vanilla-Reinforce",
+            extra_tags=("policy-gradient", "pytorch", "vanilla"),
         ),
     )
 
@@ -67,5 +67,6 @@ def generate_context(config: ReinforceConfig) -> ContextBase:
 
 def get_env_for_play_and_hub(config: ReinforceConfig) -> EnvType:
     """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
+    train_env, eval_env = get_env_from_config(config.env_config)
+    train_env.close()
     return eval_env

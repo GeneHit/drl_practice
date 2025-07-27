@@ -174,15 +174,13 @@ class A2CTrainer(TrainerBase):
 
                 # update state
                 state = next_states
-
                 # record the episode data
                 episode_num += log_episode_stats_if_has(writer, infos, episode_num)
 
             # 3. Update the policy/value network
             pod.update()
-
             # 4. Clear the buffer
-            pod.reset(rollout_idx=rollout_idx)
+            pod.reset()
 
         writer.close()
 
@@ -264,21 +262,13 @@ class _RolloutBuffer:
         """Get the data from the buffer."""
         return self._rollout
 
-    def clear(self, writer: SummaryWriter | None = None, rollout_idx: int = 0) -> None:
+    def clear(self) -> None:
         """Clear the buffer."""
-        if writer is not None:
-            self._record_scalars(writer, rollout_idx)
-
         self._rollout.clear()
         self._temp_data = None
 
     def __len__(self) -> int:
         return len(self._rollout)
-
-    def _record_scalars(self, writer: SummaryWriter, rollout_idx: int) -> None:
-        """Record the scalars to the writer."""
-        # TODO: record more scalars
-        pass
 
 
 class _A2CPod(abc.ABC):
@@ -290,10 +280,9 @@ class _A2CPod(abc.ABC):
         self._writer: SummaryWriter = writer
         self._rollout: _RolloutBuffer = _RolloutBuffer()
 
-    def reset(self, rollout_idx: int | None = None) -> None:
+    def reset(self) -> None:
         """Reset the pod."""
-        if rollout_idx is not None:
-            self._rollout.clear(writer=self._writer, rollout_idx=rollout_idx)
+        self._rollout.clear()
 
     def add_stepped_data(
         self,
@@ -407,10 +396,10 @@ class _GAEPod(_A2CPod):
         # 5. Log the stats
         log_stats(
             data={
-                "losses/policy_loss": pg_loss,
-                "losses/value_loss": value_loss,
-                "losses/entropy_loss": entropy_loss,
-                "losses/total_loss": total_loss,
+                "loss/policy": pg_loss,
+                "loss/value": value_loss,
+                "loss/entropy": entropy_loss,
+                "loss/total": total_loss,
                 "other/value_mse": value_mse,
                 "other/entropy": entropy,
                 "other/entropy_coef": entropy_coef,

@@ -28,7 +28,6 @@ def get_app_config() -> A2CConfig:
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
         entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=200),
-        # entropy_coef=ConstantSchedule(0.1),
         value_loss_coef=0.02,
         max_grad_norm=0.5,
         normalize_returns=True,
@@ -50,14 +49,15 @@ def get_app_config() -> A2CConfig:
             model_filename="a2c_gae.pth",
             repo_id="A2C-GAE-CartPoleV1",
             algorithm_name="A2C-GAE",
-            extra_tags=("A2C", "GAE"),
+            extra_tags=("policy-gradient", "pytorch", "a2c", "gae"),
         ),
     )
 
 
 def get_env_for_play_and_hub(config: A2CConfig) -> EnvType:
     """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
+    train_env, eval_env = get_env_from_config(config.env_config)
+    train_env.close()
     return eval_env
 
 
@@ -78,10 +78,12 @@ def generate_context(config: A2CConfig) -> ContextBase:
     load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)
     actor_critic.to(config.device)
 
+    shared_and_policy_params = list(actor_critic.shared_layers.parameters()) + list(
+        actor_critic.policy_logits.parameters()
+    )
     optimizer = Adam(
         [
-            {"params": actor_critic.shared_layers.parameters(), "lr": config.learning_rate},
-            {"params": actor_critic.policy_logits.parameters(), "lr": config.learning_rate},
+            {"params": shared_and_policy_params, "lr": config.learning_rate},
             {"params": actor_critic.value_head.parameters(), "lr": config.critic_lr},
         ]
     )
@@ -91,9 +93,8 @@ def generate_context(config: A2CConfig) -> ContextBase:
         scheduler = LambdaLR(
             optimizer,
             lr_lambda=[
-                lambda epoch: 1.0,  # group 0: shared lr
-                lambda epoch: 1.0,  # group 1: policy lr
-                lambda epoch: critic_lr_gamma**epoch,  # group 2: critic lr
+                lambda epoch: 1.0,  # group 0: shared and policy lr
+                lambda epoch: critic_lr_gamma**epoch,  # group 1: critic lr
             ],
         )
         lr_schedulers = (scheduler,)

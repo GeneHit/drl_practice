@@ -119,8 +119,7 @@ class QTableTrainer(TrainerBase):
 
         # Training loop
         global_steps = 0
-        pbar = tqdm(total=self._config.episodes, desc="Training")
-        for episode in range(self._config.episodes):
+        for episode in tqdm(range(self._config.episodes), desc="Training"):
             state_raw, _ = env.reset()
             # Convert state to int for Q-table indexing
             state = int(state_raw)
@@ -151,7 +150,6 @@ class QTableTrainer(TrainerBase):
 
             writer.add_scalar("episode/reward", episode_reward, episode)
             writer.add_scalar("episode/length", episode_step, episode)
-            pbar.update(1)
 
         # Cleanup
         writer.close()

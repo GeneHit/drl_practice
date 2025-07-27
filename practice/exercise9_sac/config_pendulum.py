@@ -60,7 +60,7 @@ def get_app_config() -> SACConfig:
             model_filename="sac_pendulum.pth",
             repo_id="SAC-PendulumV1",
             algorithm_name="SAC",
-            extra_tags=(),
+            extra_tags=("policy-gradient", "pytorch", "ddpg"),
         ),
     )
 

@@ -31,7 +31,6 @@ def get_app_config() -> EnhancedReinforceConfig:
         episode=1000,
         learning_rate=1e-3,
         gamma=0.999,
-        grad_acc=1,
         baseline=ConstantBaseline(decay=0.99),
         entropy_coef=0.01,
         eval_episodes=20,
@@ -64,14 +63,15 @@ def get_app_config() -> EnhancedReinforceConfig:
             model_filename="curiosity.pth",
             repo_id="Reinforce-MountainCarV0",
             algorithm_name="Reinforce_RND",
-            extra_tags=("curiosity", "reinforce", "rnd"),
+            extra_tags=("curiosity", "reinforce", "rnd", "policy-gradient", "pytorch"),
         ),
     )
 
 
 def get_env_for_play_and_hub(config: EnhancedReinforceConfig) -> EnvType:
     """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
+    train_env, eval_env = get_env_from_config(config.env_config)
+    train_env.close()
     return eval_env
 
 

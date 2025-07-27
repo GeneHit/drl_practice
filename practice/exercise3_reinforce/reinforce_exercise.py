@@ -1,4 +1,3 @@
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -74,15 +73,8 @@ class ReinforceTrainer(TrainerBase):
         pod = _ReinforcePod(config=self._config, ctx=self._ctx, writer=writer)
         episode_buffer = _EpisodeBuffer()
 
-        # Create variables for loop
-        pbar = tqdm(total=self._config.episode, desc="Training")
-        episodes_completed = 0
-        start_time = time.time()
-        global_step = 0
-
-        while episodes_completed < self._config.episode:
+        for episode_idx in tqdm(range(self._config.episode), desc="Training"):
             # 1. Resets for new episode
-            episode_buffer.clear()
             state, _ = env.reset()
             done = False
 
@@ -90,17 +82,14 @@ class ReinforceTrainer(TrainerBase):
             while not done:
                 # Sample action
                 action, log_prob, entropy = pod.action_and_log_prob(state)
-
                 # Step environment
                 next_state, reward, term, trunc, _ = env.step(action)
-                done = bool(term or trunc)
 
                 # Store data in episode buffer
                 episode_buffer.add(float(reward), log_prob, entropy)
-
                 # Update state
                 state = next_state
-                global_step += 1
+                done = bool(term or trunc)
 
             # 3. Process completed episode
             # Update policy with the episode data
@@ -108,16 +97,7 @@ class ReinforceTrainer(TrainerBase):
             pod.update(rewards, log_probs, entropies)
 
             # Clear episode buffer and log episode data if present
-            episode_buffer.clear(writer, episodes_completed)
-
-            # Log performance metrics periodically
-            writer.add_scalar(
-                "charts/SPS",
-                int(episodes_completed / (time.time() - start_time)),
-                episodes_completed,
-            )
-            episodes_completed += 1
-            pbar.update(1)
+            episode_buffer.clear(writer, episode_idx)
 
         # Close writer
         writer.close()
@@ -237,7 +217,7 @@ class _ReinforcePod:
             # Compute log probs for given actions
             action_tensor = torch.tensor(actions, device=self._config.device)
             log_prob = dist.log_prob(action_tensor)
-            return ActType(action_tensor.cpu().item()), log_prob, entropy
+            return ActType(action_tensor.item()), log_prob, entropy
 
     def update(
         self, rewards: Sequence[float], log_probs: Sequence[Tensor], entropies: Sequence[Tensor]

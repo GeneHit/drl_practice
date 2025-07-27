@@ -18,9 +18,9 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ArrayType, ObsType
 from practice.base.trainer import TrainerBase
-from practice.utils.env_utils import extract_episode_data_from_infos
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils_for_coding.scheduler_utils import ScheduleBase
+from practice.utils_for_coding.writer_utils import log_episode_stats_if_has, log_stats
 
 # Type aliases for vector environments
 EnvsType = gym.vector.VectorEnv[NDArray[ObsType], ActType, NDArray[ArrayType]]
@@ -95,14 +95,18 @@ class DQNConfig(BaseConfig):
 
     The total step data is timesteps * vector_env_num.
     """
-    start_epsilon: float = 1.0
-    end_epsilon: float = 0.01
-    exploration_fraction: float = 0.1
+    epsilon_schedule: ScheduleBase
+    """The epsilon schedule for the DQN algorithm."""
     replay_buffer_capacity: int = 10000
+    """The capacity of the replay buffer."""
     batch_size: int = 32
+    """The batch size for the DQN algorithm."""
     train_interval: int = 1
+    """The interval for training the DQN algorithm."""
     target_update_interval: int = 100
+    """The interval for updating the target network."""
     update_start_step: int = 100
+    """The step number to start updating the target network."""
 
 
 class DQNTrainer(TrainerBase):
@@ -181,11 +185,7 @@ class DQNTrainer(TrainerBase):
                     pod.sync_target_net()
 
             # Log episode metrics
-            ep_rewards, ep_lengths = extract_episode_data_from_infos(infos)
-            for idx, reward in enumerate(ep_rewards):
-                writer.add_scalar("episode/reward", reward, episode_steps)
-                writer.add_scalar("episode/length", ep_lengths[idx], episode_steps)
-                episode_steps += 1
+            episode_steps += log_episode_stats_if_has(writer, infos, episode_steps)
 
         # Cleanup
         writer.close()
@@ -207,13 +207,6 @@ class _DQNPod:
         # Create target network
         self._target_net = copy.deepcopy(ctx.network)
         self._target_net.eval()
-
-        # Create epsilon schedule
-        self._epsilon_schedule = LinearSchedule(
-            start_e=config.start_epsilon,
-            end_e=config.end_epsilon,
-            duration=int(config.exploration_fraction * config.timesteps),
-        )
 
         # Get action space info
         assert isinstance(self._ctx.eval_env.action_space, Discrete)
@@ -243,7 +236,7 @@ class _DQNPod:
         actions = np.zeros(batch_size, dtype=ActType)
 
         # Random mask for exploration
-        epsilon = self._epsilon_schedule(self._step)
+        epsilon = self._config.epsilon_schedule(self._step)
         random_mask = np.random.random(batch_size) < epsilon
         # Random actions for exploration
         num_random = int(np.sum(random_mask))
@@ -260,7 +253,13 @@ class _DQNPod:
                 actions[~random_mask] = greedy_actions
 
         # Log epsilon
-        self._writer.add_scalar("action/epsilon", epsilon, self._step)
+        log_stats(
+            data={"action/epsilon": epsilon},
+            writer=self._writer,
+            step=self._step,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )
         self._step += 1
 
         return cast(NDArray[ActType], actions)
@@ -294,4 +293,10 @@ class _DQNPod:
         loss.backward()
         self._ctx.optimizer.step()
 
-        self._writer.add_scalar("loss/td_loss", loss.cpu().item(), self._step)
+        log_stats(
+            data={"loss/td_loss": loss.item()},
+            writer=self._writer,
+            step=self._step,
+            log_interval=self._config.log_interval,
+            unblocked=True,
+        )

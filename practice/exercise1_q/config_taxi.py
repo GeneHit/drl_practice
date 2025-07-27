@@ -46,7 +46,7 @@ def get_app_config() -> QTableConfig:
             model_filename="q_table_taxi.pkl",
             repo_id="q-Taxi-v3",
             algorithm_name="Q-Learning",
-            extra_tags=("q-learning", "tabular"),
+            extra_tags=("tabular",),
         ),
     )
 

@@ -48,7 +48,7 @@ def get_app_config() -> QTableConfig:
             model_filename="q_table.pkl",
             repo_id="q-FrozenLake-v1-4x4-noSlippery",
             algorithm_name="Q-Learning",
-            extra_tags=("q-learning", "tabular"),
+            extra_tags=("tabular",),
         ),
     )
 

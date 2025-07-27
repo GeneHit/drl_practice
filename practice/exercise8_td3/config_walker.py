@@ -58,7 +58,7 @@ def get_app_config() -> TD3Config:
             model_filename="td3_walker2d.pth",
             repo_id="TD3-Walker2dV5",
             algorithm_name="TD3",
-            extra_tags=("TD3", "DDPG", "Walker2d"),
+            extra_tags=("policy-gradient", "pytorch", "ddpg"),
         ),
     )
 

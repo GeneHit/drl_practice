@@ -1,20 +1,14 @@
-from typing import Union
-
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
-from practice.exercise2_dqn.dqn_exercise import (
-    DQNConfig,
-    DQNTrainer,
-    QNet1D,
-    QNet2D,
-)
+from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNTrainer, QNet2D
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
+from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> DQNConfig:
@@ -26,9 +20,11 @@ def get_app_config() -> DQNConfig:
         timesteps=20000,
         learning_rate=1e-4,
         gamma=0.99,
-        start_epsilon=1.0,
-        end_epsilon=0.01,
-        exploration_fraction=0.1,
+        epsilon_schedule=LinearSchedule(
+            start_e=1.0,
+            end_e=0.01,
+            duration=int(0.1 * 20000),
+        ),
         replay_buffer_capacity=40000,
         batch_size=64,
         train_interval=2,
@@ -37,6 +33,7 @@ def get_app_config() -> DQNConfig:
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
+        log_interval=50,
         env_config=EnvConfig(
             env_id="LunarLander-v3",
             vector_env_num=6,
@@ -54,7 +51,7 @@ def get_app_config() -> DQNConfig:
             model_filename="dqn.pth",
             repo_id="dqn-2d-LunarLander-v3",
             algorithm_name="DQN",
-            extra_tags=("deep-q-learning", "pytorch"),
+            extra_tags=("deep-q-learning", "pytorch", "image"),
         ),
     )
 
@@ -70,14 +67,9 @@ def generate_context(config: DQNConfig) -> ContextBase:
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
 
-    # Create Q-network based on observation space
-    q_network: Union[QNet1D, QNet2D]
-    if len(obs_shape) == 1:
-        q_network = QNet1D(state_n=obs_shape[0], action_n=action_n)
-    elif len(obs_shape) == 3:
-        q_network = QNet2D(in_shape=obs_shape, action_n=action_n)
-    else:
-        raise ValueError(f"Unsupported observation space shape: {obs_shape}")
+    # Create Q-network
+    assert len(obs_shape) == 3
+    q_network = QNet2D(in_shape=obs_shape, action_n=action_n)
 
     load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
     q_network.to(config.device)
@@ -92,5 +84,6 @@ def generate_context(config: DQNConfig) -> ContextBase:
 
 def get_env_for_play_and_hub(config: DQNConfig) -> EnvType:
     """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
+    train_env, eval_env = get_env_from_config(config.env_config)
+    train_env.close()
     return eval_env
