@@ -20,7 +20,7 @@ from practice.utils_for_coding.scheduler_utils import ScheduleBase
 
 
 class ActorCritic(nn.Module):
-    """The actor-critic network for the A2C algorithm."""
+    """The actor-critic network for the PPO algorithm."""
 
     def __init__(self, obs_dim: int, n_actions: int, hidden_size: int) -> None:
         super().__init__()
@@ -208,7 +208,7 @@ class _StepData:
 
 
 class _RolloutBuffer:
-    """The rollout buffer for the A2C algorithm.
+    """The rollout buffer for the PPO algorithm.
 
     The buffer is used to store the rollout data (Sequence of _RolloutStep) of multi environments:
     - _RolloutStep: states, actions, rewards, values, log_probs, dones
@@ -346,14 +346,14 @@ class _PPOPod(abc.ABC):
 
 
 class _TDNPod(_PPOPod):
-    """The pod for the TD(n) A2C algorithm."""
+    """The pod for the TD(n) PPO algorithm."""
 
     def __init__(self, config: PPOConfig, ctx: ContextBase, writer: SummaryWriter) -> None:
         super().__init__(config=config, ctx=ctx, writer=writer)
 
     def update(self) -> None:
         """Update the actor and critic."""
-        raise NotImplementedError("A2C is not implemented yet.")
+        raise NotImplementedError("TD(n) PPO is not implemented yet.")
 
 
 class _GAEPod(_PPOPod):
@@ -379,8 +379,6 @@ class _GAEPod(_PPOPod):
         # 3. Update the policy and value network
         config = self._config
         batch_size = advantages.shape[0]
-        entropy_coef = config.entropy_coef(self._rollout_count)
-        # initialize to log the loss of the last minibatch
         minibatch_size = batch_size // config.minibatch_num
 
         assert config.num_epochs > 0, "The number of epochs must be greater than 0."
