@@ -40,7 +40,7 @@ class NNAgent(AgentBase):
         return cls(net=_load_model(pathname, device))
 
 
-class A2CAgent(AgentBase):
+class ACAgent(AgentBase):
     """Agent that uses a neural network to make decisions.
 
     Only be used for:
@@ -72,12 +72,12 @@ class A2CAgent(AgentBase):
             return ActType(policy_logits.argmax(dim=-1).cpu().item())
 
     def only_save_model(self, pathname: str) -> None:
-        """Save the A2C model."""
+        """Save the Actor-Critic model."""
         _save_model(self._net, pathname)
 
     @classmethod
-    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "A2CAgent":
-        """Load the A2C model."""
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ACAgent":
+        """Load the Actor-Critic model."""
         return cls(net=_load_model(pathname, device))
 
 

@@ -7,7 +7,7 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.utils.evaluation_utils import evaluate_and_save_results
-from practice.utils_for_coding.agent_utils import A2CAgent, ContinuousAgent, NNAgent
+from practice.utils_for_coding.agent_utils import ACAgent, ContinuousAgent, NNAgent
 
 
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
@@ -27,8 +27,8 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
         agent: AgentBase = QTable(q_table=ctx.trained_target)
     elif agent_type == NNAgent:
         agent = NNAgent(net=ctx.network)
-    elif agent_type == A2CAgent:
-        agent = A2CAgent(net=ctx.network)
+    elif agent_type == ACAgent:
+        agent = ACAgent(net=ctx.network)
     elif agent_type == ContinuousAgent:
         agent = ContinuousAgent(net=ctx.network)
     else:

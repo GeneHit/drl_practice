@@ -8,7 +8,7 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import A2CAgent
+from practice.utils_for_coding.agent_utils import ACAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -44,7 +44,7 @@ def get_app_config() -> A2CConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=A2CTrainer,
-            agent_type=A2CAgent,
+            agent_type=ACAgent,
             output_dir="results/exercise5_a2c/cartpole/",
             save_result=True,
             model_filename="a2c_gae.pth",

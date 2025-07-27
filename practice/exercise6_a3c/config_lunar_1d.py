@@ -3,7 +3,7 @@ from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CTrainer
 from practice.exercise6_a3c.a3c_exercise import A3CConfig
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import A2CAgent
+from practice.utils_for_coding.agent_utils import ACAgent
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
@@ -39,7 +39,7 @@ def get_app_config() -> A3CConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=A2CTrainer,  # unused
-            agent_type=A2CAgent,
+            agent_type=ACAgent,
             output_dir="results/exercise6_a3c/lunar/",
             save_result=True,
             model_filename="a3c.pth",
