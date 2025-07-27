@@ -72,12 +72,12 @@ class ACAgent(AgentBase):
             return ActType(policy_logits.argmax(dim=-1).cpu().item())
 
     def only_save_model(self, pathname: str) -> None:
-        """Save the A2C model."""
+        """Save the Actor-Critic model."""
         _save_model(self._net, pathname)
 
     @classmethod
     def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ACAgent":
-        """Load the A2C model."""
+        """Load the Actor-Critic model."""
         return cls(net=_load_model(pathname, device))
 
 
