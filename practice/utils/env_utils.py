@@ -15,7 +15,18 @@ ObsInt: TypeAlias = np.uint8
 
 
 def get_device(target: str | None = None) -> torch.device:
-    """Get the device."""
+    """Get the device.
+
+    Args:
+        target: The target device.
+            - "cpu": CPU
+            - "cuda": GPU
+            - "mps": Apple Silicon GPU
+            - None: Auto-detect the best device
+
+    Returns:
+        The device.
+    """
     if target is not None:
         return torch.device(target)
 

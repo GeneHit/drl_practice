@@ -23,24 +23,24 @@ from practice.utils_for_coding.network_utils import DoubleQCritic
 def get_app_config() -> SACConfig:
     """Get the application config."""
     # timestep = total_steps // vector_env_num = 120000 // 6 = 20000
-    total_steps = 120000
+    total_steps = 1200000
     return SACConfig(
         device=get_device("cpu"),
         total_steps=total_steps,
-        hidden_sizes=(128, 128),
+        hidden_sizes=(256, 256, 256),
         learning_rate=3e-4,
         critic_lr=3e-4,
-        gamma=0.99,
+        gamma=0.995,
         replay_buffer_capacity=int(total_steps * 0.8),
-        batch_size=128,
+        batch_size=256,
         update_start_step=10000,
-        max_action=2.0,
+        max_action=1.0,
         tau=0.005,
         max_grad_norm=0.5,
         alpha=0.2,
         auto_tune_alpha=True,
         alpha_lr=3e-4,
-        target_entropy=-1.0,  # -1 = - action_dimension
+        target_entropy=-6.0,  # -6 = - action_dimension
         log_std_min=-20,
         log_std_max=2,
         use_layer_norm=True,
@@ -48,17 +48,17 @@ def get_app_config() -> SACConfig:
         eval_random_seed=42,
         eval_video_num=10,
         env_config=EnvConfig(
-            env_id="Pendulum-v1",
+            env_id="Walker2d-v5",
             vector_env_num=6,
             use_multi_processing=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=SACTrainer,
             agent_type=ContinuousAgent,
-            output_dir="results/exercise9_sac/pendulum/",
+            output_dir="results/exercise9_sac/walker/",
             save_result=True,
-            model_filename="sac_pendulum.pth",
-            repo_id="SAC-PendulumV1",
+            model_filename="sac_walker.pth",
+            repo_id="SAC-Walker2dV5",
             algorithm_name="SAC",
             extra_tags=(),
         ),
