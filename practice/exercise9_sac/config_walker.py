@@ -60,7 +60,7 @@ def get_app_config() -> SACConfig:
             model_filename="sac_walker.pth",
             repo_id="SAC-Walker2dV5",
             algorithm_name="SAC",
-            extra_tags=("SAC", "Walker2d"),
+            extra_tags=(),
         ),
     )
 
