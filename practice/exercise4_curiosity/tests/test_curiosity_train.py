@@ -58,17 +58,19 @@ def test_config() -> EnhancedReinforceConfig:
     from practice.utils.env_utils import get_device
     from practice.utils_for_coding.agent_utils import NNAgent
     from practice.utils_for_coding.reward_utils import XDirectionShapingRewardConfig
-    from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
+    from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
 
     device = get_device()
 
     return EnhancedReinforceConfig(
         device=device,
-        episode=4,  # Reduced from 10000
+        total_steps=100,  # Reduced from 200000
         learning_rate=1e-3,
+        lr_gamma=0.99,
         gamma=0.999,
+        hidden_sizes=(32, 32),
         baseline=ConstantBaseline(),
-        entropy_coef=0.01,
+        entropy_coef=ConstantSchedule(0.01),
         eval_episodes=3,  # Reduced from 20
         eval_random_seed=42,
         eval_video_num=1,  # Reduced from 10
@@ -78,9 +80,11 @@ def test_config() -> EnhancedReinforceConfig:
                     beta=ExponentialSchedule(start_e=5.0, end_e=1.0, decay_rate=-0.005),
                     device=device,
                     normalize=True,
+                    max_reward=2,
                 ),
                 obs_dim=2,  # MountainCar observation dimension
                 output_dim=32,
+                hidden_sizes=(32, 32),
                 learning_rate=1e-3,
             ),
             XDirectionShapingRewardConfig(
@@ -200,7 +204,7 @@ class TestCuriosityTraining:
 
             with open(params_file, "r") as f:
                 params = json.load(f)
-                assert "episode" in params, "Params should contain episode"
+                assert "total_steps" in params, "Params should contain total_steps"
                 assert "learning_rate" in params, "Params should contain learning_rate"
                 assert "env_config" in params, "Params should contain env_config"
 
@@ -221,7 +225,9 @@ class TestCuriosityTraining:
         checkpoint_file = temp_output_dir / "checkpoint_curiosity.pth"
 
         # Create a dummy model state dict with correct structure
-        dummy_model = Reinforce1DNet(state_dim=2, action_dim=3)  # MountainCar has 2 obs, 3 actions
+        dummy_model = Reinforce1DNet(
+            state_dim=2, action_dim=3, hidden_sizes=test_config.hidden_sizes
+        )  # MountainCar has 2 obs, 3 actions
         torch.save(dummy_model.state_dict(), checkpoint_file)
 
         # Update config to use checkpoint
@@ -400,7 +406,7 @@ class TestCuriosityTraining:
         )
         config = replace(
             test_config,
-            episode=2,  # Even fewer episodes
+            total_steps=40,  # Even fewer steps
             artifact_config=artifact_config,
         )
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Sequence, cast
 
 import numpy as np
 import torch
@@ -8,14 +8,20 @@ import torch.optim
 from numpy.typing import NDArray
 
 from practice.base.chest import RewardBase, RewardConfig, ScheduleBase
+from practice.utils_for_coding.network_utils import MLP
 
 
 class RNDNetwork1D(nn.Module):
     """RNDNetwork1D is a network that to get a intrinsic reward from the environment."""
 
-    def __init__(self, obs_dim: int, output_dim: int = 32) -> None:
+    def __init__(self, obs_dim: int, output_dim: int, hidden_sizes: Sequence[int]) -> None:
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(obs_dim, 128), nn.ReLU(), nn.Linear(128, output_dim))
+        self.net = MLP(
+            input_dim=obs_dim,
+            output_dim=output_dim,
+            hidden_sizes=hidden_sizes,
+            activation=nn.ReLU,
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return cast(torch.Tensor, self.net(x))
@@ -31,6 +37,8 @@ class RNDRewardConfig:
     """Whether to normalize the reward."""
     device: torch.device
     """The device to run the neural network."""
+    max_reward: float
+    """The maximum reward for the RNDReward."""
 
 
 class RNDReward(RewardBase):
@@ -49,7 +57,6 @@ class RNDReward(RewardBase):
         optimizer: torch.optim.Optimizer,
     ) -> None:
         self._config = config
-        self._beta = config.beta
         self._predictor = predictor
         self._target = target
         self._optimizer = optimizer
@@ -78,6 +85,8 @@ class RNDReward(RewardBase):
         self, state: NDArray[Any], next_state: NDArray[Any], step: int
     ) -> NDArray[np.floating[Any]]:
         """Get the intrinsic reward for given states and update the predictor network."""
+        if state.ndim == 1:
+            state = state.reshape(1, -1)
         state_tensor = torch.from_numpy(state).float().to(self._config.device)
         # fititng predictor network to the freezed target network
         with torch.no_grad():
@@ -94,7 +103,8 @@ class RNDReward(RewardBase):
         intrinsic = torch.norm(diff.detach(), p=2, dim=1).cpu().numpy()
         if self._config.normalize:
             intrinsic = self._norm(intrinsic)
-        return cast(NDArray[np.floating[Any]], np.clip(intrinsic * self._beta(step), 0, 20))
+        intrinsic = np.clip(intrinsic * self._config.beta(step), 0, self._config.max_reward)
+        return cast(NDArray[np.floating[Any]], intrinsic)
 
     def _norm(self, x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
         batch_mean = x.mean()
@@ -125,14 +135,20 @@ class RND1DNetworkConfig(RewardConfig):
     """Observation dimension for creating networks."""
     output_dim: int = 32
     """Output dimension for the RND networks."""
+    hidden_sizes: tuple[int, ...]
+    """Hidden dimension for the RND networks."""
     learning_rate: float = 1e-3
     """Learning rate for the predictor optimizer."""
 
     def get_rewarder(self) -> RewardBase:
         """Create and return an RNDReward instance."""
         device = self.rnd_config.device
-        predictor = RNDNetwork1D(obs_dim=self.obs_dim, output_dim=self.output_dim).to(device)
-        target = RNDNetwork1D(obs_dim=self.obs_dim, output_dim=self.output_dim).to(device)
+        predictor = RNDNetwork1D(
+            obs_dim=self.obs_dim, output_dim=self.output_dim, hidden_sizes=self.hidden_sizes
+        ).to(device)
+        target = RNDNetwork1D(
+            obs_dim=self.obs_dim, output_dim=self.output_dim, hidden_sizes=self.hidden_sizes
+        ).to(device)
         optimizer = torch.optim.Adam(predictor.parameters(), lr=self.learning_rate)
 
         return RNDReward(

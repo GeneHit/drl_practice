@@ -53,7 +53,7 @@ def generate_context(config: ReinforceConfig) -> ContextBase:
     assert obs_shape is not None
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
-    policy = Reinforce1DNet(state_dim=obs_shape[0], action_dim=action_n)
+    policy = Reinforce1DNet(state_dim=obs_shape[0], action_dim=action_n, hidden_sizes=(128, 128))
     load_checkpoint_if_exists(policy, config.checkpoint_pathname)
     policy.to(config.device)
 

@@ -21,8 +21,8 @@ Don't choose too hard game and big neural network. But you can try it by yoursel
 |----------|-----------|-------------------|---------------|-------|--------|
 | [1. q_learning](./practice/exercise1_q/README.md) | Q Table | FrozenLake | Taxi | 📊 | 📊 |
 | [2. dqn](./practice/exercise2_dqn/README.md) | Deep Q Network | 1D LunarLander-v3 | img LunarLander-v3 | 🌊 | 📊 |
-| [3. reinforce](./practice/exercise3_reinforce/README.md) | Reinforce (Monte Carlo) | CartPole-v1 | MountainCar-v0 | 🌊 | 📊 |
-| [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with Reinforce, baseline, shaping reward) | | MountainCar-v0 | 🌊 | 📊 |
+| [3. reinforce](./practice/exercise3_reinforce/README.md) | Reinforce (Monte Carlo) | CartPole-v1 | - | 🌊 | 📊 |
+| [4. curiosity](./practice/exercise4_curiosity/README.md) | Curiosity (with Reinforce, baseline, shaping reward) | - | MountainCar-v0 | 🌊 | 📊 |
 | [5. A2C](./practice/exercise5_a2c/README.md) | A2C+GAE or A2C+TD-n | CartPole-v1 | LunarLander-v3 | 🌊 | 📊 |
 | [6. A3C](./practice/exercise6_a3c/README.md) | A3C (using A2C+GAE) | CartPole-v1 | LunarLander-v3 | 🌊 | 📊 |
 | [7. PPO](./practice/exercise7_ppo/README.md) | PPO | CartPole-v1 | LunarLander-v3 | 🌊 | 📊 |

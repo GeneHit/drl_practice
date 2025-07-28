@@ -14,28 +14,22 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
+from practice.utils_for_coding.network_utils import MLP
 
 
 class Reinforce1DNet(nn.Module):
-    def __init__(
-        self, state_dim: int, action_dim: int, hidden_dim: int = 128, layer_num: int = 2
-    ) -> None:
+    def __init__(self, state_dim: int, action_dim: int, hidden_sizes: Sequence[int]) -> None:
         super().__init__()
-        layers: list[nn.Module] = [nn.Linear(state_dim, hidden_dim)]
-        for _ in range(layer_num - 1):
-            layers.append(nn.Linear(hidden_dim, hidden_dim))
-        layers.append(nn.Linear(hidden_dim, action_dim))
-        layers.append(nn.Softmax(dim=-1))
-        self.network = nn.Sequential(*layers)
-
-        # Initialize parameters
-        for layer in self.network:
-            if isinstance(layer, nn.Linear):
-                nn.init.orthogonal_(layer.weight, gain=int(nn.init.calculate_gain("relu")))
-                nn.init.constant_(layer.bias, 0)
+        self.mlp = MLP(
+            input_dim=state_dim,
+            output_dim=action_dim,
+            hidden_sizes=hidden_sizes,
+            activation=nn.ReLU,
+        )
+        self._softmax = nn.Softmax(dim=-1)
 
     def forward(self, x: Tensor) -> Tensor:
-        y: Tensor = self.network(x)  # make mypy happy
+        y: Tensor = self._softmax(self.mlp(x))  # make mypy happy
         return y
 
 
@@ -237,14 +231,14 @@ class _ReinforcePod:
             returns.append(disc_return_t)
         returns.reverse()
 
-        # Convert to tensor
-        returns_ts = torch.tensor(returns, dtype=torch.float32)
+        # Convert to tensor: [episode_length, ] -> [episode_length, 1]
+        returns_ts = torch.tensor(returns, dtype=torch.float32).reshape(-1, 1)
         # Normalize advantages for stability
         if len(returns_ts) > 1:
             returns_ts = (returns_ts - returns_ts.mean()) / (returns_ts.std() + 1e-8)
 
         # Calculate policy loss and entropy loss
-        log_probs_tensor = torch.stack(tuple(log_probs))
+        log_probs_tensor = torch.stack(tuple(log_probs)).reshape(-1, 1)
         entropies_tensor = torch.stack(tuple(entropies))
 
         pg_loss = -(log_probs_tensor * returns_ts.to(self._config.device)).mean()

@@ -179,7 +179,9 @@ class TestReinforceTraining:
         checkpoint_file = temp_output_dir / "checkpoint_reinforce.pth"
 
         # Create a dummy model state dict with correct structure
-        dummy_model = Reinforce1DNet(state_dim=2, action_dim=3)  # MountainCar has 2 obs, 3 actions
+        dummy_model = Reinforce1DNet(
+            state_dim=2, action_dim=3, hidden_sizes=(32, 32)
+        )  # MountainCar has 2 obs, 3 actions
         torch.save(dummy_model.state_dict(), checkpoint_file)
 
         # Update config to use checkpoint

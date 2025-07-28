@@ -61,9 +61,15 @@ class EnvConfig(abc.ABC):
     """Configuration class for the gymnasium environments."""
 
     env_id: str
+    """The id of the environment."""
     env_kwargs: dict[str, Any] = field(default_factory=dict)
+    """The kwargs for the environment."""
     max_steps: int | None = None
+    """The maximum number of steps for the environment."""
+    normalize_obs: bool = False
+    """Whether to normalize the observations."""
     use_image: bool = False
+    """Whether to use image observations."""
 
     vector_env_num: int | None = None
     """Number of vector environments to use.
