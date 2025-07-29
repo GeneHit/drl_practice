@@ -29,7 +29,7 @@ def get_app_config() -> EnhancedReinforceConfig:
     return EnhancedReinforceConfig(
         device=device,
         total_steps=total_steps,
-        learning_rate=3e-3,
+        learning_rate=1e-3,
         lr_gamma=0.99,
         gamma=0.999,
         hidden_sizes=(32, 32),
@@ -56,8 +56,7 @@ def get_app_config() -> EnhancedReinforceConfig:
                 learning_rate=1e-3,
             ),
             XDirectionShapingRewardConfig(
-                beta=LinearSchedule(start_e=10.0, end_e=1.0, duration=int(total_steps * 0.8)),
-                goal_position=None,
+                beta=LinearSchedule(start_e=5.0, end_e=1.0, duration=int(total_steps * 0.8))
             ),
         ),
         env_config=EnvConfig(
