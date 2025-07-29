@@ -1,6 +1,7 @@
 import abc
 import json
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Type
 
 import torch
@@ -36,6 +37,8 @@ class ArtifactConfig(abc.ABC):
     """The filename for the eval result."""
     env_setup_filename: str = "env_setup.json"
     """The filename for the env setup."""
+    tensorboard_dir: str = "tensorboard"
+    """The directory for the tensorboard."""
 
     # Hub parameters (optional)
     repo_id: str
@@ -54,6 +57,10 @@ class ArtifactConfig(abc.ABC):
     """The extra tags for the huggingface hub."""
     usage_instructions: str = ""
     """The usage instructions for the huggingface hub."""
+
+    def get_tensorboard_dir(self) -> str:
+        """Get the tensorboard directory."""
+        return str(Path(self.output_dir) / self.tensorboard_dir)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -113,6 +120,8 @@ class BaseConfig(abc.ABC):
     """The maximum gradient norm for gradient clipping."""
     log_interval: int = 100
     """The interval to log the stats."""
+    track: bool = True
+    """Whether to track the training stats."""
 
     # Evaluation parameters
     eval_episodes: int = 100

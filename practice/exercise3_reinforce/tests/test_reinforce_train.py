@@ -39,6 +39,7 @@ from practice.exercise3_reinforce.reinforce_exercise import (
     ReinforceTrainer,
 )
 from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils_for_coding.scheduler_utils import ConstantSchedule
 
 
 @pytest.fixture
@@ -55,7 +56,7 @@ def test_config() -> ReinforceConfig:
         episode=4,  # Reduced from 1000
         learning_rate=1e-3,
         gamma=0.999,
-        entropy_coef=0.01,
+        entropy_coef=ConstantSchedule(0.01),
         hidden_sizes=(32, 32),
         eval_episodes=3,  # Reduced from 20
         eval_random_seed=42,

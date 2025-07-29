@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Sequence
 
 import numpy as np
@@ -7,7 +6,6 @@ import torch
 import torch.nn as nn
 from numpy.typing import NDArray
 from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
@@ -15,6 +13,8 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.network_utils import MLP
+from practice.utils_for_coding.scheduler_utils import ScheduleBase
+from practice.utils_for_coding.writer_utils import CustomWriter
 
 
 class Reinforce1DNet(nn.Module):
@@ -40,7 +40,7 @@ class ReinforceConfig(BaseConfig):
     episode: int
     """The number of episodes to train the policy."""
 
-    entropy_coef: float = 0.001
+    entropy_coef: ScheduleBase
     """The entropy coefficient for the entropy loss.
 
     The entropy loss is added to the policy loss to encourage the policy to explore the environment.
@@ -61,8 +61,8 @@ class ReinforceTrainer(TrainerBase):
     def train(self) -> None:
         """Train the policy network with a single environment."""
         # Initialize tensorboard writer
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
+        writer = CustomWriter(
+            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
         )
         env = self._ctx.env
 
@@ -130,11 +130,11 @@ class _EpisodeBuffer:
         """
         return self._rewards, self._log_probs, self._entropies
 
-    def clear(self, writer: SummaryWriter | None = None, episodes_completed: int = 0) -> None:
+    def clear(self, writer: CustomWriter | None = None, episodes_completed: int = 0) -> None:
         """Clear the episode buffer and optionally log episode data.
 
         Args:
-            writer: Optional SummaryWriter for logging episode data
+            writer: Optional CustomWriter for logging episode data
             episodes_completed: Episode count for logging
         """
         # Log episode data before clearing if writer is provided
@@ -149,10 +149,13 @@ class _EpisodeBuffer:
     def __len__(self) -> int:
         return len(self._rewards)
 
-    def _record_scalars(self, writer: SummaryWriter, episodes_completed: int) -> None:
+    def _record_scalars(self, writer: CustomWriter, episodes_completed: int) -> None:
         """Private method to record episode scalars to tensorboard."""
-        writer.add_scalar("episode/length", len(self._rewards), episodes_completed)
-        writer.add_scalar("episode/reward", sum(self._rewards), episodes_completed)
+        data: dict[str, Tensor | float | int] = {
+            "episode/length": int(len(self._rewards)),
+            "episode/reward": float(sum(self._rewards)),
+        }
+        writer.log_stats(data=data, step=episodes_completed, blocked=False)
 
 
 class _ReinforcePod:
@@ -162,7 +165,7 @@ class _ReinforcePod:
         self,
         config: ReinforceConfig,
         ctx: ContextBase,
-        writer: SummaryWriter,
+        writer: CustomWriter,
     ) -> None:
         self._config = config
         self._ctx = ctx
@@ -245,7 +248,9 @@ class _ReinforcePod:
         entropies_tensor = torch.stack(tuple(entropies))
 
         pg_loss = -(log_probs_tensor * returns_ts.to(self._config.device)).mean()
-        entropy_loss = -self._config.entropy_coef * entropies_tensor.mean()
+        entropy_coef = self._config.entropy_coef(self._episode_count)
+        entropy = entropies_tensor.mean()
+        entropy_loss = -entropy_coef * entropy
         total_loss = pg_loss + entropy_loss
 
         # Accumulate gradients
@@ -254,8 +259,16 @@ class _ReinforcePod:
         self._ctx.optimizer.zero_grad()
 
         # Log training metrics
-        self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._episode_count)
-        self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._episode_count)
-        self._writer.add_scalar("losses/total_loss", total_loss.item(), self._episode_count)
+        self._writer.log_stats(
+            data={
+                "loss/policy": pg_loss,
+                "loss/entropy": entropy_loss,
+                "loss/total": total_loss,
+                "entropy/coef": entropy_coef,
+                "entropy/value": entropy,
+            },
+            step=self._episode_count,
+            blocked=False,
+        )
 
         self._episode_count += 1

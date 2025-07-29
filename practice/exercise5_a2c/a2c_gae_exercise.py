@@ -1,13 +1,11 @@
 import abc
 from dataclasses import dataclass, replace
-from pathlib import Path
 
 import numpy as np
 import torch
 from numpy.typing import NDArray
 from torch import Tensor, nn
 from torch.nn import functional as F
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
@@ -16,10 +14,7 @@ from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.network_utils import init_weights
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import (
-    log_episode_stats_if_has,
-    log_stats,
-)
+from practice.utils_for_coding.writer_utils import CustomWriter
 
 
 class ActorCritic(nn.Module):
@@ -118,11 +113,10 @@ class A2CTrainer(TrainerBase):
     networks.
     """
 
-    def __init__(self, config: A2CConfig, ctx: ContextBase, log_prefix: str = "") -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase) -> None:
         super().__init__(config=config, ctx=ctx)
         self._config: A2CConfig = config
         self._ctx: ContextBase = ctx
-        self._log_prefix: str = log_prefix
 
     def train(self) -> None:
         """Train the policy network with a vectorized environment.
@@ -137,8 +131,8 @@ class A2CTrainer(TrainerBase):
         4. Reset the buffer
         5. go to 2, until the total steps is reached
         """
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
+        writer = CustomWriter(
+            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
         )
         # only support the vectorized environment
         envs = self._ctx.envs
@@ -150,11 +144,15 @@ class A2CTrainer(TrainerBase):
         # Create variables for loop
         episode_num = 0
         assert self._config.env_config.vector_env_num is not None
-        num_updates = self._config.total_steps // (
+        rollout_num = self._config.total_steps // (
             self._config.rollout_len * self._config.env_config.vector_env_num
         )
         state, _ = envs.reset()
-        for rollout_idx in tqdm(range(num_updates), desc=f"[{self._log_prefix}] Rollouts"):
+
+        rollout_range = range(rollout_num)
+        if self._config.track:
+            rollout_range = tqdm(rollout_range, desc="Rollouts")
+        for _ in rollout_range:
             # 2. Run one rollout
             for _ in range(self._config.rollout_len):
                 # sample action and buffer partial data
@@ -175,7 +173,7 @@ class A2CTrainer(TrainerBase):
                 # update state
                 state = next_states
                 # record the episode data
-                episode_num += log_episode_stats_if_has(writer, infos, episode_num)
+                episode_num += writer.log_episode_stats_if_has(infos, episode_num)
 
             # 3. Update the policy/value network
             pod.update()
@@ -274,10 +272,10 @@ class _RolloutBuffer:
 class _A2CPod(abc.ABC):
     """The pod base for the A2C algorithm."""
 
-    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: SummaryWriter) -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: CustomWriter) -> None:
         self._config: A2CConfig = config
         self._ctx: ContextBase = ctx
-        self._writer: SummaryWriter = writer
+        self._writer: CustomWriter = writer
         self._rollout: _RolloutBuffer = _RolloutBuffer()
 
     def reset(self) -> None:
@@ -333,7 +331,7 @@ class _A2CPod(abc.ABC):
 class _TDNPod(_A2CPod):
     """The pod for the TD(n) A2C algorithm."""
 
-    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: SummaryWriter) -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: CustomWriter) -> None:
         super().__init__(config=config, ctx=ctx, writer=writer)
 
     def update(self) -> None:
@@ -344,7 +342,7 @@ class _TDNPod(_A2CPod):
 class _GAEPod(_A2CPod):
     """The pod for the A2C-GAE algorithm."""
 
-    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: SummaryWriter) -> None:
+    def __init__(self, config: A2CConfig, ctx: ContextBase, writer: CustomWriter) -> None:
         super().__init__(config=config, ctx=ctx, writer=writer)
         self._rollout_count: int = 0
         self._pre_last_dones: Tensor | None = None
@@ -394,7 +392,7 @@ class _GAEPod(_A2CPod):
         self._ctx.optimizer.zero_grad()
 
         # 5. Log the stats
-        log_stats(
+        self._writer.log_stats(
             data={
                 "loss/policy": pg_loss,
                 "loss/value": value_loss,
@@ -404,10 +402,9 @@ class _GAEPod(_A2CPod):
                 "other/entropy": entropy,
                 "other/entropy_coef": entropy_coef,
             },
-            writer=self._writer,
             step=self._rollout_count,
             log_interval=self._config.log_interval,
-            unblocked=True,
+            blocked=False,
         )
         self._rollout_count += 1
 

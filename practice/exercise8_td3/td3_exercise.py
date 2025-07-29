@@ -1,14 +1,12 @@
 import copy
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import cast
 
 import numpy as np
 import torch
 from numpy.typing import NDArray
 from torch import nn
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
@@ -19,11 +17,7 @@ from practice.utils_for_coding.network_utils import MLP, soft_update
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import (
-    log_action_stats,
-    log_episode_stats_if_has,
-    log_stats,
-)
+from practice.utils_for_coding.writer_utils import CustomWriter
 
 
 class TD3Actor(nn.Module):
@@ -110,8 +104,8 @@ class TD3Trainer(TrainerBase):
         """
         # 1. initializations
         # Initialize tensorboard writer
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
+        writer = CustomWriter(
+            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
         )
         # Use environment from context - must be vector environment
         envs = self._ctx.continuous_envs
@@ -176,16 +170,18 @@ class TD3Trainer(TrainerBase):
                 pod.update(replay_buffer.sample(self._config.batch_size), step)
 
             # Log episode metrics
-            episode_steps += log_episode_stats_if_has(writer, infos, episode_steps)
+            episode_steps += writer.log_episode_stats_if_has(infos, episode_steps)
+
+        writer.close()
 
 
 class _TD3Pod:
     """The TD3 pod for training."""
 
-    def __init__(self, config: TD3Config, ctx: ACContext, writer: SummaryWriter) -> None:
+    def __init__(self, config: TD3Config, ctx: ACContext, writer: CustomWriter) -> None:
         self._config: TD3Config = config
         self._ctx: ACContext = ctx
-        self._writer: SummaryWriter = writer
+        self._writer: CustomWriter = writer
 
         self._target_actor = copy.deepcopy(self._ctx.network)
         self._target_critic = copy.deepcopy(self._ctx.critic)
@@ -218,13 +214,12 @@ class _TD3Pod:
         )
 
         # log
-        log_action_stats(
+        self._writer.log_action_stats(
             actions=action,
-            data={"noise_std": noise_std},
-            writer=self._writer,
+            data={"action/noise_std": noise_std},
             step=step,
             log_interval=self._config.log_interval,
-            unblocked=True,
+            blocked=False,
         )
 
         # Ensure action shape is (num_envs, action_dim)
@@ -257,6 +252,7 @@ class _TD3Pod:
         self._ctx.critic_optimizer.step()
 
         # 2. update actor/target_network if necessary
+        actor_data = {}
         if step % self._config.policy_delay == 0:
             # calculate actor loss and update actor
             action = self._ctx.network(exp.states)
@@ -273,26 +269,20 @@ class _TD3Pod:
             # update target networks (soft update)
             soft_update(self._ctx.network, self._target_actor, self._tau)
             soft_update(self._ctx.critic, self._target_critic, self._tau)
-            log_stats(
-                data={"loss/actor": actor_loss},
-                writer=self._writer,
-                step=step,
-                log_interval=self._config.log_interval,
-                unblocked=True,
-            )
+            actor_data["loss/actor"] = actor_loss
 
         # log the stats if necessary in background
         data = {
             "loss/critic": critic_loss,
             "q_value/target": target_q,
             **{f"q_value/critic_{i}": qi for i, qi in enumerate(qs)},
+            **actor_data,
         }
-        log_stats(
+        self._writer.log_stats(
             data=data,
-            writer=self._writer,
             step=step,
             log_interval=self._config.log_interval,
-            unblocked=True,
+            blocked=False,
         )
 
     def _get_target_q(self, experience: Experience) -> torch.Tensor:
