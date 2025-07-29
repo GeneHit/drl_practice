@@ -16,19 +16,19 @@ def get_app_config() -> DQNConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device("cpu")
-    timesteps = 200000
+    timesteps = 250_000
     return DQNConfig(
         device=device,
         dqn_algorithm="double",
         timesteps=timesteps,
-        learning_rate=1e-4,
+        learning_rate=5e-4,
         gamma=0.99,
-        epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.01, duration=int(0.1 * timesteps)),
-        replay_buffer_capacity=120000,
+        epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.05, duration=int(0.6 * timesteps)),
+        replay_buffer_capacity=120_000,
         batch_size=64,
         train_interval=1,
-        target_update_interval=250,
-        update_start_step=1000,
+        target_update_interval=500,
+        update_start_step=2000,
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
@@ -44,8 +44,8 @@ def get_app_config() -> DQNConfig:
             output_dir="results/exercise2_dqn/double_dqn/lunar_1d/",
             save_result=True,
             repo_id="DoubleDQN-1d-LunarLander-v3",
-            algorithm_name="Double DQN",
-            extra_tags=("deep-q-learning", "pytorch", "double-dqn"),
+            algorithm_name="Double-DQN",
+            extra_tags=("deep-q-learning", "pytorch"),
             usage_instructions="Please check the necessary wrappers in the env setup.",
         ),
     )
@@ -63,10 +63,8 @@ def generate_context(config: DQNConfig) -> ContextBase:
     action_n = int(eval_env.action_space.n)
 
     # Create Q-network based on observation space
-    if len(obs_shape) == 1:
-        q_network = QNet1D(state_n=obs_shape[0], action_n=action_n)
-    else:
-        raise ValueError(f"Unsupported observation space shape: {obs_shape}")
+    assert len(obs_shape) == 1
+    q_network = QNet1D(state_n=obs_shape[0], action_n=action_n, hidden_sizes=(256, 256))
 
     load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
     q_network.to(config.device)

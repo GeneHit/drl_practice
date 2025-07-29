@@ -63,10 +63,8 @@ def generate_context(config: DQNConfig) -> ContextBase:
     action_n = int(eval_env.action_space.n)
 
     # Create Q-network based on observation space
-    if len(obs_shape) == 1:
-        q_network = QNet1D(state_n=obs_shape[0], action_n=action_n)
-    else:
-        raise ValueError(f"Unsupported observation space shape: {obs_shape}")
+    assert len(obs_shape) == 1
+    q_network = QNet1D(state_n=obs_shape[0], action_n=action_n, hidden_sizes=(256, 256))
 
     load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
     q_network.to(config.device)

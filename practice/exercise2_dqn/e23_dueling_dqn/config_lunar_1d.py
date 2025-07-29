@@ -6,7 +6,7 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
 from practice.exercise2_dqn.dqn_exercise import DQNConfig
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
-from practice.exercise2_dqn.e22_double_dqn.double_dqn_exercise import QNet2D
+from practice.exercise2_dqn.e23_dueling_dqn.dueling_dqn_exercise import DuelingDQN1D
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
@@ -15,20 +15,22 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 def get_app_config() -> DQNConfig:
     """Get the application config."""
+    # get cuda or mps if available
     device = get_device("cpu")
-    timesteps = 20000
+    timesteps = 250_000
     return DQNConfig(
         device=device,
-        dqn_algorithm="double",
+        # use basic dqn, the key is the below DuelingDQN
+        dqn_algorithm="basic",
         timesteps=timesteps,
-        learning_rate=1e-4,
+        learning_rate=3e-4,
         gamma=0.99,
-        epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.01, duration=int(0.1 * timesteps)),
-        replay_buffer_capacity=40000,
+        epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.05, duration=int(0.5 * timesteps)),
+        replay_buffer_capacity=150_000,
         batch_size=64,
-        train_interval=2,
-        target_update_interval=1000,
-        update_start_step=1000,
+        train_interval=1,
+        target_update_interval=500,
+        update_start_step=2000,
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
@@ -37,22 +39,15 @@ def get_app_config() -> DQNConfig:
             env_id="LunarLander-v3",
             vector_env_num=6,
             use_multi_processing=True,
-            use_image=True,
-            training_render_mode="rgb_array",
-            image_shape=(84, 84),
-            frame_stack=4,
-            frame_skip=4,
-            # LunarLander-v3 default max_steps is 200
-            # max_steps=100,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
             agent_type=NNAgent,
-            output_dir="results/exercise2_dqn/double_dqn/lunar_2d/",
+            output_dir="results/exercise2_dqn/dueling_dqn/lunar_1d/",
             save_result=True,
-            repo_id="DoubleDQN-2d-LunarLander-v3",
-            algorithm_name="Double-DQN",
-            extra_tags=("deep-q-learning", "pytorch", "image"),
+            repo_id="DuelingDQN-1d-LunarLander-v3",
+            algorithm_name="Dueling DQN",
+            extra_tags=("deep-q-learning", "pytorch"),
             usage_instructions="Please check the necessary wrappers in the env setup.",
         ),
     )
@@ -69,9 +64,9 @@ def generate_context(config: DQNConfig) -> ContextBase:
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
 
-    # Create Q-network
-    assert len(obs_shape) == 3
-    q_network = QNet2D(in_shape=obs_shape, action_n=action_n)
+    # Create Q-network based on observation space
+    assert len(obs_shape) == 1
+    q_network = DuelingDQN1D(state_n=obs_shape[0], action_n=action_n, hidden_sizes=(256, 256))
 
     load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
     q_network.to(config.device)
