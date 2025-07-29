@@ -40,9 +40,7 @@ class ConstantBaseline(BaselineBase):
         self, returns: Sequence[float], log_probs: Sequence[Tensor] | None = None
     ) -> list[float]:
         if not returns:
-            return [
-                0.0,
-            ]
+            return []
         mean_return = sum(returns) / len(returns)
         if not self._baseline_initialized:
             self._baseline_value = mean_return
@@ -51,9 +49,7 @@ class ConstantBaseline(BaselineBase):
             self._baseline_value = (
                 self._decay * self._baseline_value + (1 - self._decay) * mean_return
             )
-        return [
-            self._baseline_value,
-        ]
+        return [self._baseline_value] * len(returns)
 
 
 class OptimalConstantBaseline(BaselineBase):
@@ -62,14 +58,14 @@ class OptimalConstantBaseline(BaselineBase):
     def update(
         self, returns: Sequence[float], log_probs: Sequence[Tensor] | None = None
     ) -> list[float]:
-        if log_probs is None or not returns:
-            return [
-                0.0,
-            ]
+        if not returns:
+            return []
+        if log_probs is None:
+            return [0.0] * len(returns)
         gradsq = [float(lp.detach().cpu().item()) ** 2 for lp in log_probs]
         numerator = sum(g * r for g, r in zip(gradsq, returns))
         denominator = sum(gradsq) if sum(gradsq) != 0 else 1.0
-        return [numerator / denominator]
+        return [numerator / denominator] * len(returns)
 
 
 class TimeDependentBaseline(BaselineBase):

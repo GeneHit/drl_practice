@@ -237,9 +237,6 @@ class _EnhancedReinforcePod:
         # Ensure network is in training mode
         self._ctx.network.train()
 
-        # Baseline for variance reduction
-        self._baseline = config.baseline
-
     def action_and_log_prob(
         self, state: NDArray[ObsType], actions: Sequence[ActType] | None = None
     ) -> tuple[ActType, Tensor, Tensor]:
@@ -316,7 +313,7 @@ class _EnhancedReinforcePod:
         # Convert to tensor
         returns_tensor = torch.tensor(returns, dtype=torch.float32)
         # Update baseline
-        baseline_values = self._baseline.update(returns, log_probs)
+        baseline_values = self._config.baseline.update(returns, log_probs)
         baseline_tensor = torch.tensor(baseline_values, dtype=torch.float32)
         # [episode_length, ] -> [episode_length, 1]
         advantages = (returns_tensor - baseline_tensor).reshape(-1, 1)
