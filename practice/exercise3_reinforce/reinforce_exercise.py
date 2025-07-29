@@ -46,6 +46,9 @@ class ReinforceConfig(BaseConfig):
     The entropy loss is added to the policy loss to encourage the policy to explore the environment.
     """
 
+    hidden_sizes: tuple[int, ...]
+    """The hidden sizes for the policy network."""
+
 
 class ReinforceTrainer(TrainerBase):
     """A trainer for the vanilla REINFORCE algorithm."""
