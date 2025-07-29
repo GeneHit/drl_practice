@@ -71,7 +71,7 @@ def get_app_config() -> EnhancedReinforceConfig:
             output_dir="results/exercise4_curiosity/mountain_car/",
             save_result=True,
             model_filename="model.pth",
-            repo_id="Reinforce-MountainCarV0",
+            repo_id="Curiosity-MountainCarV0",
             algorithm_name="Reinforce_RND",
             extra_tags=("curiosity", "reinforce", "rnd", "policy-gradient", "pytorch"),
         ),

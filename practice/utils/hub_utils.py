@@ -66,6 +66,12 @@ def push_model_to_hub(
     output_dir = Path(artifact_config.output_dir)
     repo_local_path = output_dir / "hub"
 
+    # copy the tensorboard to the local repo
+    shutil.copytree(
+        artifact_config.get_tensorboard_dir(),
+        repo_local_path / artifact_config.tensorboard_dir,
+    )
+
     _push_to_hub(
         repo_id=repo_id,
         model_card=model_card,

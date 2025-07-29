@@ -37,7 +37,7 @@ class ArtifactConfig(abc.ABC):
     """The filename for the eval result."""
     env_setup_filename: str = "env_setup.json"
     """The filename for the env setup."""
-    tensorboard_dir: str = "runs"
+    tensorboard_dir: str = "tensorboard"
     """The directory for the tensorboard."""
 
     # Hub parameters (optional)

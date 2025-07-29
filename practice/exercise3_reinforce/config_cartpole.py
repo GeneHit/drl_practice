@@ -22,10 +22,10 @@ def get_app_config() -> ReinforceConfig:
     device = get_device("cpu")
     return ReinforceConfig(
         device=device,
-        episode=1000,
+        episode=2000,
         learning_rate=1e-4,
         gamma=0.99,
-        entropy_coef=LinearSchedule(start_e=0.1, end_e=0.01, duration=1000),
+        entropy_coef=LinearSchedule(start_e=0.1, end_e=0.01, duration=2000),
         hidden_sizes=(128, 128),
         eval_episodes=20,
         eval_random_seed=42,
@@ -40,7 +40,6 @@ def get_app_config() -> ReinforceConfig:
             agent_type=NNAgent,
             output_dir="results/exercise3_reinforce/cartpole/",
             save_result=True,
-            model_filename="model.pth",
             repo_id="Reinforce-CartPole",
             algorithm_name="Vanilla-Reinforce",
             extra_tags=("policy-gradient", "pytorch", "vanilla", "monte-carlo"),
