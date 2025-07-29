@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Sequence
 
 import numpy as np
@@ -63,9 +62,7 @@ class ReinforceTrainer(TrainerBase):
     def train(self) -> None:
         """Train the policy network with a single environment."""
         # Initialize tensorboard writer
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
-        )
+        writer = SummaryWriter(log_dir=self._config.artifact_config.get_tensorboard_dir())
         env = self._ctx.env
 
         # Create training pod and buffer

@@ -1,7 +1,6 @@
 import copy
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -110,9 +109,7 @@ class TD3Trainer(TrainerBase):
         """
         # 1. initializations
         # Initialize tensorboard writer
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
-        )
+        writer = SummaryWriter(log_dir=self._config.artifact_config.get_tensorboard_dir())
         # Use environment from context - must be vector environment
         envs = self._ctx.continuous_envs
 

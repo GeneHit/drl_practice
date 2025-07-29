@@ -1,6 +1,5 @@
 import abc
 from dataclasses import dataclass, replace
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -143,9 +142,7 @@ class PPOTrainer(TrainerBase):
         4. Reset the buffer
         5. go to 2, until the total steps is reached
         """
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
-        )
+        writer = SummaryWriter(log_dir=self._config.artifact_config.get_tensorboard_dir())
         # only support the vectorized environment
         envs = self._ctx.envs
         if isinstance(self._config.gae_lambda_or_n_step, float):
