@@ -11,24 +11,24 @@ from practice.utils_for_coding.baseline_utils import (
 def test_constant_baseline() -> None:
     baseline = ConstantBaseline(decay=0.0)
     # Empty returns
-    assert baseline.update([]) == 0.0
+    assert baseline.update([]) == []
     # Typical returns
-    assert baseline.update([1.0, 2.0, 3.0]) == pytest.approx(2.0)
-    assert baseline.update([10.0, -10.0]) == 0.0
+    assert baseline.update([1.0, 2.0, 3.0]) == pytest.approx([2.0] * 3)
+    assert baseline.update([10.0, -10.0]) == pytest.approx([0.0] * 2)
 
 
 def test_optimal_constant_baseline() -> None:
     baseline = OptimalConstantBaseline()
     # Empty returns
-    assert baseline.update([], []) == 0.0
+    assert baseline.update([], []) == []
     # No log_probs
-    assert baseline.update([1.0, 2.0], None) == 0.0
+    assert baseline.update([1.0, 2.0], None) == [0.0] * 2
     # Typical case
     returns = [1.0, 2.0, 3.0]
     log_probs = [torch.tensor(1.0), torch.tensor(2.0), torch.tensor(3.0)]
     gradsq = [1.0, 4.0, 9.0]
     expected = sum(g * r for g, r in zip(gradsq, returns)) / sum(gradsq)
-    assert baseline.update(returns, log_probs) == pytest.approx(expected)
+    assert baseline.update(returns, log_probs) == pytest.approx([expected] * len(returns))
 
 
 def test_time_dependent_baseline() -> None:

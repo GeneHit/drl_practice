@@ -20,18 +20,30 @@ class LinearSchedule(ScheduleBase):
     t >= duration: epsilon = end_e
     """
 
-    def __init__(self, start_e: float, end_e: float, duration: int) -> None:
-        self.start_e = start_e
-        self.end_e = end_e
-        self.duration = duration
+    def __init__(
+        self,
+        start_e: float,
+        end_e: float,
+        duration: int,
+        start_t: int = 0,
+    ) -> None:
+        self._start_e = start_e
+        self._end_e = end_e
+        self._duration = duration
+        self._start_t = start_t
+        assert self._start_t <= self._duration
 
     def __call__(self, t: int) -> float:
         assert t >= 0
-        if t >= self.duration:
-            return self.end_e
+        if t <= self._start_t:
+            return self._start_e
 
-        t_e = self.start_e + (self.end_e - self.start_e) * (t / self.duration)
-        return float(t_e)
+        t = t - self._start_t
+        if t >= self._duration:
+            return self._end_e
+
+        t_e = self._start_e + (self._end_e - self._start_e) * (t / self._duration)
+        return t_e
 
 
 class ExponentialSchedule(ScheduleBase):
@@ -42,13 +54,13 @@ class ExponentialSchedule(ScheduleBase):
     """
 
     def __init__(self, start_e: float, end_e: float, decay_rate: float) -> None:
-        self.start_e = start_e
-        self.end_e = end_e
-        self.decay_rate = decay_rate
+        self._start_e = start_e
+        self._end_e = end_e
+        self._decay_rate = decay_rate
 
     def __call__(self, t: int) -> float:
         assert t >= 0
         # when t=0, epsilon should be start_e
         # when t -> inf, epsilon should be end_e
-        epsilon = self.end_e + (self.start_e - self.end_e) * float(np.exp(-self.decay_rate * t))
+        epsilon = self._end_e + (self._start_e - self._end_e) * float(np.exp(-self._decay_rate * t))
         return epsilon

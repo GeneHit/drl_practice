@@ -30,6 +30,7 @@ from typing import Generator, cast
 import pytest
 import torch
 
+from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
@@ -38,37 +39,37 @@ from practice.exercise4_curiosity.config_mountain_car import (
     get_app_config,
     get_env_for_play_and_hub,
 )
+from practice.exercise4_curiosity.curiosity_exercise import (
+    RND1DNetworkConfig,
+    RNDRewardConfig,
+    XShapingRewardConfig,
+)
 from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
     EnhancedReinforceTrainer,
 )
+from practice.utils.env_utils import get_device
 from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
+from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
 
 
 @pytest.fixture
 def test_config() -> EnhancedReinforceConfig:
     """Create a test configuration based on mountain car config with reduced parameters."""
     # Create a modified config with reduced parameters for testing
-    from practice.base.config import ArtifactConfig, EnvConfig
-    from practice.exercise4_curiosity.curiosity_exercise import (
-        RND1DNetworkConfig,
-        RNDRewardConfig,
-    )
-    from practice.utils.env_utils import get_device
-    from practice.utils_for_coding.agent_utils import NNAgent
-    from practice.utils_for_coding.reward_utils import XDirectionShapingRewardConfig
-    from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
-
     device = get_device()
 
     return EnhancedReinforceConfig(
         device=device,
-        episode=4,  # Reduced from 10000
+        total_steps=100,  # Reduced from 200000
         learning_rate=1e-3,
+        lr_gamma=0.99,
         gamma=0.999,
+        hidden_sizes=(32, 32),
         baseline=ConstantBaseline(),
-        entropy_coef=0.01,
+        entropy_coef=ConstantSchedule(0.01),
         eval_episodes=3,  # Reduced from 20
         eval_random_seed=42,
         eval_video_num=1,  # Reduced from 10
@@ -78,12 +79,14 @@ def test_config() -> EnhancedReinforceConfig:
                     beta=ExponentialSchedule(start_e=5.0, end_e=1.0, decay_rate=-0.005),
                     device=device,
                     normalize=True,
+                    max_reward=2,
                 ),
                 obs_dim=2,  # MountainCar observation dimension
                 output_dim=32,
+                hidden_sizes=(32, 32),
                 learning_rate=1e-3,
             ),
-            XDirectionShapingRewardConfig(
+            XShapingRewardConfig(
                 beta=ExponentialSchedule(start_e=5.0, end_e=1.0, decay_rate=-0.005),
                 goal_position=None,
             ),
@@ -200,7 +203,7 @@ class TestCuriosityTraining:
 
             with open(params_file, "r") as f:
                 params = json.load(f)
-                assert "episode" in params, "Params should contain episode"
+                assert "total_steps" in params, "Params should contain total_steps"
                 assert "learning_rate" in params, "Params should contain learning_rate"
                 assert "env_config" in params, "Params should contain env_config"
 
@@ -221,7 +224,9 @@ class TestCuriosityTraining:
         checkpoint_file = temp_output_dir / "checkpoint_curiosity.pth"
 
         # Create a dummy model state dict with correct structure
-        dummy_model = Reinforce1DNet(state_dim=2, action_dim=3)  # MountainCar has 2 obs, 3 actions
+        dummy_model = Reinforce1DNet(
+            state_dim=2, action_dim=3, hidden_sizes=test_config.hidden_sizes
+        )  # MountainCar has 2 obs, 3 actions
         torch.save(dummy_model.state_dict(), checkpoint_file)
 
         # Update config to use checkpoint
@@ -400,7 +405,7 @@ class TestCuriosityTraining:
         )
         config = replace(
             test_config,
-            episode=2,  # Even fewer episodes
+            total_steps=40,  # Even fewer steps
             artifact_config=artifact_config,
         )
 

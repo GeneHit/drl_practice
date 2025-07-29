@@ -54,11 +54,11 @@ def log_action_stats(
     """
 
     def _log_scalar() -> None:
-        writer.add_scalar("action/mean", actions.mean().item(), step)
-        writer.add_scalar("action/std", actions.std().item(), step)
+        writer.add_scalar("action/mean", actions.cpu().mean().item(), step)
+        writer.add_scalar("action/std", actions.cpu().std().item(), step)
         for key, value in data.items():
             if isinstance(value, Tensor):
-                writer.add_scalar(f"action/{key}", value.mean().item(), step)
+                writer.add_scalar(f"action/{key}", value.cpu().mean().item(), step)
             else:
                 writer.add_scalar(f"action/{key}", value, step)
 
@@ -94,7 +94,7 @@ def log_stats(
         for key, value in data.items():
             # to simply the code, always call mean()
             if isinstance(value, Tensor):
-                writer.add_scalar(f"{key}", value.mean().item(), step)
+                writer.add_scalar(f"{key}", value.cpu().mean().item(), step)
             else:
                 writer.add_scalar(f"{key}", value, step)
 

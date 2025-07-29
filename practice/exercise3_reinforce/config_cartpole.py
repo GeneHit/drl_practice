@@ -25,6 +25,7 @@ def get_app_config() -> ReinforceConfig:
         learning_rate=1e-4,
         gamma=0.99,
         entropy_coef=0.01,
+        hidden_sizes=(32, 32),
         eval_episodes=20,
         eval_random_seed=42,
         eval_video_num=10,
@@ -55,7 +56,9 @@ def generate_context(config: ReinforceConfig) -> ContextBase:
     assert obs_shape is not None
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
-    policy = Reinforce1DNet(state_dim=obs_shape[0], action_dim=action_n)
+    policy = Reinforce1DNet(
+        state_dim=obs_shape[0], action_dim=action_n, hidden_sizes=config.hidden_sizes
+    )
     load_checkpoint_if_exists(policy, config.checkpoint_pathname)
     policy.to(config.device)
 

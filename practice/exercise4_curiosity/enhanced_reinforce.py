@@ -17,13 +17,20 @@ from practice.utils_for_coding.baseline_utils import (
     BaselineBase,
     ConstantBaseline,
 )
+from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import log_stats
 
 
 @dataclass(kw_only=True, frozen=True)
 class EnhancedReinforceConfig(BaseConfig):
-    episode: int
-    """The number of episodes to train the policy."""
+    total_steps: int
+    """The total number of steps to train the policy."""
+
+    lr_gamma: float
+    """The learning rate gamma for the optimizer."""
+
+    hidden_sizes: tuple[int, ...]
+    """The hidden sizes for the policy network."""
 
     baseline: BaselineBase = ConstantBaseline()
     """The baseline for the policy.
@@ -31,7 +38,7 @@ class EnhancedReinforceConfig(BaseConfig):
     The baseline is used to reduce the variance of the policy gradient.
     """
 
-    entropy_coef: float = 0.01
+    entropy_coef: ScheduleBase
     """The entropy coefficient for the entropy loss.
 
     The entropy loss is added to the policy loss to encourage the policy to explore the environment.
@@ -68,7 +75,9 @@ class EnhancedReinforceTrainer(TrainerBase):
         pod = _EnhancedReinforcePod(config=self._config, ctx=self._ctx, writer=writer)
         episode_buffer = _EpisodeBuffer()
 
-        for episode_idx in tqdm(range(self._config.episode), desc="Training"):
+        step = 0
+        step_bar = tqdm(total=self._config.total_steps, desc="Training")
+        while step < self._config.total_steps:
             # 1. Resets for new episode
             state, _ = env.reset()
             done = False
@@ -86,23 +95,26 @@ class EnhancedReinforceTrainer(TrainerBase):
                 episode_buffer.add(float(reward), log_prob, entropy)
                 # Calculate intrinsic rewards
                 for rewarder in self._ctx.rewarders:
-                    intrinsic_reward = rewarder.get_reward(
-                        state.reshape(1, -1), next_state.reshape(1, -1), episode_idx
-                    )[0]
+                    intrinsic_rewards = rewarder.get_reward(
+                        state.reshape(1, -1), next_state.reshape(1, -1), step
+                    )
+                    assert intrinsic_rewards[0] < 30, f"{intrinsic_rewards=}"
                     episode_buffer.add_intrinsic_reward(
-                        intrinsic_reward=float(intrinsic_reward),
+                        intrinsic_reward=float(intrinsic_rewards[0]),
                         rewarder_name=rewarder.__class__.__name__,
                     )
 
                 # Update state
                 state = next_state
+                step += 1
+                step_bar.update(1)
 
             # 3. Process completed episode
             # Update policy with the episode data
             rewards, log_probs, entropies = episode_buffer.get_episode_data()
-            pod.update(rewards, log_probs, entropies)
+            pod.update(rewards, log_probs, entropies, step)
             # Clear episode buffer and log rewarder data if present
-            episode_buffer.clear(writer, episode_idx)
+            episode_buffer.clear(writer, step)
 
         # Close writer
         writer.close()
@@ -120,6 +132,7 @@ class _EpisodeBuffer:
         self._intrinsic_rewards: list[float] = []
         # the contributions of each rewarder
         self._rewarder_contributions: dict[str, list[float]] = {}
+        self._episode_count = 0
 
     def add(self, reward: float, log_prob: Tensor, entropy: Tensor) -> None:
         """Add a step to the episode buffer.
@@ -201,10 +214,11 @@ class _EpisodeBuffer:
             # Log individual rewarder contributions
             for rewarder_name in self._rewarder_contributions:
                 writer.add_scalar(
-                    f"episode/intrinsic_reward_{rewarder_name}",
+                    f"episode/{rewarder_name}",
                     sum(self._rewarder_contributions[rewarder_name]),
                     episodes_completed,
                 )
+        self._episode_count += 1
 
 
 class _EnhancedReinforcePod:
@@ -222,10 +236,6 @@ class _EnhancedReinforcePod:
         self._ctx.optimizer.zero_grad()
         # Ensure network is in training mode
         self._ctx.network.train()
-
-        self._episode_count = 0
-        # Baseline for variance reduction
-        self._baseline = config.baseline
 
     def action_and_log_prob(
         self, state: NDArray[ObsType], actions: Sequence[ActType] | None = None
@@ -265,7 +275,11 @@ class _EnhancedReinforcePod:
             return ActType(action_tensor.cpu().item()), log_probs, entropies
 
     def update(
-        self, rewards: Sequence[float], log_probs: Sequence[Tensor], entropies: Sequence[Tensor]
+        self,
+        rewards: Sequence[float],
+        log_probs: Sequence[Tensor],
+        entropies: Sequence[Tensor],
+        step: int,
     ) -> None:
         """Update the policy network with a episode's data.
 
@@ -297,46 +311,47 @@ class _EnhancedReinforcePod:
             returns[i] = disc_return_t
 
         # Convert to tensor
-        returns_tensor = torch.tensor(returns)
+        returns_tensor = torch.tensor(returns, dtype=torch.float32)
         # Update baseline
-        baseline_value = self._baseline.update(returns, list(log_probs))
-        if isinstance(baseline_value, list):
-            baseline_tensor = torch.tensor(baseline_value)
-        else:
-            baseline_tensor = torch.full_like(returns_tensor, float(baseline_value))
-        advantages = returns_tensor - baseline_tensor
+        baseline_values = self._config.baseline.update(returns, log_probs)
+        baseline_tensor = torch.tensor(baseline_values, dtype=torch.float32)
+        # [episode_length, ] -> [episode_length, 1]
+        advantages = (returns_tensor - baseline_tensor).reshape(-1, 1)
 
         # Normalize advantages for stability
         if len(advantages) > 1:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         # Calculate policy loss and entropy loss
-        log_probs_tensor = torch.stack(tuple(log_probs))
+        log_probs_tensor = torch.stack(tuple(log_probs)).reshape(-1, 1)
         entropies_tensor = torch.stack(tuple(entropies))
         pg_loss = -(log_probs_tensor * advantages.to(self._config.device)).mean()
-        entropy_loss = -self._config.entropy_coef * entropies_tensor.mean()
+        entropy_coef = self._config.entropy_coef(step)
+        entropy = entropies_tensor.mean()
+        entropy_loss = -entropy_coef * entropy
         total_loss = pg_loss + entropy_loss
 
         # compute gradients and update the network
         self._ctx.optimizer.zero_grad()
         total_loss.backward()
+        if self._config.max_grad_norm is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._ctx.network.parameters(), self._config.max_grad_norm
+            )
         self._ctx.optimizer.step()
 
         # Log training metrics
-        baseline_value = (
-            float(baseline_value)
-            if not isinstance(baseline_value, Sequence)
-            else float(baseline_value[0])
-        )
         log_stats(
             data={
                 "loss/policy": pg_loss,
                 "loss/entropy": entropy_loss,
                 "loss/total": total_loss,
-                "other/baseline": baseline_value,
+                "other/baseline": baseline_values[0],
+                "other/entropy_coef": entropy_coef,
+                "other/entropy": entropy,
+                "other/advantages": advantages.mean(),
             },
             writer=self._writer,
-            step=self._episode_count,
-            log_interval=1,
+            step=step,
+            log_interval=self._config.log_interval,
         )
-        self._episode_count += 1

@@ -32,7 +32,7 @@ import torch
 
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
-from practice.exercise3_reinforce.config_mountain_car import generate_context
+from practice.exercise3_reinforce.config_cartpole import generate_context
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     ReinforceConfig,
@@ -56,6 +56,7 @@ def test_config() -> ReinforceConfig:
         learning_rate=1e-3,
         gamma=0.999,
         entropy_coef=0.01,
+        hidden_sizes=(32, 32),
         eval_episodes=3,  # Reduced from 20
         eval_random_seed=42,
         eval_video_num=1,  # Reduced from 10
@@ -179,7 +180,9 @@ class TestReinforceTraining:
         checkpoint_file = temp_output_dir / "checkpoint_reinforce.pth"
 
         # Create a dummy model state dict with correct structure
-        dummy_model = Reinforce1DNet(state_dim=2, action_dim=3)  # MountainCar has 2 obs, 3 actions
+        dummy_model = Reinforce1DNet(
+            state_dim=2, action_dim=3, hidden_sizes=test_config.hidden_sizes
+        )  # MountainCar has 2 obs, 3 actions
         torch.save(dummy_model.state_dict(), checkpoint_file)
 
         # Update config to use checkpoint
@@ -293,7 +296,7 @@ class TestReinforceTraining:
 
         # Test train mode loading
         config, context = load_config_module(
-            "practice/exercise3_reinforce/config_mountain_car.py", "train"
+            "practice/exercise3_reinforce/config_cartpole.py", "train"
         )
 
         assert isinstance(config, ReinforceConfig)
@@ -303,7 +306,7 @@ class TestReinforceTraining:
 
         # Test play mode loading
         config, init_env = load_config_module(
-            "practice/exercise3_reinforce/config_mountain_car.py", "play"
+            "practice/exercise3_reinforce/config_cartpole.py", "play"
         )
 
         env = cast(EnvType, init_env)  # make mypy happy

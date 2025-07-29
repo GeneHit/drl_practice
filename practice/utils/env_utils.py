@@ -89,7 +89,10 @@ def make_discrete_env_with_kwargs(
 
 
 def make_env_with_kwargs(
-    env_id: str, max_steps: int | None = None, kwargs: dict[str, Any] = {}
+    env_id: str,
+    max_steps: int | None = None,
+    kwargs: dict[str, Any] = {},
+    normalize_obs: bool = False,
 ) -> EnvType:
     """Make the environment based on configuration.
 
@@ -103,6 +106,8 @@ def make_env_with_kwargs(
     env = gym.wrappers.RecordEpisodeStatistics(env)
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+    if normalize_obs:
+        env = gym.wrappers.NormalizeObservation(env)
     env = gym.wrappers.DtypeObservation(env, dtype=np.float32)
 
     return env
@@ -115,6 +120,7 @@ def make_image_env_for_vectorized(
     frame_stack_size: int,
     frame_skip: int = 1,
     max_steps: int | None = None,
+    normalize_obs: bool = False,
 ) -> gym.Env[NDArray[ObsInt], ActType]:
     """Make the 2D environment.
 
@@ -144,12 +150,17 @@ def make_image_env_for_vectorized(
         env = gym.wrappers.FrameSkip(env, skip=frame_skip)
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+    if normalize_obs:
+        env = gym.wrappers.NormalizeObservation(env)
     # env = TransformObservation(env, lambda obs: np.transpose(obs, (2, 0, 1)))
     return cast(gym.Env[NDArray[ObsInt], ActType], env)
 
 
 def make_1d_env_for_vectorized(
-    env_id: str, render_mode: str | None = None, max_steps: int | None = None
+    env_id: str,
+    render_mode: str | None = None,
+    max_steps: int | None = None,
+    normalize_obs: bool = False,
 ) -> gym.Env[NDArray[np.float32], ActType]:
     """Make the 1D environment.
 
@@ -173,6 +184,8 @@ def make_1d_env_for_vectorized(
     # Add time limit wrapper if max_steps is specified
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
+    if normalize_obs:
+        env = gym.wrappers.NormalizeObservation(env)
     env = gym.wrappers.DtypeObservation(env, dtype=np.float32)
 
     return cast(gym.Env[NDArray[np.float32], ActType], env)
@@ -204,13 +217,17 @@ def get_env_from_config(config: EnvConfig) -> tuple[EnvType | EnvsType, EnvType]
     if config.vector_env_num is None:
         assert not config.use_image, "single environment is not supported for image now"
         train_env = make_env_with_kwargs(
-            config.env_id, max_steps=config.max_steps, kwargs=config.env_kwargs
+            config.env_id,
+            max_steps=config.max_steps,
+            kwargs=config.env_kwargs,
+            normalize_obs=config.normalize_obs,
         )
         # always use rgb_array and default max_steps for evaluation
         eval_env = make_env_with_kwargs(
             config.env_id,
             max_steps=config.max_steps,
             kwargs={**config.env_kwargs, "render_mode": "rgb_array"},
+            normalize_obs=config.normalize_obs,
         )
         return train_env, eval_env
 
@@ -233,6 +250,7 @@ def get_env_from_config(config: EnvConfig) -> tuple[EnvType | EnvsType, EnvType]
                         frame_stack_size=config.frame_stack,
                         frame_skip=config.frame_skip,
                         max_steps=max_steps,
+                        normalize_obs=config.normalize_obs,
                     ),
                 )
 
@@ -244,6 +262,7 @@ def get_env_from_config(config: EnvConfig) -> tuple[EnvType | EnvsType, EnvType]
                     env_id=config.env_id,
                     render_mode=render_mode,
                     max_steps=max_steps,
+                    normalize_obs=config.normalize_obs,
                 ),
             )
 

@@ -53,3 +53,13 @@ The curiosity mechanism works by:
 3. **Intrinsic Reward**: L2 norm of prediction error
 4. **Normalization**: Running mean/variance normalization for stability
 5. **Scheduling**: Beta parameter controls curiosity strength over time
+
+
+## Parameter Tuning
+1. smaller entropy_coef.
+2. RND: smaller beta, add clip and normalize
+    - ensure reward is in a same level with the environment reward.
+    - bad tries: zeor entropy, no x shaping reward, very small RND beta
+3. small policy and RND hidden_sizes: -> [32, 32]
+4. TODO: find the global optimal point.
+    - With the current config, the training will get different local optimal point.
