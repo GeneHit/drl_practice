@@ -38,11 +38,8 @@ import torch
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
 from practice.exercise2_dqn.config_lunar_1d import generate_context
-from practice.exercise2_dqn.dqn_exercise import (
-    DQNConfig,
-    DQNTrainer,
-    QNet1D,
-)
+from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
+from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.utils.train_utils import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -58,6 +55,7 @@ def test_config() -> DQNConfig:
 
     return DQNConfig(
         device=device,
+        dqn_algorithm="basic",
         timesteps=100,  # Reduced from 200000
         learning_rate=1e-3,  # Increased for faster learning
         gamma=0.99,

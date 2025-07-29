@@ -4,8 +4,9 @@ from torch.optim import Adam
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
-from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
+from practice.exercise2_dqn.dqn_exercise import DQNConfig
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
+from practice.exercise2_dqn.e22_double_dqn.double_dqn_exercise import QNet2D
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
@@ -14,20 +15,19 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 def get_app_config() -> DQNConfig:
     """Get the application config."""
-    # get cuda or mps if available
     device = get_device("cpu")
-    timesteps = 200000
+    timesteps = 20000
     return DQNConfig(
         device=device,
-        dqn_algorithm="basic",
+        dqn_algorithm="double",
         timesteps=timesteps,
         learning_rate=1e-4,
         gamma=0.99,
         epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.01, duration=int(0.1 * timesteps)),
-        replay_buffer_capacity=120000,
+        replay_buffer_capacity=40000,
         batch_size=64,
-        train_interval=1,
-        target_update_interval=250,
+        train_interval=2,
+        target_update_interval=1000,
         update_start_step=1000,
         eval_episodes=100,
         eval_random_seed=42,
@@ -37,15 +37,22 @@ def get_app_config() -> DQNConfig:
             env_id="LunarLander-v3",
             vector_env_num=6,
             use_multi_processing=True,
+            use_image=True,
+            training_render_mode="rgb_array",
+            image_shape=(84, 84),
+            frame_stack=4,
+            frame_skip=4,
+            # LunarLander-v3 default max_steps is 200
+            # max_steps=100,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
             agent_type=NNAgent,
-            output_dir="results/exercise2_dqn/lunar_1d/",
+            output_dir="results/exercise2_dqn/double_dqn/lunar_2d/",
             save_result=True,
-            repo_id="DQN-1d-LunarLander-v3",
-            algorithm_name="DQN",
-            extra_tags=("deep-q-learning", "pytorch"),
+            repo_id="DoubleDQN-2d-LunarLander-v3",
+            algorithm_name="DoubleDQN",
+            extra_tags=("deep-q-learning", "pytorch", "image", "double-dqn"),
             usage_instructions="Please check the necessary wrappers in the env setup.",
         ),
     )
@@ -62,11 +69,9 @@ def generate_context(config: DQNConfig) -> ContextBase:
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
 
-    # Create Q-network based on observation space
-    if len(obs_shape) == 1:
-        q_network = QNet1D(state_n=obs_shape[0], action_n=action_n)
-    else:
-        raise ValueError(f"Unsupported observation space shape: {obs_shape}")
+    # Create Q-network
+    assert len(obs_shape) == 3
+    q_network = QNet2D(in_shape=obs_shape, action_n=action_n)
 
     load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
     q_network.to(config.device)

@@ -63,7 +63,7 @@ def test_config() -> EnhancedReinforceConfig:
 
     return EnhancedReinforceConfig(
         device=device,
-        total_steps=100,  # Reduced from 200000
+        timesteps=100,  # Reduced from 200000
         learning_rate=1e-3,
         lr_gamma=0.99,
         gamma=0.999,
@@ -405,7 +405,7 @@ class TestCuriosityTraining:
         )
         config = replace(
             test_config,
-            total_steps=40,  # Even fewer steps
+            timesteps=40,  # Even fewer steps
             artifact_config=artifact_config,
         )
 
