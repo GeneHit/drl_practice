@@ -15,6 +15,8 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.network_utils import MLP
+from practice.utils_for_coding.scheduler_utils import ScheduleBase
+from practice.utils_for_coding.writer_utils import log_stats
 
 
 class Reinforce1DNet(nn.Module):
@@ -40,7 +42,7 @@ class ReinforceConfig(BaseConfig):
     episode: int
     """The number of episodes to train the policy."""
 
-    entropy_coef: float = 0.001
+    entropy_coef: ScheduleBase
     """The entropy coefficient for the entropy loss.
 
     The entropy loss is added to the policy loss to encourage the policy to explore the environment.
@@ -245,7 +247,9 @@ class _ReinforcePod:
         entropies_tensor = torch.stack(tuple(entropies))
 
         pg_loss = -(log_probs_tensor * returns_ts.to(self._config.device)).mean()
-        entropy_loss = -self._config.entropy_coef * entropies_tensor.mean()
+        entropy_coef = self._config.entropy_coef(self._episode_count)
+        entropy = entropies_tensor.mean()
+        entropy_loss = -entropy_coef * entropy
         total_loss = pg_loss + entropy_loss
 
         # Accumulate gradients
@@ -254,8 +258,16 @@ class _ReinforcePod:
         self._ctx.optimizer.zero_grad()
 
         # Log training metrics
-        self._writer.add_scalar("losses/policy_loss", pg_loss.item(), self._episode_count)
-        self._writer.add_scalar("losses/entropy_loss", entropy_loss.item(), self._episode_count)
-        self._writer.add_scalar("losses/total_loss", total_loss.item(), self._episode_count)
+        log_stats(
+            data={
+                "loss/policy": pg_loss,
+                "loss/entropy": entropy_loss,
+                "loss/total": total_loss,
+                "entropy/coef": entropy_coef,
+                "entropy/value": entropy,
+            },
+            writer=self._writer,
+            step=self._episode_count,
+        )
 
         self._episode_count += 1

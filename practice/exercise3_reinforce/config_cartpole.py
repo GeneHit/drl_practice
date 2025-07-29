@@ -13,36 +13,37 @@ from practice.exercise3_reinforce.reinforce_exercise import (
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
+from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> ReinforceConfig:
     """Get the application config."""
-    # get cuda or mps if available
-    device = get_device()
+    # cpu is faster since the training is not heavy.
+    device = get_device("cpu")
     return ReinforceConfig(
         device=device,
         episode=1000,
         learning_rate=1e-4,
         gamma=0.99,
-        entropy_coef=0.01,
-        hidden_sizes=(32, 32),
+        entropy_coef=LinearSchedule(start_e=0.1, end_e=0.01, duration=1000),
+        hidden_sizes=(128, 128),
         eval_episodes=20,
         eval_random_seed=42,
         eval_video_num=10,
         env_config=EnvConfig(
             env_id="CartPole-v1",
             # CartPole-v1 default 500, here set it to 1000 to see the performance of the agent.
-            max_steps=1000,
+            # max_steps=1000,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ReinforceTrainer,
             agent_type=NNAgent,
             output_dir="results/exercise3_reinforce/cartpole/",
             save_result=True,
-            model_filename="reinforce.pth",
+            model_filename="model.pth",
             repo_id="Reinforce-CartPole",
             algorithm_name="Vanilla-Reinforce",
-            extra_tags=("policy-gradient", "pytorch", "vanilla"),
+            extra_tags=("policy-gradient", "pytorch", "vanilla", "monte-carlo"),
         ),
     )
 
