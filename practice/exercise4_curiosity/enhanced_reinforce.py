@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import torch
 from numpy.typing import NDArray
 from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from practice.base.chest import RewardBase, RewardConfig
@@ -17,7 +16,7 @@ from practice.utils_for_coding.baseline_utils import (
     ConstantBaseline,
 )
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import log_stats
+from practice.utils_for_coding.writer_utils import CustomWriter
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -66,7 +65,9 @@ class EnhancedReinforceTrainer(TrainerBase):
     def train(self) -> None:
         """Train the policy network with a single environment."""
         # Initialize tensorboard writer
-        writer = SummaryWriter(log_dir=self._config.artifact_config.get_tensorboard_dir())
+        writer = CustomWriter(
+            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
+        )
         env = self._ctx.env
         # Create training pod and buffer
         pod = _EnhancedReinforcePod(config=self._config, ctx=self._ctx, writer=writer)
@@ -172,7 +173,7 @@ class _EpisodeBuffer:
             self._entropies,
         )
 
-    def clear(self, writer: SummaryWriter | None = None, episodes_completed: int = 0) -> None:
+    def clear(self, writer: CustomWriter | None = None, episodes_completed: int = 0) -> None:
         """Clear the episode buffer and optionally log rewarder data.
 
         Args:
@@ -193,28 +194,23 @@ class _EpisodeBuffer:
     def __len__(self) -> int:
         return len(self._rewards)
 
-    def _record_scalars(self, writer: SummaryWriter, episodes_completed: int) -> None:
+    def _record_scalars(self, writer: CustomWriter, episodes_completed: int) -> None:
         """Private method to record all rewarder-related scalars to tensorboard."""
-        writer.add_scalar("episode/length", len(self._rewards), episodes_completed)
-        writer.add_scalar("episode/reward", sum(self._rewards), episodes_completed)
+        data: dict[str, Tensor | float | int] = {
+            "episode/length": int(len(self._rewards)),
+            "episode/reward": float(sum(self._rewards)),
+        }
         if len(self._rewarder_contributions) > 0:
             # Log intrinsic and total rewards
-            writer.add_scalar(
-                "episode/intrinsic_reward", sum(self._intrinsic_rewards), episodes_completed
-            )
-            writer.add_scalar(
-                "episode/total_reward",
-                sum(self._rewards) + sum(self._intrinsic_rewards),
-                episodes_completed,
-            )
-
+            intrinsic_rewards = float(sum(self._intrinsic_rewards))
+            data["episode/intrinsic_reward"] = intrinsic_rewards
+            data["episode/total_reward"] = float(sum(self._rewards) + intrinsic_rewards)
             # Log individual rewarder contributions
             for rewarder_name in self._rewarder_contributions:
-                writer.add_scalar(
-                    f"episode/{rewarder_name}",
-                    sum(self._rewarder_contributions[rewarder_name]),
-                    episodes_completed,
+                data[f"episode/{rewarder_name}"] = float(
+                    sum(self._rewarder_contributions[rewarder_name])
                 )
+            writer.log_stats(data=data, step=episodes_completed, blocked=False)
         self._episode_count += 1
 
 
@@ -223,7 +219,7 @@ class _EnhancedReinforcePod:
         self,
         config: EnhancedReinforceConfig,
         ctx: ReinforceContext,
-        writer: SummaryWriter,
+        writer: CustomWriter,
     ) -> None:
         self._config = config
         self._ctx = ctx
@@ -338,7 +334,7 @@ class _EnhancedReinforcePod:
         self._ctx.optimizer.step()
 
         # Log training metrics
-        log_stats(
+        self._writer.log_stats(
             data={
                 "loss/policy": pg_loss,
                 "loss/entropy": entropy_loss,
@@ -348,7 +344,7 @@ class _EnhancedReinforcePod:
                 "other/entropy": entropy,
                 "other/advantages": advantages.mean(),
             },
-            writer=self._writer,
             step=step,
             log_interval=self._config.log_interval,
+            blocked=False,
         )

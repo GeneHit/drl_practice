@@ -1,5 +1,5 @@
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from gymnasium.spaces import Discrete
 from torch.multiprocessing import Process
@@ -77,9 +77,13 @@ def worker_process(
         lr_schedulers=lr_schedulers,
     )
 
+    # disable tracking for non-master workers
+    if worker_id != 0:
+        config = replace(config, track=False)
+
     # Training
     try:
-        trainer = A2CTrainer(config, ctx, log_prefix=f"{worker_id}")
+        trainer = A2CTrainer(config, ctx)
         trainer.train()
     except Exception as e:
         print(f"Worker {worker_id} failed with error: {e}")

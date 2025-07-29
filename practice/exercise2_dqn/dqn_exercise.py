@@ -1,6 +1,5 @@
 import copy
 from dataclasses import dataclass
-from pathlib import Path
 from typing import cast
 
 import gymnasium as gym
@@ -11,7 +10,6 @@ import torch.nn.functional as F
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
@@ -20,7 +18,7 @@ from practice.base.env_typing import ActType, ArrayType, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import log_episode_stats_if_has, log_stats
+from practice.utils_for_coding.writer_utils import CustomWriter
 
 # Type aliases for vector environments
 EnvsType = gym.vector.VectorEnv[NDArray[ObsType], ActType, NDArray[ArrayType]]
@@ -120,8 +118,8 @@ class DQNTrainer(TrainerBase):
     def train(self) -> None:
         """Train the DQN agent with multiple environments."""
         # Initialize tensorboard writer
-        writer = SummaryWriter(
-            log_dir=Path(self._config.artifact_config.output_dir) / "tensorboard"
+        writer = CustomWriter(
+            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
         )
         # Use environment from context - must be vector environment for DQN training
         envs = self._ctx.envs
@@ -185,7 +183,7 @@ class DQNTrainer(TrainerBase):
                     pod.sync_target_net()
 
             # Log episode metrics
-            episode_steps += log_episode_stats_if_has(writer, infos, episode_steps)
+            episode_steps += writer.log_episode_stats_if_has(infos, episode_steps)
 
         # Cleanup
         writer.close()
@@ -198,7 +196,7 @@ class _DQNPod:
         self,
         config: DQNConfig,
         ctx: ContextBase,
-        writer: SummaryWriter,
+        writer: CustomWriter,
     ) -> None:
         self._config = config
         self._ctx = ctx
@@ -253,12 +251,11 @@ class _DQNPod:
                 actions[~random_mask] = greedy_actions
 
         # Log epsilon
-        log_stats(
+        self._writer.log_stats(
             data={"action/epsilon": epsilon},
-            writer=self._writer,
             step=self._step,
             log_interval=self._config.log_interval,
-            unblocked=True,
+            blocked=False,
         )
         self._step += 1
 
@@ -293,10 +290,9 @@ class _DQNPod:
         loss.backward()
         self._ctx.optimizer.step()
 
-        log_stats(
+        self._writer.log_stats(
             data={"loss/td_loss": loss.item()},
-            writer=self._writer,
             step=self._step,
             log_interval=self._config.log_interval,
-            unblocked=True,
+            blocked=False,
         )

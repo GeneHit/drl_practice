@@ -120,6 +120,8 @@ class BaseConfig(abc.ABC):
     """The maximum gradient norm for gradient clipping."""
     log_interval: int = 100
     """The interval to log the stats."""
+    track: bool = True
+    """Whether to track the training stats."""
 
     # Evaluation parameters
     eval_episodes: int = 100

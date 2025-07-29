@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from numpy.typing import NDArray
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
@@ -17,11 +16,7 @@ from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, soft_update
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
-from practice.utils_for_coding.writer_utils import (
-    log_action_stats,
-    log_episode_stats_if_has,
-    log_stats,
-)
+from practice.utils_for_coding.writer_utils import CustomWriter
 
 
 class SACActor(nn.Module):
@@ -170,7 +165,9 @@ class SACTrainer(TrainerBase):
         """
         # 1. initializations
         # Initialize tensorboard writer
-        writer = SummaryWriter(log_dir=self._config.artifact_config.get_tensorboard_dir())
+        writer = CustomWriter(
+            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
+        )
         # Use environment from context - must be vector environment
         envs = self._ctx.continuous_envs
 
@@ -234,7 +231,7 @@ class SACTrainer(TrainerBase):
                 pod.update(replay_buffer.sample(self._config.batch_size), step)
 
             # Log episode metrics
-            episode_steps += log_episode_stats_if_has(writer, infos, episode_steps)
+            episode_steps += writer.log_episode_stats_if_has(infos, episode_steps)
 
         writer.close()
 
@@ -242,10 +239,10 @@ class SACTrainer(TrainerBase):
 class _SACPod:
     """The SAC pod for training."""
 
-    def __init__(self, config: SACConfig, ctx: ACContext, writer: SummaryWriter) -> None:
+    def __init__(self, config: SACConfig, ctx: ACContext, writer: CustomWriter) -> None:
         self._config: SACConfig = config
         self._ctx: ACContext = ctx
-        self._writer: SummaryWriter = writer
+        self._writer: CustomWriter = writer
         assert isinstance(self._ctx.network, SACActor)
         self._actor = self._ctx.network
         self._actor.train()
@@ -281,13 +278,12 @@ class _SACPod:
             )
             a = a.cpu()
 
-        log_action_stats(
+        self._writer.log_action_stats(
             actions=a,
-            data={"log_prob": log_prob},
-            writer=self._writer,
+            data={"action/log_prob": log_prob},
             step=step,
             log_interval=self._config.log_interval,
-            unblocked=True,
+            blocked=False,
         )
         return a.numpy()
 
@@ -370,12 +366,11 @@ class _SACPod:
         if self._config.auto_tune_alpha:
             data["tune/alpha_loss"] = alpha_loss
             data["tune/target_entropy"] = self._target_entropy
-        log_stats(
+        self._writer.log_stats(
             data=data,
-            writer=self._writer,
             step=step,
             log_interval=self._config.log_interval,
-            unblocked=True,
+            blocked=False,
         )
 
     def _get_target_q(self, experience: Experience) -> torch.Tensor:
