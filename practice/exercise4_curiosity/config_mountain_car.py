@@ -8,6 +8,7 @@ from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.curiosity_exercise import (
     RND1DNetworkConfig,
     RNDRewardConfig,
+    XShapingRewardConfig,
 )
 from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
@@ -18,7 +19,6 @@ from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.reward_utils import XDirectionShapingRewardConfig
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
@@ -41,6 +41,7 @@ def get_app_config() -> EnhancedReinforceConfig:
         eval_random_seed=42,
         eval_video_num=10,
         reward_configs=(
+            # RND and shaping reward are both needed.
             RND1DNetworkConfig(
                 rnd_config=RNDRewardConfig(
                     beta=LinearSchedule(
@@ -55,7 +56,7 @@ def get_app_config() -> EnhancedReinforceConfig:
                 hidden_sizes=(32, 32),
                 learning_rate=5e-4,
             ),
-            XDirectionShapingRewardConfig(
+            XShapingRewardConfig(
                 beta=LinearSchedule(start_e=5.0, end_e=1.0, duration=int(total_steps * 0.8))
             ),
         ),

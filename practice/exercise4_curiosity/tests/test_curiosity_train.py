@@ -30,6 +30,7 @@ from typing import Generator, cast
 import pytest
 import torch
 
+from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
@@ -38,28 +39,26 @@ from practice.exercise4_curiosity.config_mountain_car import (
     get_app_config,
     get_env_for_play_and_hub,
 )
+from practice.exercise4_curiosity.curiosity_exercise import (
+    RND1DNetworkConfig,
+    RNDRewardConfig,
+    XShapingRewardConfig,
+)
 from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
     EnhancedReinforceTrainer,
 )
+from practice.utils.env_utils import get_device
 from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
+from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
 
 
 @pytest.fixture
 def test_config() -> EnhancedReinforceConfig:
     """Create a test configuration based on mountain car config with reduced parameters."""
     # Create a modified config with reduced parameters for testing
-    from practice.base.config import ArtifactConfig, EnvConfig
-    from practice.exercise4_curiosity.curiosity_exercise import (
-        RND1DNetworkConfig,
-        RNDRewardConfig,
-    )
-    from practice.utils.env_utils import get_device
-    from practice.utils_for_coding.agent_utils import NNAgent
-    from practice.utils_for_coding.reward_utils import XDirectionShapingRewardConfig
-    from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
-
     device = get_device()
 
     return EnhancedReinforceConfig(
@@ -87,7 +86,7 @@ def test_config() -> EnhancedReinforceConfig:
                 hidden_sizes=(32, 32),
                 learning_rate=1e-3,
             ),
-            XDirectionShapingRewardConfig(
+            XShapingRewardConfig(
                 beta=ExponentialSchedule(start_e=5.0, end_e=1.0, decay_rate=-0.005),
                 goal_position=None,
             ),
