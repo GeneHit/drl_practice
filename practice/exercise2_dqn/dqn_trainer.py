@@ -6,11 +6,13 @@ from practice.base.context import ContextBase
 from practice.base.trainer import TrainerBase
 from practice.exercise2_dqn.dqn_exercise import BasicDQNPod, DQNConfig, DQNPod
 from practice.exercise2_dqn.e22_double_dqn.double_dqn_exercise import DoubleDQNPod
+from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowPod
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 POD_TYPE = {
     "basic": BasicDQNPod,
     "double": DoubleDQNPod,
+    "rainbow": RainbowPod,
 }
 
 

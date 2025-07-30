@@ -5,6 +5,12 @@ from practice.utils_for_coding.network_utils import MLP, init_weights
 
 
 class DuelingDQN1D(nn.Module):
+    """Dueling DQN for 1D state space.
+
+    Reference:
+    - https://arxiv.org/abs/1511.06581
+    """
+
     def __init__(
         self, state_n: int, action_n: int, hidden_sizes: tuple[int, ...] = (128, 128)
     ) -> None:

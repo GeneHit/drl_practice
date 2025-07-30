@@ -101,7 +101,7 @@ class DQNConfig(BaseConfig):
     """The interval for updating the target network."""
     update_start_step: int
     """The step number to start updating the target network."""
-    dqn_algorithm: Literal["basic", "double"]
+    dqn_algorithm: Literal["basic", "double", "rainbow"]
     """The DQN algorithm to use."""
 
 

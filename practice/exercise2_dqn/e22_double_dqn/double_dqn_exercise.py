@@ -57,6 +57,9 @@ class DoubleDQNPod(BasicDQNPod):
     The key difference from Basic DQN is in the target Q-value computation:
     - Basic DQN: uses target network for both action selection and evaluation
     - Double DQN: uses current network for action selection, target network for evaluation
+
+    Reference:
+    - https://arxiv.org/abs/1509.06461
     """
 
     def __init__(self, config: DQNConfig, ctx: ContextBase, writer: CustomWriter) -> None:

@@ -16,19 +16,19 @@ def get_app_config() -> DQNConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device("cpu")
-    timesteps = 200000
+    timesteps = 250_000
     return DQNConfig(
         device=device,
         dqn_algorithm="basic",
         timesteps=timesteps,
         learning_rate=1e-4,
         gamma=0.99,
-        epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.01, duration=int(0.1 * timesteps)),
-        replay_buffer_capacity=120000,
+        epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.01, duration=int(0.6 * timesteps)),
+        replay_buffer_capacity=120_000,
         batch_size=64,
         train_interval=1,
         target_update_interval=250,
-        update_start_step=1000,
+        update_start_step=2000,
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
