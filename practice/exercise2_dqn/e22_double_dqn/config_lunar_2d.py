@@ -53,7 +53,7 @@ def get_app_config() -> DQNConfig:
             repo_id="DoubleDQN-2d-LunarLander-v3",
             algorithm_name="Double-DQN",
             extra_tags=("deep-q-learning", "pytorch", "image"),
-            usage_instructions="Please check the necessary wrappers in the env setup.",
+            usage_instructions="Don't forget to check the necessary wrappers in the env setup.",
         ),
     )
 

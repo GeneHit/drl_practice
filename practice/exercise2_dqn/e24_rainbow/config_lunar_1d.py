@@ -48,10 +48,9 @@ def get_app_config() -> RainbowConfig:
             agent_type=NNAgent,
             output_dir="results/exercise2_dqn/lunar_1d/",
             save_result=True,
-            repo_id="DQN-1d-LunarLander-v3",
-            algorithm_name="DQN",
-            extra_tags=("deep-q-learning", "pytorch"),
-            usage_instructions="Please check the necessary wrappers in the env setup.",
+            repo_id="Rainbow-1d-LunarLander-v3",
+            algorithm_name="Rainbow-DQN",
+            extra_tags=("deep-q-learning", "pytorch", "rainbow", "dqn"),
         ),
     )
 

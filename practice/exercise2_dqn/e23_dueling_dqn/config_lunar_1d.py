@@ -48,7 +48,6 @@ def get_app_config() -> DQNConfig:
             repo_id="DuelingDQN-1d-LunarLander-v3",
             algorithm_name="Dueling DQN",
             extra_tags=("deep-q-learning", "pytorch"),
-            usage_instructions="Please check the necessary wrappers in the env setup.",
         ),
     )
 
