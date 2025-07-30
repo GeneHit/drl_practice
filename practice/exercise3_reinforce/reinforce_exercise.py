@@ -62,7 +62,8 @@ class ReinforceTrainer(TrainerBase):
         """Train the policy network with a single environment."""
         # Initialize tensorboard writer
         writer = CustomWriter(
-            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
+            track=self._ctx.track_and_evaluate,
+            log_dir=self._config.artifact_config.get_tensorboard_dir(),
         )
         env = self._ctx.env
 

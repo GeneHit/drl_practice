@@ -23,6 +23,12 @@ class ContextBase:
     """The optimizer used for training."""
     lr_schedulers: tuple[LRScheduler, ...] = ()
     """The learning rate schedulers used for training."""
+    track_and_evaluate: bool = True
+    """Whether to track and evaluate the training.
+
+    If False, will not record the training tensorboard and evaluate the trained model.
+    It is useful when train the model with distributed training.
+    """
 
     @property
     def env(self) -> EnvType:

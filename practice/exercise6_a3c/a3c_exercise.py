@@ -79,7 +79,7 @@ def worker_process(
 
     # disable tracking for non-master workers
     if worker_id != 0:
-        config = replace(config, track=False)
+        ctx = replace(ctx, track_and_evaluate=False)
 
     # Training
     try:

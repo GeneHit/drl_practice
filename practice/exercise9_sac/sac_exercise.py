@@ -166,7 +166,8 @@ class SACTrainer(TrainerBase):
         # 1. initializations
         # Initialize tensorboard writer
         writer = CustomWriter(
-            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
+            track=self._ctx.track_and_evaluate,
+            log_dir=self._config.artifact_config.get_tensorboard_dir(),
         )
         # Use environment from context - must be vector environment
         envs = self._ctx.continuous_envs
