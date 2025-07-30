@@ -203,7 +203,7 @@ class TestCuriosityTraining:
 
             with open(params_file, "r") as f:
                 params = json.load(f)
-                assert "total_steps" in params, "Params should contain total_steps"
+                assert "timesteps" in params, "Params should contain timesteps"
                 assert "learning_rate" in params, "Params should contain learning_rate"
                 assert "env_config" in params, "Params should contain env_config"
 
