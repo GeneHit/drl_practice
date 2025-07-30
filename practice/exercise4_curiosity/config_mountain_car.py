@@ -25,16 +25,16 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 def get_app_config() -> EnhancedReinforceConfig:
     """Get the application config."""
     device = get_device("cpu")
-    total_steps = 200_000
+    timesteps = 200_000
     return EnhancedReinforceConfig(
         device=device,
-        total_steps=total_steps,
+        timesteps=timesteps,
         learning_rate=3e-3,
         lr_gamma=0.99,
         gamma=0.999,
         hidden_sizes=(32, 32),
         baseline=ConstantBaseline(decay=0.9),
-        entropy_coef=LinearSchedule(start_e=0.01, end_e=0.001, duration=int(total_steps * 0.6)),
+        entropy_coef=LinearSchedule(start_e=0.01, end_e=0.001, duration=int(timesteps * 0.6)),
         max_grad_norm=0.5,
         log_interval=1,  # log every episode
         eval_episodes=100,
@@ -44,9 +44,7 @@ def get_app_config() -> EnhancedReinforceConfig:
             # RND and shaping reward are both needed.
             RND1DNetworkConfig(
                 rnd_config=RNDRewardConfig(
-                    beta=LinearSchedule(
-                        start_e=0.005, end_e=0.001, duration=int(total_steps * 0.8)
-                    ),
+                    beta=LinearSchedule(start_e=0.005, end_e=0.001, duration=int(timesteps * 0.8)),
                     device=device,
                     normalize=True,
                     max_reward=2,
@@ -57,7 +55,7 @@ def get_app_config() -> EnhancedReinforceConfig:
                 learning_rate=5e-4,
             ),
             XShapingRewardConfig(
-                beta=LinearSchedule(start_e=5.0, end_e=1.0, duration=int(total_steps * 0.8))
+                beta=LinearSchedule(start_e=5.0, end_e=1.0, duration=int(timesteps * 0.8))
             ),
         ),
         env_config=EnvConfig(

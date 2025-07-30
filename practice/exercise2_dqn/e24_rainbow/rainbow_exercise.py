@@ -1,0 +1,132 @@
+from dataclasses import dataclass
+
+import numpy as np
+import torch
+import torch.nn as nn
+from numpy.typing import NDArray
+
+from practice.base.context import ContextBase
+from practice.base.env_typing import ActType, ObsType
+from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
+from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer
+from practice.utils_for_coding.network_utils import MLP, init_weights
+from practice.utils_for_coding.writer_utils import CustomWriter
+
+
+@dataclass(kw_only=True, frozen=True)
+class RainbowConfig(DQNConfig):
+    """Rainbow DQN Config."""
+
+    noisy_std: float
+    """The standard deviation of the noisy layer."""
+    n_step: int
+    """The n-step return."""
+    alpha: float
+    """The alpha parameter for prioritized experience replay."""
+    beta: float
+    """The beta parameter for prioritized experience replay."""
+    beta_increment: float
+    """The increment of beta per update."""
+
+
+class NoisyLinear(nn.Module):
+    """Noisy Linear Layer.
+
+    Reference:
+    - https://arxiv.org/abs/1706.10295
+    """
+
+    def __init__(self, in_features: int, out_features: int, std: float = 0.5) -> None:
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.std = std
+        self.weight = nn.Parameter(torch.randn(out_features, in_features) / std)
+        self.bias = nn.Parameter(torch.zeros(out_features))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError("Not implemented")
+
+
+class RainbowNet(nn.Module):
+    """Rainbow Network.
+
+    Rainbow network is a combination of:
+    - dueling: https://arxiv.org/abs/1511.06581
+    - noisy: https://arxiv.org/abs/1706.10295
+    - distributional: https://arxiv.org/abs/1707.06887
+    """
+
+    def __init__(
+        self,
+        state_n: int,
+        action_n: int,
+        hidden_sizes: tuple[int, ...],
+        noisy_std: float,
+    ) -> None:
+        super().__init__()
+        # feature stream
+        self.feature = MLP(
+            input_dim=state_n,
+            hidden_sizes=hidden_sizes,
+            output_dim=action_n,
+        )
+        # value stream
+        self.value_head = nn.Sequential(nn.Linear(hidden_sizes[-1], 1))
+        # advantage stream
+        self.advantage_head = nn.Sequential(nn.Linear(hidden_sizes[-1], action_n))
+        self.advantage_head.apply(init_weights)
+        self.value_head.apply(init_weights)
+        # noisy layer
+        self.noisy_layer = NoisyLinear(hidden_sizes[-1], action_n, std=noisy_std)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError("Not implemented")
+
+
+class RainbowPod(DQNPod):
+    """Rainbow DQN Pod.
+
+    Rainbow DQN is a combination of:
+    - Double DQN: https://arxiv.org/abs/1509.06461
+    - Dueling DQN: https://arxiv.org/abs/1511.06581
+    - Noisy DQN: https://arxiv.org/abs/1706.10295
+    - Distributional DQN: https://arxiv.org/abs/1707.06887 (C51)
+    - Prioritized Experience Replay Buffer: https://arxiv.org/abs/1511.05952 (PER)
+
+    Reference:
+    - https://arxiv.org/abs/1710.02298
+    """
+
+    def __init__(self, config: DQNConfig, ctx: ContextBase, writer: CustomWriter) -> None:
+        # use DQNConfig for the base class
+        assert isinstance(config, RainbowConfig)
+        self._config: RainbowConfig = config
+        self._noisy_std = config.noisy_std
+        self._replay_buffer = PERBuffer(
+            config.replay_buffer_capacity,
+            config.n_step,
+            config.gamma,
+            config.alpha,
+            config.beta,
+            config.beta_increment,
+        )
+
+    def sync_target_net(self) -> None:
+        raise NotImplementedError("Not implemented")
+
+    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
+        raise NotImplementedError("Not implemented")
+
+    def update(self) -> None:
+        raise NotImplementedError("Not implemented")
+
+    def buffer_add(
+        self,
+        states: NDArray[ObsType],
+        actions: NDArray[ActType],
+        rewards: NDArray[np.float32],
+        next_states: NDArray[ObsType],
+        dones: NDArray[np.bool_],
+    ) -> None:
+        raise NotImplementedError("Not implemented")

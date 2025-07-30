@@ -42,7 +42,7 @@ This is a trained model of a **{algorithm_name}** agent playing **{env_id}**.
 
 model = load_from_hub(repo_id="{repo_id}", filename="{config.artifact_config.model_filename}")
 
-{config.artifact_config.usage_instructions}
+# Create the environment. {config.artifact_config.usage_instructions}
 env = gym.make("{env_id}")
 ...
 """

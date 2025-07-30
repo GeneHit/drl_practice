@@ -1,6 +1,7 @@
+import abc
 import copy
 from dataclasses import dataclass
-from typing import cast
+from typing import Literal, Sequence, cast
 
 import gymnasium as gym
 import numpy as np
@@ -10,13 +11,12 @@ import torch.nn.functional as F
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 from torch import Tensor
-from tqdm import tqdm
 
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ArrayType, ObsType
-from practice.base.trainer import TrainerBase
-from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
+from practice.utils_for_coding.network_utils import init_weights
+from practice.utils_for_coding.replay_buffer_utils import ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
 
@@ -27,15 +27,22 @@ EnvsType = gym.vector.VectorEnv[NDArray[ObsType], ActType, NDArray[ArrayType]]
 class QNet1D(nn.Module):
     """Q network with 1D discrete observation space."""
 
-    def __init__(self, state_n: int, action_n: int) -> None:
+    def __init__(
+        self,
+        state_n: int,
+        action_n: int,
+        hidden_sizes: Sequence[int] = (256, 256),
+    ) -> None:
         super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(state_n, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, action_n),
-        )
+        layers: list[nn.Module] = []
+        pre_size = state_n
+        for hidden_size in hidden_sizes:
+            layers.append(nn.Linear(pre_size, hidden_size))
+            layers.append(nn.ReLU())
+            pre_size = hidden_size
+        layers.append(nn.Linear(pre_size, action_n))
+        self.network = nn.Sequential(*layers)
+        self.network.apply(init_weights)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.network(x)
@@ -43,45 +50,34 @@ class QNet1D(nn.Module):
         return y
 
 
-class QNet2D(nn.Module):
-    """Q network with 2D convolution.
+class DQNPod(abc.ABC):
+    """Abstract base class for DQN pod."""
 
-    Same as DeepMind's DQN paper for Atari:
-    https://www.nature.com/articles/nature14236
-    """
+    @abc.abstractmethod
+    def __init__(self, config: BaseConfig, ctx: ContextBase, writer: CustomWriter) -> None: ...
 
-    def __init__(self, in_shape: tuple[int, int, int], action_n: int) -> None:
-        super().__init__()
-        c, h, w = in_shape
-        # convolution layer sequence
-        self.conv = nn.Sequential(
-            nn.Conv2d(c, 32, kernel_size=8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
+    @abc.abstractmethod
+    def sync_target_net(self) -> None:
+        """Synchronize target network with current Q-network."""
 
-        # calculate the output size of the convolution layer
-        with torch.no_grad():
-            # create a mock input (batch=1, c, h, w)
-            test_input = torch.zeros(1, c, h, w)
-            conv_output = self.conv(test_input)
-            conv_output_size = conv_output.size(1)
+    @abc.abstractmethod
+    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
+        """Get action(s) for state(s)."""
 
-        # full connected layer, original 512
-        self.fc = nn.Sequential(
-            nn.Linear(conv_output_size, 256),
-            nn.ReLU(),
-            nn.Linear(256, action_n),
-        )
+    @abc.abstractmethod
+    def update(self) -> None:
+        """Update Q-network using the inside replay buffer."""
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        y = self.fc(self.conv(x / 255.0))
-        assert isinstance(y, torch.Tensor)  # make mypy happy
-        return y
+    @abc.abstractmethod
+    def buffer_add(
+        self,
+        states: NDArray[ObsType],
+        actions: NDArray[ActType],
+        rewards: NDArray[np.float32],
+        next_states: NDArray[ObsType],
+        dones: NDArray[np.bool_],
+    ) -> None:
+        """Add batch of experiences to the replay buffer."""
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -89,115 +85,31 @@ class DQNConfig(BaseConfig):
     """Configuration for DQN algorithm."""
 
     timesteps: int
-    """The step number to train the policy.
+    """The loop step number to train the policy.
 
-    The total step data is timesteps * vector_env_num.
+    The total_data = timesteps * vector_env_num.
     """
     epsilon_schedule: ScheduleBase
     """The epsilon schedule for the DQN algorithm."""
-    replay_buffer_capacity: int = 10000
+    replay_buffer_capacity: int
     """The capacity of the replay buffer."""
-    batch_size: int = 32
+    batch_size: int
     """The batch size for the DQN algorithm."""
-    train_interval: int = 1
+    train_interval: int
     """The interval for training the DQN algorithm."""
-    target_update_interval: int = 100
+    target_update_interval: int
     """The interval for updating the target network."""
-    update_start_step: int = 100
+    update_start_step: int
     """The step number to start updating the target network."""
+    dqn_algorithm: Literal["basic", "double", "rainbow"]
+    """The DQN algorithm to use."""
 
 
-class DQNTrainer(TrainerBase):
-    """A trainer for the DQN algorithm."""
-
-    def __init__(self, config: DQNConfig, ctx: ContextBase) -> None:
-        super().__init__(config=config, ctx=ctx)
-        self._config: DQNConfig = config
-        self._ctx: ContextBase = ctx
-
-    def train(self) -> None:
-        """Train the DQN agent with multiple environments."""
-        # Initialize tensorboard writer
-        writer = CustomWriter(
-            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
-        )
-        # Use environment from context - must be vector environment for DQN training
-        envs = self._ctx.envs
-
-        # Create trainer pod
-        pod = _DQNPod(config=self._config, ctx=self._ctx, writer=writer)
-        # Create replay buffer using observation shape from context
-        replay_buffer = ReplayBuffer(
-            capacity=self._config.replay_buffer_capacity,
-            state_shape=self._ctx.env_state_shape,
-            state_dtype=np.float32,
-            action_dtype=np.int64,
-        )
-
-        # Initialize environments
-        states, _ = envs.reset()
-        assert isinstance(states, np.ndarray), "States must be numpy array"
-        # Track previous step terminal status to avoid invalid transitions
-        prev_dones: NDArray[np.bool_] = np.zeros(envs.num_envs, dtype=np.bool_)
-        episode_steps = 0
-
-        # Training loop
-        for step in tqdm(range(self._config.timesteps), desc="Training"):
-            # Get actions for all environments
-            actions = pod.action(states)
-            # Step all environments
-            next_states, rewards, terms, truncs, infos = envs.step(actions)
-
-            # Cast rewards to numpy array for indexing
-            rewards = np.asarray(rewards, dtype=np.float32)
-            # Handle terminal observations and create proper training transitions
-            dones = np.logical_or(terms, truncs, dtype=np.bool_)
-
-            # Only store transitions for states that were not terminal in the previous step
-            # we use AutoReset wrapper, so the envs will be reset automatically when it's done
-            # when any done in n step, the next_states of n+1 step is the first of the next episode
-            pre_non_terminal_mask = ~prev_dones
-            if np.any(pre_non_terminal_mask):
-                # Only store transitions where the previous step didn't end an episode
-                replay_buffer.add_batch(
-                    states=states[pre_non_terminal_mask],
-                    actions=actions[pre_non_terminal_mask],
-                    rewards=rewards[pre_non_terminal_mask],
-                    next_states=next_states[pre_non_terminal_mask],
-                    dones=dones[pre_non_terminal_mask],
-                )
-
-            # Update state and previous done status for next iteration
-            states = next_states
-            prev_dones = dones
-
-            # Training updates
-            if step >= self._config.update_start_step:
-                if len(replay_buffer) < self._config.batch_size:
-                    continue
-                if step % self._config.train_interval == 0:
-                    # sample batch and update
-                    pod.update(replay_buffer.sample(self._config.batch_size))
-
-                if step % self._config.target_update_interval == 0:
-                    pod.sync_target_net()
-
-            # Log episode metrics
-            episode_steps += writer.log_episode_stats_if_has(infos, episode_steps)
-
-        # Cleanup
-        writer.close()
-
-
-class _DQNPod:
+class BasicDQNPod(DQNPod):
     """Internal pod for DQN training logic."""
 
-    def __init__(
-        self,
-        config: DQNConfig,
-        ctx: ContextBase,
-        writer: CustomWriter,
-    ) -> None:
+    def __init__(self, config: DQNConfig, ctx: ContextBase, writer: CustomWriter) -> None:
+        # Notice: can use many variables from super class
         self._config = config
         self._ctx = ctx
         self._writer = writer
@@ -205,6 +117,15 @@ class _DQNPod:
         # Create target network
         self._target_net = copy.deepcopy(ctx.network)
         self._target_net.eval()
+        self._ctx.network.train()
+
+        # Create replay buffer
+        self._replay = ReplayBuffer(
+            capacity=self._config.replay_buffer_capacity,
+            state_shape=self._ctx.env_state_shape,
+            state_dtype=np.float32,
+            action_dtype=np.int64,
+        )
 
         # Get action space info
         assert isinstance(self._ctx.eval_env.action_space, Discrete)
@@ -214,6 +135,17 @@ class _DQNPod:
     def sync_target_net(self) -> None:
         """Synchronize target network with current Q-network."""
         self._target_net.load_state_dict(self._ctx.network.state_dict())
+
+    def buffer_add(
+        self,
+        states: NDArray[ObsType],
+        actions: NDArray[ActType],
+        rewards: NDArray[np.float32],
+        next_states: NDArray[ObsType],
+        dones: NDArray[np.bool_],
+    ) -> None:
+        """Add batch of experiences to the replay buffer."""
+        self._replay.add_batch(states, actions, rewards, next_states, dones)
 
     def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
         """Get action(s) for state(s).
@@ -252,7 +184,11 @@ class _DQNPod:
 
         # Log epsilon
         self._writer.log_stats(
-            data={"action/epsilon": epsilon},
+            data={
+                "action/epsilon": epsilon,
+                "action/mean": actions.mean(),
+                "action/std": actions.std(),
+            },
             step=self._step,
             log_interval=self._config.log_interval,
             blocked=False,
@@ -261,7 +197,7 @@ class _DQNPod:
 
         return cast(NDArray[ActType], actions)
 
-    def update(self, experiences: Experience) -> None:
+    def update(self) -> None:
         """Update Q-network using experiences.
 
         Args:
@@ -270,8 +206,11 @@ class _DQNPod:
         Returns:
             loss: The TD loss value for logging
         """
-        # Move all inputs to device
-        exps = experiences.to(self._config.device)
+        if len(self._replay) < self._config.batch_size:
+            return
+
+        # sample batch and move to device
+        exps = self._replay.sample(self._config.batch_size).to(self._config.device)
 
         # Compute TD target using target network
         with torch.no_grad():
@@ -281,7 +220,6 @@ class _DQNPod:
             )
 
         # Get current Q-values for the actions taken
-        self._ctx.network.train()
         current_q = self._ctx.network(exps.states).gather(1, exps.actions.view(-1, 1)).squeeze()
 
         # Compute loss and update

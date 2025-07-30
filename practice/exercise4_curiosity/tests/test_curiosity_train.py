@@ -63,7 +63,7 @@ def test_config() -> EnhancedReinforceConfig:
 
     return EnhancedReinforceConfig(
         device=device,
-        total_steps=100,  # Reduced from 200000
+        timesteps=100,  # Reduced from 200000
         learning_rate=1e-3,
         lr_gamma=0.99,
         gamma=0.999,
@@ -203,7 +203,7 @@ class TestCuriosityTraining:
 
             with open(params_file, "r") as f:
                 params = json.load(f)
-                assert "total_steps" in params, "Params should contain total_steps"
+                assert "timesteps" in params, "Params should contain timesteps"
                 assert "learning_rate" in params, "Params should contain learning_rate"
                 assert "env_config" in params, "Params should contain env_config"
 
@@ -405,7 +405,7 @@ class TestCuriosityTraining:
         )
         config = replace(
             test_config,
-            total_steps=40,  # Even fewer steps
+            timesteps=40,  # Even fewer steps
             artifact_config=artifact_config,
         )
 

@@ -19,7 +19,7 @@ def get_app_config() -> DQNConfig:
     timesteps = 250_000
     return DQNConfig(
         device=device,
-        dqn_algorithm="basic",
+        dqn_algorithm="double",
         timesteps=timesteps,
         learning_rate=1e-4,
         gamma=0.99,
@@ -41,10 +41,10 @@ def get_app_config() -> DQNConfig:
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
             agent_type=NNAgent,
-            output_dir="results/exercise2_dqn/lunar_1d/",
+            output_dir="results/exercise2_dqn/double_dqn/lunar_1d/",
             save_result=True,
-            repo_id="DQN-1d-LunarLander-v3",
-            algorithm_name="DQN",
+            repo_id="DoubleDQN-1d-LunarLander-v3",
+            algorithm_name="Double-DQN",
             extra_tags=("deep-q-learning", "pytorch"),
         ),
     )

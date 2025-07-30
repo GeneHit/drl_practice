@@ -21,8 +21,11 @@ from practice.utils_for_coding.writer_utils import CustomWriter
 
 @dataclass(kw_only=True, frozen=True)
 class EnhancedReinforceConfig(BaseConfig):
-    total_steps: int
-    """The total number of steps to train the policy."""
+    timesteps: int
+    """The total number of loop steps to train the policy.
+
+    The total_data = timesteps * vector_env_num.
+    """
 
     lr_gamma: float
     """The learning rate gamma for the optimizer."""
@@ -74,8 +77,8 @@ class EnhancedReinforceTrainer(TrainerBase):
         episode_buffer = _EpisodeBuffer()
 
         step = 0
-        step_bar = tqdm(total=self._config.total_steps, desc="Training")
-        while step < self._config.total_steps:
+        step_bar = tqdm(total=self._config.timesteps, desc="Training")
+        while step < self._config.timesteps:
             # 1. Resets for new episode
             state, _ = env.reset()
             done = False
