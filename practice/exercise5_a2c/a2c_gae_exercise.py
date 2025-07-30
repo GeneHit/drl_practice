@@ -132,7 +132,8 @@ class A2CTrainer(TrainerBase):
         5. go to 2, until the total steps is reached
         """
         writer = CustomWriter(
-            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
+            track=self._ctx.track_and_evaluate,
+            log_dir=self._config.artifact_config.get_tensorboard_dir(),
         )
         # only support the vectorized environment
         envs = self._ctx.envs
@@ -149,10 +150,7 @@ class A2CTrainer(TrainerBase):
         )
         state, _ = envs.reset()
 
-        rollout_range = range(rollout_num)
-        if self._config.track:
-            rollout_range = tqdm(rollout_range, desc="Rollouts")
-        for _ in rollout_range:
+        for _ in tqdm(range(rollout_num), desc="Rollouts"):
             # 2. Run one rollout
             for _ in range(self._config.rollout_len):
                 # sample action and buffer partial data

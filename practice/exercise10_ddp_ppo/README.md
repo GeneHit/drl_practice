@@ -1,5 +1,34 @@
 # PPO + Curiosity + PyTorch DDP Distributed Reinforcement Learning Architecture
 
+
+## Command
+Train (change `pusher` to `standup` if needed)
+```bash
+# Train the model on Pendulum-v1
+torchrun --nproc_per_node=6  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise9_sac/config_pusher.py
+```
+
+Play with trained model and generate video
+```bash
+python practice/cli.py --config practice/exercise9_sac/config_pusher.py --mode play
+```
+
+Push to hub
+```bash
+# generate video and push to hub
+python practice/cli.py --config practice/exercise9_sac/config_pusher.py --mode push_to_hub --username myuser
+
+# only push to hub
+python practice/cli.py --config practice/exercise9_sac/config_pusher.py --mode push_to_hub --username myuser --skip_play
+```
+
+Run the comprehensive test suite:
+```bash
+# Run all tests
+python -m pytest practice/exercise10_ddp_ppo/tests/ -v
+```
+
+
 ## 🧠 Project Goal
 
 Design a scalable on‑policy RL system that integrates:

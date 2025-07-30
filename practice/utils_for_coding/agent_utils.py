@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any, cast
 
 import torch
@@ -10,7 +11,7 @@ from practice.utils_for_coding.numpy_tensor_utils import get_tensor_expanding_ax
 
 
 class NNAgent(AgentBase):
-    """Agent that uses a neural network to make decisions.
+    """Agent for the neural network that output policy_logits or reward value.
 
     Only be used for:
     1. discrete action space.
@@ -41,7 +42,7 @@ class NNAgent(AgentBase):
 
 
 class ACAgent(AgentBase):
-    """Agent that uses a neural network to make decisions.
+    """Agent for the neural network that output the policy_logits or (policy_logits, value).
 
     Only be used for:
     1. discrete action space.
@@ -61,7 +62,7 @@ class ACAgent(AgentBase):
         with torch.no_grad():
             policy_logits_or_value = self._net(state_tensor)
 
-            if isinstance(policy_logits_or_value, tuple):
+            if isinstance(policy_logits_or_value, Sequence):
                 # returning (policy_logits, value)
                 policy_logits, _ = policy_logits_or_value
             else:
@@ -82,7 +83,7 @@ class ACAgent(AgentBase):
 
 
 class ContinuousAgent(AgentBase):
-    """Agent that uses a neural network to make decisions.
+    """Agent for the neural network that output the float action directly.
 
     Only be used for:
     1. continuous action space.

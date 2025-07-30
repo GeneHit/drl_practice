@@ -139,7 +139,8 @@ class PPOTrainer(TrainerBase):
         5. go to 2, until the total steps is reached
         """
         writer = CustomWriter(
-            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
+            track=self._ctx.track_and_evaluate,
+            log_dir=self._config.artifact_config.get_tensorboard_dir(),
         )
         # only support the vectorized environment
         envs = self._ctx.envs

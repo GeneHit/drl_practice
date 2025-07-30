@@ -28,7 +28,8 @@ class DQNTrainer(TrainerBase):
         """Train the DQN agent with multiple environments."""
         # Initialize tensorboard writer
         writer = CustomWriter(
-            track=self._config.track, log_dir=self._config.artifact_config.get_tensorboard_dir()
+            track=self._ctx.track_and_evaluate,
+            log_dir=self._config.artifact_config.get_tensorboard_dir(),
         )
         # Use environment from context - must be vector environment for DQN training
         envs = self._ctx.envs

@@ -35,9 +35,10 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
         raise ValueError(f"Unsupported agent type: {agent_type}")
 
     # Evaluate and save results
-    evaluate_and_save_results(
-        env=ctx.eval_env,
-        agent=agent,
-        config=config,
-        meta_data={"train_duration_min": f"{train_duration_min:.2f}"},
-    )
+    if ctx.track_and_evaluate:
+        evaluate_and_save_results(
+            env=ctx.eval_env,
+            agent=agent,
+            config=config,
+            meta_data={"train_duration_min": f"{train_duration_min:.2f}"},
+        )
