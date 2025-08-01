@@ -1,3 +1,5 @@
+"""PPO on Pendulum-v1, for verification."""
+
 from typing import cast
 
 import torch.nn as nn
@@ -21,24 +23,24 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 def get_app_config() -> ContPPOConfig:
     """Get the application config."""
     return ContPPOConfig(
-        device=get_device("mps"),
+        device=get_device("cpu"),
         timesteps=600,
-        rollout_len=256,
+        rollout_len=1024,
         learning_rate=1e-4,
         critic_lr=1e-4,
         gamma=0.99,
         gae_lambda=0.97,
         # pusher is simple, use a very small entropy coef
-        entropy_coef=LinearSchedule(0.1, 0.001, 500),
-        value_loss_coef=0.5,
+        entropy_coef=LinearSchedule(0.3, 0.005, 500),
+        value_loss_coef=0.02,
         max_grad_norm=0.5,
-        num_epochs=12,
+        num_epochs=8,
         # better that rollout_len // minibatch_num >= 64
-        minibatch_num=4,
-        clip_coef=0.1,
-        hidden_sizes=(64, 64),
+        minibatch_num=8,
+        clip_coef=0.2,
+        hidden_sizes=(128, 128),
         use_layer_norm=True,
-        action_scale=1,
+        action_scale=2.0,
         action_bias=0,
         log_std_min=-20,
         log_std_max=2,
@@ -49,16 +51,16 @@ def get_app_config() -> ContPPOConfig:
         # the rollout number for logging
         log_interval=1,
         env_config=EnvConfig(
-            env_id="Pusher-v5",
+            env_id="Pendulum-v1",
             vector_env_num=6,
-            use_multi_processing=False,
+            use_multi_processing=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ContPPOTrainer,
             agent_type=ContAgent,
-            output_dir="results/exercise10_ddp_ppo/pusher/",
+            output_dir="results/exercise10_ddp_ppo/pendulum/",
             save_result=True,
-            repo_id="PPO-RND-PusherV2",
+            repo_id="PPO-RND-PendulumV1",
             algorithm_name="PPO",
             extra_tags=("policy-gradient", "pytorch", "ddp", "rnd"),
         ),

@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 
 from practice.base.chest import AgentBase
 from practice.base.env_typing import ActType, ActTypeC
+from practice.utils.dist_utils import unwrap_model
 from practice.utils_for_coding.numpy_tensor_utils import get_tensor_expanding_axis
 
 
@@ -109,6 +110,40 @@ class ContinuousAgent(AgentBase):
 
     @classmethod
     def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ContinuousAgent":
+        """Load the continuous actor model."""
+        return cls(net=_load_model(pathname, device))
+
+
+class ContAgent(AgentBase):
+    """Agent for the neural network that output the float action directly.
+
+    It has to have a `action` method that returns the action.
+
+    Only be used for:
+    1. continuous action space.
+    2. evaluation/gameplay, not for training.
+    """
+
+    def __init__(self, net: nn.Module) -> None:
+        self._net = net
+        self._device = next(net.parameters()).device
+        self._net.eval()
+
+    def action(self, state: NDArray[Any]) -> NDArray[ActTypeC]:
+        """Get action for single state using greedy policy."""
+        state_tensor = get_tensor_expanding_axis(state).to(self._device)
+        with torch.no_grad():
+            # the network must have an `action` method
+            action = unwrap_model(self._net).action(state_tensor)  # type: ignore
+        # Return as 1D numpy array (action_dim,)
+        return cast(NDArray[ActTypeC], action.cpu().numpy().reshape(-1))
+
+    def only_save_model(self, pathname: str) -> None:
+        """Save the continuous actor model."""
+        _save_model(self._net, pathname)
+
+    @classmethod
+    def load_from_checkpoint(cls, pathname: str, device: torch.device | None) -> "ContAgent":
         """Load the continuous actor model."""
         return cls(net=_load_model(pathname, device))
 
