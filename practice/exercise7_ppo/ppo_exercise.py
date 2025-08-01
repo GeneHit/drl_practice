@@ -540,7 +540,7 @@ class _GAEPod(_PPOPod):
         assert self._pre_last_dones is not None  # make mypy happy
         prev_dones[0] = self._pre_last_dones
         prev_dones[1:] = dones[:-1]
-        self._pre_last_dones = prev_dones[-1]
+        self._pre_last_dones = dones[-1]
         # get the valid mask [T, N]
         valid_mask = ~prev_dones
 

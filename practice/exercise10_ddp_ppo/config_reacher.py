@@ -1,4 +1,4 @@
-"""PPO on Pendulum-v1, for verification."""
+"""PPO on Reacher-v5, for verifying the implementation with 1 process."""
 
 from typing import cast
 
@@ -21,48 +21,52 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> ContPPOConfig:
-    """Get the application config."""
+    num_envs = 6
+    rollout_len = 360
+    # total steps = timesteps * num_envs * rollout_len
+    timesteps = 800
+    minibatch_size = 1024
+    minibatch_num = (num_envs * rollout_len) // minibatch_size
     return ContPPOConfig(
         device=get_device("cpu"),
-        timesteps=600,
-        rollout_len=1024,
-        learning_rate=1e-4,
-        critic_lr=1e-4,
+        timesteps=timesteps,
+        rollout_len=rollout_len,
+        learning_rate=3e-4,
+        critic_lr=3e-4,
         gamma=0.99,
-        gae_lambda=0.97,
-        # pusher is simple, use a very small entropy coef
-        entropy_coef=LinearSchedule(0.3, 0.005, 500),
-        value_loss_coef=0.02,
+        gae_lambda=0.95,
+        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.005, duration=int(0.8 * timesteps)),
+        value_loss_coef=0.5,
         max_grad_norm=0.5,
-        num_epochs=8,
-        # better that rollout_len // minibatch_num >= 64
-        minibatch_num=8,
+        num_epochs=10,
+        minibatch_num=minibatch_num,
         clip_coef=0.2,
-        hidden_sizes=(128, 128),
+        value_clip_range=1.0,
+        hidden_sizes=(64, 64),
         use_layer_norm=True,
-        action_scale=2.0,
-        action_bias=0,
+        action_scale=1.0,
+        action_bias=0.0,
         log_std_min=-20,
         log_std_max=2,
+        log_std_state_dependent=False,
         reward_configs=(),
-        eval_episodes=50,
+        eval_episodes=20,
         eval_random_seed=42,
-        eval_video_num=10,
-        # the rollout number for logging
+        eval_video_num=5,
         log_interval=1,
         env_config=EnvConfig(
-            env_id="Pendulum-v1",
-            vector_env_num=6,
+            env_id="Reacher-v5",
+            vector_env_num=num_envs,
             use_multi_processing=True,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ContPPOTrainer,
             agent_type=ContAgent,
-            output_dir="results/exercise10_ddp_ppo/pendulum/",
+            output_dir="results/exercise10_ddp_ppo/reacher/",
             save_result=True,
-            repo_id="PPO-RND-PendulumV1",
+            repo_id="PPO-Reacher-v5",
             algorithm_name="PPO",
-            extra_tags=("policy-gradient", "pytorch", "ddp", "rnd"),
+            extra_tags=("mujoco",),
         ),
     )
 
@@ -96,9 +100,10 @@ def generate_context(config: ContPPOConfig) -> ContextBase:
         hidden_sizes=config.hidden_sizes,
         action_scale=config.action_scale,
         action_bias=config.action_bias,
+        use_layer_norm=config.use_layer_norm,
         log_std_min=config.log_std_min,
         log_std_max=config.log_std_max,
-        use_layer_norm=config.use_layer_norm,
+        log_std_state_dependent=config.log_std_state_dependent,
     )
     if config.checkpoint_pathname is not None:
         load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)

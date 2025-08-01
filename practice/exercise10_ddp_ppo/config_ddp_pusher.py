@@ -21,7 +21,7 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 def get_app_config() -> ContPPOConfig:
     """Get the application config."""
     return ContPPOConfig(
-        device=get_device("mps"),
+        device=get_device("cpu"),
         timesteps=600,
         rollout_len=256,
         learning_rate=1e-4,
@@ -42,6 +42,7 @@ def get_app_config() -> ContPPOConfig:
         action_bias=0,
         log_std_min=-20,
         log_std_max=2,
+        log_std_state_dependent=True,
         reward_configs=(),
         eval_episodes=50,
         eval_random_seed=42,

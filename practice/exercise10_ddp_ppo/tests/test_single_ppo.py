@@ -5,7 +5,7 @@ from typing import Generator
 
 import pytest
 
-from practice.exercise10_ddp_ppo.config_pusher import generate_context, get_app_config
+from practice.exercise10_ddp_ppo.config_ddp_reacher import generate_context, get_app_config
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContPPOConfig
 from practice.utils.train_utils import train_and_evaluate_network
 

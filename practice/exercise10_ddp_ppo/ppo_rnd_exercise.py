@@ -15,7 +15,7 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.exercise7_ppo.ppo_exercise import _RolloutBuffer, _StepData
 from practice.utils.dist_utils import unwrap_model
-from practice.utils_for_coding.network_utils import MLP, init_weights
+from practice.utils_for_coding.network_utils import MLP, LogStdHead, init_weights
 from practice.utils_for_coding.numpy_tensor_utils import np2tensor
 from practice.utils_for_coding.rollout_utils import get_good_transition_mask
 from practice.utils_for_coding.writer_utils import CustomWriter
@@ -52,10 +52,11 @@ class ContACNet(nn.Module):
         hidden_sizes: Sequence[int],
         action_scale: float,
         action_bias: float,
+        use_layer_norm: bool = False,
         log_std_min: float = -20,
         log_std_max: float = 2,
-        use_layer_norm: bool = False,
-    ):
+        log_std_state_dependent: bool = False,
+    ) -> None:
         super().__init__()
         # shared feature layer
         self.shared_net = MLP(
@@ -66,23 +67,24 @@ class ContACNet(nn.Module):
         )
         # policy head
         self.policy_mean = nn.Linear(hidden_sizes[-1], act_dim)
-        self.policy_logstd = nn.Linear(hidden_sizes[-1], act_dim)
+        self.policy_logstd = LogStdHead(
+            input_dim=hidden_sizes[-1],
+            output_dim=act_dim,
+            state_dependent=log_std_state_dependent,
+            log_std_min=log_std_min,
+            log_std_max=log_std_max,
+        )
         # value head
         self.value = nn.Linear(hidden_sizes[-1], 1)
         init_weights(self.policy_mean)
-        init_weights(self.policy_logstd)
         init_weights(self.value)
 
         # for type checking
         self.action_scale: Tensor
         self.action_bias: Tensor
-        self.log_std_min: Tensor
-        self.log_std_max: Tensor
         # register the parameters
         self.register_buffer("action_bias", torch.tensor(action_bias, dtype=torch.float32))
         self.register_buffer("action_scale", torch.tensor(action_scale, dtype=torch.float32))
-        self.register_buffer("log_std_min", torch.tensor(log_std_min, dtype=torch.float32))
-        self.register_buffer("log_std_max", torch.tensor(log_std_max, dtype=torch.float32))
 
     def action(self, obs: Tensor) -> Tensor:
         """Return a deterministic action when evaluating.
@@ -118,10 +120,7 @@ class ContACNet(nn.Module):
         # 2. get the normal distribution
         # 2.1 get policy mean and log_std
         mean = self.policy_mean(x)
-        log_std = self.policy_logstd(x)
-        #  map log_std to [log_std_min, log_std_max] for stability
-        log_std = torch.tanh(log_std)
-        log_std = self.log_std_min + 0.5 * (self.log_std_max - self.log_std_min) * (1 + log_std)
+        log_std = self.policy_logstd(x, mean)
         # 2.2 get normal distribution with mean and std
         normal = torch.distributions.Normal(mean, log_std.exp())
 
@@ -195,6 +194,9 @@ class ContPPOConfig(BaseConfig):
     clip_coef: float
     """The clip coefficient for the PPO."""
 
+    value_clip_range: float | None = None
+    """The clip range for the value function."""
+
     reward_configs: tuple[RewardConfig, ...]
     """The reward configurations."""
 
@@ -215,6 +217,13 @@ class ContPPOConfig(BaseConfig):
 
     hidden_sizes: Sequence[int]
     """The hidden sizes of the Actor-Critic MLP."""
+
+    log_std_state_dependent: bool
+    """Whether to use state-dependent logstd.
+
+    If True, the logstd is a linear function of the state.
+    If False, the logstd is a constant.
+    """
 
 
 class ContPPOTrainer(TrainerBase):
@@ -344,7 +353,7 @@ class _ContPPOPod:
 
         # 2. Compute the advantages [d, ] (d: the valid data length)
         advantages, returns = self._compute_advantages(rollout)
-        advantages, log_probs, returns, states, actions = self._filter_bad_transition(
+        advantages, log_probs, returns, states, actions, values = self._filter_bad_transition(
             rollout=rollout, advantages=advantages, returns=returns
         )
         # normalize the advantages
@@ -377,7 +386,11 @@ class _ContPPOPod:
                 pg_loss = -torch.mean(torch.min(unclipped_pg_loss, clipped_pg_loss))
 
                 # 3.2 Update the value network
-                value_mse = nn.functional.mse_loss(values_pred.view(-1), returns[mb_inds])
+                value_mse = self._value_mse_loss(
+                    value_old=values[mb_inds],
+                    values_pred=values_pred,
+                    returns=returns[mb_inds],
+                )
                 value_loss = config.value_loss_coef * value_mse
 
                 entropy_coef = config.entropy_coef(self._rollout_count)
@@ -470,7 +483,7 @@ class _ContPPOPod:
 
     def _filter_bad_transition(
         self, rollout: Sequence[_StepData], advantages: Tensor, returns: Tensor
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
         """Filter the bad transition.
 
         See _RolloutBuffer for the reason and more details.
@@ -492,6 +505,7 @@ class _ContPPOPod:
             returns: Tensor, shape [d, ]
             states: Tensor, shape [d, obs_dim]
             actions: Tensor, shape [d, ]
+            values: Tensor, shape [d, ]
         """
         device = self._config.device
 
@@ -501,6 +515,7 @@ class _ContPPOPod:
         states = torch.stack([np2tensor(step.states) for step in rollout]).to(device)
         actions = torch.stack([np2tensor(step.actions) for step in rollout]).to(device)
         dones = torch.stack([torch.from_numpy(step.dones) for step in rollout]).to(device)
+        values = torch.stack([step.values for step in rollout]).to(device)
 
         # get the good transition mask: pre_dones != 1
         if self._pre_last_dones is None:
@@ -518,5 +533,30 @@ class _ContPPOPod:
         actions = actions.flatten(0, 1)[mask_flat]
         # dims of states is [T, N, obs_dim] -> [d, obs_dim]
         states = states.flatten(0, 1)[mask_flat]
+        values = values.flatten(0, 1)[mask_flat]
 
-        return advantages, log_probs, returns, states, actions
+        return advantages, log_probs, returns, states, actions, values
+
+    def _value_mse_loss(self, value_old: Tensor, values_pred: Tensor, returns: Tensor) -> Tensor:
+        """Compute the value MSE loss.
+
+        Clip the value if configured.
+
+        Args:
+            value_old: The old value.
+            values_pred: The predicted value.
+            returns: The returns.
+        """
+        if self._config.value_clip_range is None:
+            return nn.functional.mse_loss(values_pred.view(-1), returns)
+
+        value_mse = nn.functional.mse_loss(values_pred.view(-1), returns, reduction="none")
+        values_pred_clipped = value_old + torch.clamp(
+            values_pred - value_old,
+            -self._config.value_clip_range,
+            self._config.value_clip_range,
+        )
+        value_mse_clipped = nn.functional.mse_loss(
+            values_pred_clipped.view(-1), returns, reduction="none"
+        )
+        return 0.5 * torch.max(value_mse, value_mse_clipped).mean()

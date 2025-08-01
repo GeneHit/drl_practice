@@ -101,6 +101,13 @@ def is_distributed() -> bool:
     return dist.is_available() and dist.is_initialized()
 
 
+def get_world_size() -> int:
+    """Get the world size."""
+    if is_distributed():
+        return dist.get_world_size()
+    return 1
+
+
 def _get_rank() -> int:
     if is_distributed():
         return dist.get_rank()

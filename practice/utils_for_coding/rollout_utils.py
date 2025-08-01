@@ -33,9 +33,9 @@ def get_good_transition_mask(dones: Tensor, pre_last_dones: Tensor) -> Tensor:
         - so, transition (s_n, a_n, r_n, s_n+1) is a bad data. Have to be ignored.
 
     Example:
-        1. s_n-1, a_n-1, r_n-1, s_n     (last step of episode 1)
-        2. s_n, a_n, r_n, s_n+1         (bad transition between two episodes)
-        3. s_n+1, a_n+1, r_n+1, s_n+2   (first step of episode 2)
+        1. s_n-1, a_n-1, r_n-1, s_n, done_n-1           (last step of episode 1)
+        2. s_n, a_n, r_n, s_n+1, not_done_n             (bad transition between two episodes)
+        3. s_n+1, a_n+1, r_n+1, s_n+2, not_done_n+1     (first step of episode 2)
 
     Have to throw away the data of the bad transition between two episodes, don't use its data
     and compute graph of backward.
