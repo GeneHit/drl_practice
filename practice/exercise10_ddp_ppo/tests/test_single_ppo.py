@@ -38,7 +38,7 @@ def _minimal_ppo_config(temp_output_dir: Path) -> ContPPOConfig:
         num_epochs=2,  # fewer epochs for testing
         minibatch_num=2,  # smaller minibatch number for testing
         eval_episodes=2,
-        eval_video_num=1,
+        eval_video_num=None,
         env_config=env_config,
         artifact_config=artifact_config,
     )
