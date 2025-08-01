@@ -13,7 +13,7 @@ from practice.base.config import BaseConfig
 from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import MLP, soft_update
+from practice.utils_for_coding.network_utils import MLP, init_weights, soft_update
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.writer_utils import CustomWriter
@@ -43,6 +43,8 @@ class SACActor(nn.Module):
         )
         self.mean_linear = nn.Linear(hidden_sizes[-1], action_dim)
         self.log_std_linear = nn.Linear(hidden_sizes[-1], action_dim)
+        init_weights(self.mean_linear)
+        init_weights(self.log_std_linear)
 
         # for type checking
         self.action_scale: torch.Tensor

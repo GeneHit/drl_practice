@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import ActType, ObsType
+from practice.base.env_typing import ActType, ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.network_utils import init_weights
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
@@ -122,11 +122,9 @@ class PPOTrainer(TrainerBase):
     networks.
     """
 
-    def __init__(self, config: PPOConfig, ctx: ContextBase, log_prefix: str = "") -> None:
+    def __init__(self, config: PPOConfig, ctx: ContextBase) -> None:
         super().__init__(config=config, ctx=ctx)
-        self._config: PPOConfig = config
-        self._ctx: ContextBase = ctx
-        self._log_prefix: str = log_prefix
+        self._config: PPOConfig = config  # make mypy happy
 
     def train(self) -> None:
         """Train the policy network with a vectorized environment.
@@ -192,7 +190,7 @@ class _StepData:
     """One-step data of multi environments."""
 
     states: NDArray[ObsType]
-    actions: NDArray[ActType]
+    actions: NDArray[ActType | ActTypeC]
     log_probs: Tensor
     values: Tensor
     next_states: NDArray[ObsType]
@@ -225,7 +223,7 @@ class _RolloutBuffer:
     def add_before_acting(
         self,
         states: NDArray[ObsType],
-        actions: NDArray[ActType],
+        actions: NDArray[ActType | ActTypeC],
         log_probs: Tensor,
         values: Tensor,
     ) -> None:
@@ -542,7 +540,7 @@ class _GAEPod(_PPOPod):
         assert self._pre_last_dones is not None  # make mypy happy
         prev_dones[0] = self._pre_last_dones
         prev_dones[1:] = dones[:-1]
-        self._pre_last_dones = prev_dones[-1]
+        self._pre_last_dones = dones[-1]
         # get the valid mask [T, N]
         valid_mask = ~prev_dones
 

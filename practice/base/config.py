@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Type
 import torch
 
 from practice.base.chest import AgentBase
+from practice.utils.dist_utils import get_world_size
 
 # reason: https://github.com/python/mypy/issues/11000
 if TYPE_CHECKING:
@@ -141,6 +142,11 @@ class BaseConfig(abc.ABC):
         config_dict = self.to_dict()
         if with_data:
             config_dict.update(with_data)
+
+        # Add world_size to the config if distributed
+        world_size = get_world_size()
+        if world_size > 1:
+            config_dict["world_size"] = world_size
 
         with open(filepath, "w") as f:
             json.dump(config_dict, f, indent=4)

@@ -3,6 +3,7 @@ from typing import cast
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 
 
 def init_weights(layer: nn.Module) -> None:
@@ -119,3 +120,68 @@ class DoubleQCritic(nn.Module):
         q1_val = self.q1(sa)
         q2_val = self.q2(sa)
         return q1_val, q2_val
+
+
+class LogStdHead(nn.Module):
+    """LogStdHead is a head that outputs the logstd of the action distribution.
+
+    Support:
+    1. state-dependent logstd with warm-start
+    2. constant logstd
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        output_dim: int,
+        state_dependent: bool = False,
+        init_log_std: float = 1.0,
+        log_std_min: float = -20,
+        log_std_max: float = 2,
+        map_to_range: bool = False,
+    ) -> None:
+        """
+        Args:
+            input_dim: Last feature dim (ignored if state_dependent=False)
+            output_dim: Action dim
+            state_dependent: If True, use nn.Linear; else use nn.Parameter
+            init_log_std: Initial value for log_std (whether bias or constant)
+            log_std_min, log_std_max: Clamp range for log_std
+            map_to_range: Whether to map log_std to [log_std_min, log_std_max] for stability when
+                state_dependent=True.
+        """
+        super().__init__()
+        self.state_dependent = state_dependent
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
+        self.map_to_range = map_to_range
+
+        if state_dependent:
+            self.linear = nn.Linear(input_dim, output_dim)
+            nn.init.zeros_(self.linear.weight)
+            nn.init.constant_(self.linear.bias, init_log_std)
+            self.forward_impl = self._state_dependent_forward
+        else:
+            self.log_std_param = nn.Parameter(torch.ones(output_dim) * init_log_std)
+            self.forward_impl = self._constant_forward
+
+    def forward(self, feature: Tensor, mean: Tensor) -> Tensor:
+        """
+        Args:
+            feature: Feature vector from shared MLP [batch_size, input_dim]
+            mean: Mean of action distribution [batch_size, act_dim]
+
+        Returns:
+            log_std: Tensor of shape [batch_size, act_dim]
+        """
+        return self.forward_impl(feature, mean)
+
+    def _state_dependent_forward(self, feature: Tensor, mean: Tensor) -> Tensor:
+        log_std = self.linear(feature)
+        if self.map_to_range:
+            log_std = torch.tanh(log_std)
+            log_std = self.log_std_min + 0.5 * (self.log_std_max - self.log_std_min) * (1 + log_std)
+        return torch.clamp(log_std, self.log_std_min, self.log_std_max)
+
+    def _constant_forward(self, feature: Tensor, mean: Tensor) -> Tensor:
+        return self.log_std_param.expand_as(mean)

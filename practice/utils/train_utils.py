@@ -1,13 +1,15 @@
 import time
 
 import numpy as np
+import torch.distributed as dist
 
 from practice.base.chest import AgentBase
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.exercise1_q.q_table_exercise import QTable
+from practice.utils.dist_utils import is_distributed
 from practice.utils.evaluation_utils import evaluate_and_save_results
-from practice.utils_for_coding.agent_utils import ACAgent, ContinuousAgent, NNAgent
+from practice.utils_for_coding.agent_utils import ACAgent, ContAgent, ContinuousAgent, NNAgent
 
 
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
@@ -31,6 +33,8 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
         agent = ACAgent(net=ctx.network)
     elif agent_type == ContinuousAgent:
         agent = ContinuousAgent(net=ctx.network)
+    elif agent_type == ContAgent:
+        agent = ContAgent(net=ctx.network)
     else:
         raise ValueError(f"Unsupported agent type: {agent_type}")
 
@@ -42,3 +46,6 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
             config=config,
             meta_data={"train_duration_min": f"{train_duration_min:.2f}"},
         )
+
+    if is_distributed():
+        dist.destroy_process_group()
