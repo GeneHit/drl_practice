@@ -15,7 +15,6 @@ from practice.utils.env_utils import (
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.agent_utils import ContinuousAgent
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import DoubleQCritic
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
@@ -52,7 +51,6 @@ def get_app_config() -> TD3Config:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=TD3Trainer,
-            agent_type=ContinuousAgent,
             output_dir="results/exercise8_td3/walker/",
             save_result=True,
             model_filename="td3_walker2d.pth",

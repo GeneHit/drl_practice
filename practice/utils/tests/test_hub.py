@@ -51,15 +51,7 @@ def temp_output_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
-def mock_agent() -> Mock:
-    """Create a mock agent for testing."""
-    agent = Mock()
-    agent.load_from_checkpoint = Mock()
-    return agent
-
-
-@pytest.fixture
-def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
+def test_config(temp_output_dir: Path) -> BaseConfig:
     """Create a test configuration for hub functionality."""
     from dataclasses import dataclass
 
@@ -70,7 +62,6 @@ def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
 
     artifact_config = ArtifactConfig(
         trainer_type=TestTrainer,
-        agent_type=mock_agent,
         output_dir=str(temp_output_dir),
         save_result=True,
         model_filename="test_model.pth",
@@ -379,7 +370,6 @@ class TestPushModelToHub:
         # Create config with different filenames
         artifact_config = ArtifactConfig(
             trainer_type=TestTrainer,
-            agent_type=Mock,
             output_dir=str(temp_output_dir),
             save_result=True,
             model_filename="custom_model.pth",

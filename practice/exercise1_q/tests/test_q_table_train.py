@@ -70,7 +70,6 @@ def test_config() -> QTableConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=QTableTrainer,
-            agent_type=QTable,
             output_dir="",  # Will be set to temp dir in tests
             save_result=True,
             model_filename="q_table.pt",
@@ -314,7 +313,6 @@ class TestQTableTraining:
         # Test artifact config
         artifact_config = test_config.artifact_config
         assert artifact_config.trainer_type == QTableTrainer
-        assert artifact_config.agent_type == QTable
         assert artifact_config.model_filename is not None
         assert artifact_config.state_dict_filename is not None
         assert artifact_config.algorithm_name is not None

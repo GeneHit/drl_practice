@@ -15,7 +15,6 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
     ReinforceContext,
 )
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
@@ -64,7 +63,6 @@ def get_app_config() -> EnhancedReinforceConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=EnhancedReinforceTrainer,
-            agent_type=NNAgent,
             output_dir="results/exercise4_curiosity/mountain_car/",
             save_result=True,
             seek_for_play=59,

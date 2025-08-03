@@ -38,7 +38,6 @@ def get_app_config() -> QTableConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=QTableTrainer,
-            agent_type=QTable,
             output_dir="results/exercise1_q/frozen_lake/",
             save_result=True,
             state_dict_filename="table_numpy.pkl",

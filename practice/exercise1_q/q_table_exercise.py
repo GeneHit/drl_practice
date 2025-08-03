@@ -6,13 +6,12 @@ import torch
 from numpy.typing import NDArray
 
 from practice.base.env_typing import ActType
-from practice.utils_for_coding.agent_utils import AgentBase
 
 # Type alias for discrete observations
 ObsType: TypeAlias = np.int64
 
 
-class QTable(AgentBase):
+class QTable:
     """Q-table agent."""
 
     def __init__(self, table: NDArray[np.float32]) -> None:

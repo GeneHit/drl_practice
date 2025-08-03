@@ -60,7 +60,7 @@ def temp_output_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
-def mock_context(mock_env: Mock, mock_agent: Mock) -> Mock:
+def mock_context(mock_env: Mock) -> Mock:
     """Create a mock context for testing."""
     ctx = Mock(spec=ContextBase)
     ctx.eval_env = mock_env
@@ -72,7 +72,7 @@ def mock_context(mock_env: Mock, mock_agent: Mock) -> Mock:
 
 
 @pytest.fixture
-def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
+def test_config(temp_output_dir: Path) -> BaseConfig:
     """Create a test configuration for play functionality."""
     from dataclasses import dataclass
 
@@ -83,7 +83,6 @@ def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
 
     artifact_config = ArtifactConfig(
         trainer_type=TestTrainer,
-        agent_type=mock_agent,
         output_dir=str(temp_output_dir),
         save_result=True,
         model_filename="test_model.pth",
@@ -429,7 +428,6 @@ class TestPlayUtilsIntegration:
         assert artifact_config.replay_video_filename is not None
         assert artifact_config.fps > 0
         assert artifact_config.seek_for_play is not None
-        assert artifact_config.agent_type is not None
 
         # Verify config device
         assert test_config.device is not None

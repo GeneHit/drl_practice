@@ -30,12 +30,14 @@ from typing import Generator
 import pytest
 import torch
 
+from practice.base.config import ArtifactConfig, EnvConfig
 from practice.exercise3_reinforce.config_cartpole import generate_context
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     ReinforceConfig,
     ReinforceTrainer,
 )
+from practice.utils.env_utils import get_device
 from practice.utils.train_utils_new import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import ConstantSchedule
 
@@ -43,10 +45,6 @@ from practice.utils_for_coding.scheduler_utils import ConstantSchedule
 @pytest.fixture
 def test_config() -> ReinforceConfig:
     """Create a test configuration based on mountain car config with reduced parameters."""
-    from practice.base.config import ArtifactConfig, EnvConfig
-    from practice.utils.env_utils import get_device
-    from practice.utils_for_coding.agent_utils import NNAgent
-
     device = get_device()
 
     return ReinforceConfig(
@@ -66,7 +64,6 @@ def test_config() -> ReinforceConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ReinforceTrainer,
-            agent_type=NNAgent,
             output_dir="",  # Will be set to temp dir in tests
             save_result=True,
             model_filename="reinforce.pth",

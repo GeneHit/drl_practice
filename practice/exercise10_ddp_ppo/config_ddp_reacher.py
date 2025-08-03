@@ -15,7 +15,6 @@ from practice.utils.env_utils import (
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.agent_utils import ContAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -62,7 +61,6 @@ def get_app_config() -> ContPPOConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ContPPOTrainer,
-            agent_type=ContAgent,
             output_dir="results/exercise10_ddp_ppo/ddp_reacher/",
             save_result=True,
             repo_id="DDP-PPO-Reacher-v5",

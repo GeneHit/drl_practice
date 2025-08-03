@@ -6,7 +6,6 @@ from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.exercise7_ppo.ppo_exercise import ActorCritic, PPOConfig, PPOTrainer
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import ACAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -38,7 +37,6 @@ def get_app_config() -> PPOConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=PPOTrainer,
-            agent_type=ACAgent,
             output_dir="results/exercise7_ppo/lunar/",
             save_result=True,
             model_filename="ppo.pth",

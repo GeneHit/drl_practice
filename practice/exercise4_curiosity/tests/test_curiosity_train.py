@@ -44,7 +44,6 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
 )
 from practice.utils.env_utils import get_device
 from practice.utils.train_utils_new import train_and_evaluate_network
-from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
 from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
 
@@ -92,7 +91,6 @@ def test_config() -> EnhancedReinforceConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=EnhancedReinforceTrainer,
-            agent_type=NNAgent,
             output_dir="",  # Will be set to temp dir in tests
             save_result=True,
             model_filename="curiosity.pth",

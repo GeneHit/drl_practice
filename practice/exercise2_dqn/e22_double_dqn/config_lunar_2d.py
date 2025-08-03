@@ -7,7 +7,6 @@ from practice.exercise2_dqn.dqn_exercise import DQNConfig
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.exercise2_dqn.e22_double_dqn.double_dqn_exercise import QNet2D
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -46,7 +45,6 @@ def get_app_config() -> DQNConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
-            agent_type=NNAgent,
             output_dir="results/exercise2_dqn/double_dqn/lunar_2d/",
             save_result=True,
             repo_id="DoubleDQN-2d-LunarLander-v3",

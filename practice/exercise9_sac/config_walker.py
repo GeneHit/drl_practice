@@ -15,7 +15,6 @@ from practice.utils.env_utils import (
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.agent_utils import ContinuousAgent
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import DoubleQCritic
 
@@ -54,7 +53,6 @@ def get_app_config() -> SACConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=SACTrainer,
-            agent_type=ContinuousAgent,
             output_dir="results/exercise9_sac/walker/",
             save_result=True,
             fps=30,

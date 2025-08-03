@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Type
 
 import torch
 
-from practice.base.chest import AgentBase
 from practice.utils.dist_utils import get_world_size
 
 # reason: https://github.com/python/mypy/issues/11000
@@ -19,10 +18,10 @@ class ArtifactConfig(abc.ABC):
     """Base configuration class for all artifacts."""
 
     trainer_type: "Type[TrainerBase]"
-    """The type of the trainer. Use type[TrainerBase] to avoid circular import."""
-    # TODO: remove this
-    agent_type: type[AgentBase]
-    """The type of the agent."""
+    """The type of the trainer. Use type[TrainerBase] to avoid circular import.
+
+    The framework will use this to create the trainer instance.
+    """
     play_full_model: bool = False
     """Whether to load the full model for playing."""
 

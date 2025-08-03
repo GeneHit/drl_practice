@@ -35,9 +35,11 @@ from typing import Generator
 import pytest
 import torch
 
+from practice.base.config import ArtifactConfig, EnvConfig
 from practice.exercise2_dqn.config_lunar_1d import generate_context
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
+from practice.utils.env_utils import get_device
 from practice.utils.train_utils_new import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -45,10 +47,6 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 @pytest.fixture
 def test_config() -> DQNConfig:
     """Create a test configuration based on lunar_1d config with reduced parameters."""
-    from practice.base.config import ArtifactConfig, EnvConfig
-    from practice.utils.env_utils import get_device
-    from practice.utils_for_coding.agent_utils import NNAgent
-
     device = get_device()
 
     return DQNConfig(
@@ -80,7 +78,6 @@ def test_config() -> DQNConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
-            agent_type=NNAgent,
             output_dir="",  # Will be set to temp dir in tests
             save_result=True,
             model_filename="dqn.pth",
