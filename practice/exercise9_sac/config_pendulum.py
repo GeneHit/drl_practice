@@ -64,15 +64,6 @@ def get_app_config() -> SACConfig:
     )
 
 
-def get_env_for_play_and_hub(config: SACConfig) -> EnvTypeC:
-    """Get the environment for playing and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    # use cast for type checking
-    verify_vector_env_with_continuous_action(cast(EnvsTypeC, train_env))
-    train_env.close()
-    return cast(EnvTypeC, eval_env)
-
-
 def generate_context(config: SACConfig) -> ACContext:
     """Generate the context for the SAC algorithm."""
     train_envs, eval_env = get_env_from_config(config.env_config)

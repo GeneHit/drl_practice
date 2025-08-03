@@ -32,11 +32,7 @@ import torch
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
-from practice.exercise4_curiosity.config_mountain_car import (
-    generate_context,
-    get_app_config,
-    get_env_for_play_and_hub,
-)
+from practice.exercise4_curiosity.config_mountain_car import generate_context, get_app_config
 from practice.exercise4_curiosity.curiosity_exercise import (
     RND1DNetworkConfig,
     RNDRewardConfig,
@@ -281,8 +277,7 @@ class TestCuriosityTraining:
         assert hasattr(context, "rewarders")
         assert len(context.rewarders) == 2  # Should match reward_configs
 
-        # Test get_env_for_play_and_hub
-        env = get_env_for_play_and_hub(test_config)
+        env = context.eval_env
         assert env is not None
         assert hasattr(env, "observation_space")
         assert hasattr(env, "action_space")

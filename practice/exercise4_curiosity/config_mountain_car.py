@@ -3,7 +3,6 @@ import torch.optim as optim
 from gymnasium.spaces import Discrete
 
 from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.curiosity_exercise import (
     RND1DNetworkConfig,
@@ -74,13 +73,6 @@ def get_app_config() -> EnhancedReinforceConfig:
             extra_tags=("curiosity", "reinforce", "rnd", "policy-gradient", "pytorch"),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: EnhancedReinforceConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    train_env.close()
-    return eval_env
 
 
 def generate_context(config: EnhancedReinforceConfig) -> ReinforceContext:

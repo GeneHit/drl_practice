@@ -3,7 +3,6 @@ from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise2_dqn.dqn_exercise import DQNConfig
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.exercise2_dqn.e23_dueling_dqn.dueling_dqn_exercise import DuelingDQN1D
@@ -76,10 +75,3 @@ def generate_context(config: DQNConfig) -> ContextBase:
         trained_target=q_network,
         optimizer=Adam(q_network.parameters(), lr=config.learning_rate),
     )
-
-
-def get_env_for_play_and_hub(config: DQNConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    train_env.close()
-    return eval_env

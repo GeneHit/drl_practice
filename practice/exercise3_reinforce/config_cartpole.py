@@ -4,7 +4,6 @@ from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     ReinforceConfig,
@@ -68,10 +67,3 @@ def generate_context(config: ReinforceConfig) -> ContextBase:
         trained_target=policy,
         optimizer=Adam(policy.parameters(), lr=config.learning_rate),
     )
-
-
-def get_env_for_play_and_hub(config: ReinforceConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    train_env.close()
-    return eval_env

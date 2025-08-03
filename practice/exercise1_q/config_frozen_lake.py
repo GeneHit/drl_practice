@@ -96,12 +96,6 @@ def generate_context(config: QTableConfig) -> ContextBase:
     )
 
 
-def get_env_for_play_and_hub(config: QTableConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    # Create evaluation environment with rgb_array render mode
-    return _get_eval_env(config)
-
-
 def _get_eval_env(config: QTableConfig) -> EnvType:
     eval_kwargs = (config.env_config.env_kwargs or {}).copy()
     # always use rgb_array for evaluation/play

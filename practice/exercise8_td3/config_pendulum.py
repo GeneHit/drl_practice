@@ -63,15 +63,6 @@ def get_app_config() -> TD3Config:
     )
 
 
-def get_env_for_play_and_hub(config: TD3Config) -> EnvTypeC:
-    """Get the environment for playing and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    # use cast for type checking
-    verify_vector_env_with_continuous_action(cast(EnvsTypeC, train_env))
-    train_env.close()
-    return cast(EnvTypeC, eval_env)
-
-
 def generate_context(config: TD3Config) -> ACContext:
     """Generate the context for the TD3 algorithm."""
     train_envs, eval_env = get_env_from_config(config.env_config)
