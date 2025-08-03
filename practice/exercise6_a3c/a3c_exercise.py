@@ -9,8 +9,7 @@ from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 from practice.base.context import ContextBase
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_env_from_config
-from practice.utils.evaluation_utils import evaluate_and_save_results
-from practice.utils_for_coding.agent_utils import ACAgent
+from practice.utils.eval_utils import evaluate_and_save_results
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -133,12 +132,9 @@ def a3c_train(config: A3CConfig) -> None:
 
     # Evaluation and save results
     train_duration_min = (time.time() - start_time) / 60
-    agent_type = config.artifact_config.agent_type
-    assert agent_type == ACAgent
-    agent = ACAgent(net=actor_critic)
     evaluate_and_save_results(
         env=eval_env,
-        agent=agent,
+        agent=actor_critic,
         config=config,
         meta_data={"train_duration_min": f"{train_duration_min:.2f}"},
     )

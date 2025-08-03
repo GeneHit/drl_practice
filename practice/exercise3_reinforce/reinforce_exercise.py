@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Sequence, cast
 
 import numpy as np
 import torch
@@ -13,6 +13,7 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.network_utils import MLP
+from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
 
@@ -29,8 +30,16 @@ class Reinforce1DNet(nn.Module):
         self._softmax = nn.Softmax(dim=-1)
 
     def forward(self, x: Tensor) -> Tensor:
-        y: Tensor = self._softmax(self.mlp(x))  # make mypy happy
-        return y
+        # use cast to make mypy happy
+        return cast(Tensor, self._softmax(self.mlp(x)))
+
+    def action(self, x: Tensor) -> ActType:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The single action.
+        """
+        return argmax_action(self.forward(x), dtype=ActType)
 
 
 @dataclass(kw_only=True, frozen=True)

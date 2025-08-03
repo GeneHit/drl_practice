@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 
+from practice.base.env_typing import ActType
 from practice.utils_for_coding.network_utils import MLP, init_weights
+from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 
 
 class DuelingDQN1D(nn.Module):
@@ -39,3 +41,11 @@ class DuelingDQN1D(nn.Module):
         q = value + (advantage - advantage.mean(dim=1, keepdim=True))  # [batch, action_n]
         assert isinstance(q, torch.Tensor)  # make mypy happy
         return q
+
+    def action(self, x: torch.Tensor) -> ActType:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The single action.
+        """
+        return argmax_action(self.forward(x), dtype=ActType)

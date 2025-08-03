@@ -16,7 +16,7 @@ from practice.base.trainer import TrainerBase
 from practice.exercise7_ppo.ppo_exercise import _RolloutBuffer, _StepData
 from practice.utils.dist_utils import unwrap_model
 from practice.utils_for_coding.network_utils import MLP, LogStdHead, init_weights
-from practice.utils_for_coding.numpy_tensor_utils import np2tensor
+from practice.utils_for_coding.numpy_tensor_utils import np2tensor, tensor2np_1d
 from practice.utils_for_coding.rollout_utils import get_good_transition_mask
 from practice.utils_for_coding.writer_utils import CustomWriter
 
@@ -86,16 +86,16 @@ class ContACNet(nn.Module):
         self.register_buffer("action_bias", torch.tensor(action_bias, dtype=torch.float32))
         self.register_buffer("action_scale", torch.tensor(action_scale, dtype=torch.float32))
 
-    def action(self, obs: Tensor) -> Tensor:
-        """Return a deterministic action when evaluating.
+    def action(self, obs: Tensor) -> NDArray[ActTypeC]:
+        """Get the action for evaluation/gameplay with 1 environment.
 
         Returns:
-            action: The deterministic action.
+            action: The deterministic action for one environment.
         """
         x = self.shared_net(obs)
         mean = self.policy_mean(x)
         action: Tensor = mean * self.action_scale + self.action_bias
-        return action
+        return tensor2np_1d(action, dtype=ActTypeC())
 
     def forward(
         self, obs: Tensor, actions: Tensor | None = None

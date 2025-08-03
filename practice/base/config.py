@@ -20,16 +20,21 @@ class ArtifactConfig(abc.ABC):
 
     trainer_type: "Type[TrainerBase]"
     """The type of the trainer. Use type[TrainerBase] to avoid circular import."""
+    # TODO: remove this
     agent_type: type[AgentBase]
     """The type of the agent."""
+    play_full_model: bool = True
+    """Whether to load the full model for playing."""
 
     # Output parameters
     output_dir: str
     """The output directory for the artifacts."""
     save_result: bool = True
     """Whether to save the result."""
-    model_filename: str = "model.pth"
-    """The filename for the model."""
+    model_filename: str = "full_model.pth"
+    """The filename for the full model."""
+    state_dict_filename: str = "state_dict.pt"
+    """The filename for the state dict."""
     params_filename: str = "params.json"
     """The filename for the parameters."""
     train_result_filename: str = "train_result.json"

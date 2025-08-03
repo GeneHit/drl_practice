@@ -10,6 +10,7 @@ from practice.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer
 from practice.utils_for_coding.network_utils import MLP, init_weights
+from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 
@@ -82,6 +83,15 @@ class RainbowNet(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError("Not implemented")
+
+    def action(self, x: torch.Tensor) -> ActType:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The single action.
+        """
+        # greedy strategy
+        return argmax_action(self.forward(x), dtype=ActType)
 
 
 class RainbowPod(DQNPod):

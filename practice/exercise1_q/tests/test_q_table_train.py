@@ -27,20 +27,19 @@ All tests validate proper resource cleanup and file cleanup.
 import json
 import tempfile
 from pathlib import Path
-from typing import Generator, cast
+from typing import Generator
 
 import numpy as np
 import pytest
 
-from practice.base.context import ContextBase
 from practice.exercise1_q.config_taxi import generate_context
 from practice.exercise1_q.q_table_exercise import (
-    EnvType,
     QTable,
     QTableConfig,
     QTableTrainer,
 )
-from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils.play_utils_new import play_and_generate_video_generic
+from practice.utils.train_utils_new import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 
@@ -105,7 +104,7 @@ class TestQTableTraining:
         artifact_config = replace(
             test_config.artifact_config,
             output_dir=str(temp_output_dir),
-            save_result=False,
+            save_result=True,
         )
         config = replace(test_config, artifact_config=artifact_config)
 
@@ -118,6 +117,7 @@ class TestQTableTraining:
 
             # Test passes if no exception is raised
             assert True, "Training completed successfully"
+            play_and_generate_video_generic(config=config, ctx=context)
         finally:
             # Clean up environments
             if hasattr(context, "train_env") and context.train_env:
@@ -293,37 +293,6 @@ class TestQTableTraining:
                 context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
-
-    def test_cli_integration(self, temp_output_dir: Path) -> None:
-        """Test CLI integration with the training functionality."""
-        from practice.utils.cli_utils import load_config_module
-
-        # Test train mode loading
-        config, context = load_config_module("practice/exercise1_q/config_taxi.py", "train")
-
-        assert isinstance(config, QTableConfig)
-        assert isinstance(context, ContextBase)
-        assert hasattr(context, "train_env")
-        assert hasattr(context, "eval_env")
-
-        # Test play mode loading
-        config, init_env = load_config_module("practice/exercise1_q/config_taxi.py", "play")
-
-        env = cast(EnvType, init_env)  # make mypy happy
-        assert isinstance(config, QTableConfig)
-        assert hasattr(env, "observation_space")
-        assert hasattr(env, "action_space")
-
-        # Clean up
-        try:
-            if hasattr(context, "train_env") and context.train_env:
-                context.train_env.close()
-            if hasattr(context, "eval_env") and context.eval_env:
-                context.eval_env.close()
-            if env:
-                env.close()
-        except:
-            pass
 
     def test_config_validation(self, test_config: QTableConfig) -> None:
         """Test that configuration has all required fields."""

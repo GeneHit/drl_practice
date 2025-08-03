@@ -1,16 +1,13 @@
 import importlib.util
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Union, cast
+from typing import cast
 
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 
 
-def load_config_module(
-    config_path: str, mode: str
-) -> tuple[BaseConfig, Union[ContextBase, EnvType]]:
+def load_config_module(config_path: str, mode: str) -> tuple[BaseConfig, ContextBase]:
     """Load a Python config module and extract config and context/env based on mode.
 
     Args:
@@ -47,22 +44,13 @@ def load_config_module(
     # Get config
     config = module.get_app_config()
 
-    if mode == "train":
-        # For train mode, we need the full context
-        if not hasattr(module, "generate_context"):
-            raise AttributeError(
-                f"Config module must define 'generate_context' function: {config_path}"
-            )
-        context = module.generate_context(config)
-        return cast(BaseConfig, config), cast(ContextBase, context)
-    else:
-        # For play and push_to_hub modes, we only need the environment
-        if not hasattr(module, "get_env_for_play_and_hub"):
-            raise AttributeError(
-                f"Config module must define 'get_env_for_play_and_hub' function: {config_path}"
-            )
-        env = module.get_env_for_play_and_hub(config)
-        return cast(BaseConfig, config), cast(EnvType, env)
+    assert mode in ["train", "play", "push_to_hub"]
+    if not hasattr(module, "generate_context"):
+        raise AttributeError(
+            f"Config module must define 'generate_context' function: {config_path}"
+        )
+    context = module.generate_context(config)
+    return cast(BaseConfig, config), cast(ContextBase, context)
 
 
 def get_utc_time_str() -> str:

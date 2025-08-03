@@ -6,7 +6,7 @@ from typing import cast
 import numpy as np
 import torch
 from numpy.typing import NDArray
-from torch import nn
+from torch import Tensor, nn
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
@@ -14,7 +14,7 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, soft_update
-from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
+from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on, tensor2np_1d
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
@@ -39,8 +39,22 @@ class TD3Actor(nn.Module):
         )
         self.max_action = max_action
 
-    def forward(self, state: torch.Tensor) -> torch.Tensor:
-        return cast(torch.Tensor, self.net(state) * self.max_action)
+    def forward(self, state: Tensor) -> Tensor:
+        """Sample an action when training.
+
+        Returns:
+            action: The sampled action.
+        """
+        return cast(Tensor, self.net(state) * self.max_action)
+
+    def action(self, state: Tensor) -> NDArray[ActTypeC]:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The deterministic action.
+        """
+        action: Tensor = self.net(state) * self.max_action
+        return tensor2np_1d(action, dtype=ActTypeC())
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -286,7 +300,7 @@ class _TD3Pod:
             blocked=False,
         )
 
-    def _get_target_q(self, experience: Experience) -> torch.Tensor:
+    def _get_target_q(self, experience: Experience) -> Tensor:
         """Get the target Q-value for the given experience.
 
         Steps:
@@ -316,7 +330,7 @@ class _TD3Pod:
             # Return Sequence: standard TD3, use Q1/Q2, usually train together
             # Return Single: the standard DDPG, use one Q.
             if isinstance(target_critic_q, Sequence):
-                next_q: torch.Tensor = torch.min(*target_critic_q)
+                next_q: Tensor = torch.min(*target_critic_q)
             else:
                 next_q = target_critic_q
             # next_q shape [batch, 1]，rewards shape [batch]

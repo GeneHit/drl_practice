@@ -25,14 +25,12 @@ All tests validate proper resource cleanup and file cleanup.
 import json
 import tempfile
 from pathlib import Path
-from typing import Generator, cast
+from typing import Generator
 
 import pytest
 import torch
 
 from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.config_mountain_car import (
     generate_context,
@@ -49,7 +47,7 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceTrainer,
 )
 from practice.utils.env_utils import get_device
-from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils.train_utils_new import train_and_evaluate_network
 from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
 from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
@@ -286,41 +284,6 @@ class TestCuriosityTraining:
         # Test get_env_for_play_and_hub
         env = get_env_for_play_and_hub(test_config)
         assert env is not None
-        assert hasattr(env, "observation_space")
-        assert hasattr(env, "action_space")
-
-        # Clean up
-        try:
-            if hasattr(context, "env") and context.env:
-                context.env.close()
-            if hasattr(context, "eval_env") and context.eval_env:
-                context.eval_env.close()
-            if env:
-                env.close()
-        except:
-            pass
-
-    def test_cli_integration(self, temp_output_dir: Path) -> None:
-        """Test CLI integration with the training functionality."""
-        from practice.utils.cli_utils import load_config_module
-
-        # Test train mode loading
-        config, context = load_config_module(
-            "practice/exercise4_curiosity/config_mountain_car.py", "train"
-        )
-
-        assert isinstance(config, EnhancedReinforceConfig)
-        assert isinstance(context, ContextBase)
-        assert hasattr(context, "env")
-        assert hasattr(context, "eval_env")
-
-        # Test play mode loading
-        config, init_env = load_config_module(
-            "practice/exercise4_curiosity/config_mountain_car.py", "play"
-        )
-
-        env = cast(EnvType, init_env)  # make mypy happy
-        assert isinstance(config, EnhancedReinforceConfig)
         assert hasattr(env, "observation_space")
         assert hasattr(env, "action_space")
 

@@ -30,17 +30,15 @@ All tests validate proper resource cleanup and file cleanup.
 import json
 import tempfile
 from pathlib import Path
-from typing import Generator, cast
+from typing import Generator
 
 import pytest
 import torch
 
-from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise2_dqn.config_lunar_1d import generate_context
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
-from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils.train_utils_new import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
@@ -291,37 +289,6 @@ class TestDQNTraining:
                 context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
-
-    def test_cli_integration(self, temp_output_dir: Path) -> None:
-        """Test CLI integration with the training functionality."""
-        from practice.utils.cli_utils import load_config_module
-
-        # Test train mode loading
-        config, context = load_config_module("practice/exercise2_dqn/config_lunar_1d.py", "train")
-
-        assert isinstance(config, DQNConfig)
-        assert isinstance(context, ContextBase)
-        assert hasattr(context, "train_env")
-        assert hasattr(context, "eval_env")
-
-        # Test play mode loading
-        config, init_env = load_config_module("practice/exercise2_dqn/config_lunar_1d.py", "play")
-
-        env = cast(EnvType, init_env)  # make mypy happy
-        assert isinstance(config, DQNConfig)
-        assert hasattr(env, "observation_space")
-        assert hasattr(env, "action_space")
-
-        # Clean up
-        try:
-            if hasattr(context, "train_env") and context.train_env:
-                context.train_env.close()
-            if hasattr(context, "eval_env") and context.eval_env:
-                context.eval_env.close()
-            if env:
-                env.close()
-        except:
-            pass
 
     def test_config_validation(self, test_config: DQNConfig) -> None:
         """Test that configuration has all required fields."""
