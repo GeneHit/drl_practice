@@ -8,6 +8,7 @@ from huggingface_hub import HfApi, snapshot_download
 from huggingface_hub.repocard import metadata_eval_result, metadata_save
 
 from practice.base.config import ArtifactConfig, BaseConfig
+from practice.exercise1_q.q_table_exercise import QTableTrainer
 from practice.utils.cli_utils import get_utc_time_str
 
 
@@ -31,6 +32,11 @@ def push_to_hub_generic(config: BaseConfig, env: gym.Env[Any, Any], username: st
 
     # Create repo_id
     repo_id = f"{username}/{config.artifact_config.repo_id}"
+    extra_info = ""
+    if config.artifact_config.trainer_type == QTableTrainer:
+        extra_info = "There is also a numpy version of the Q-table."
+    else:
+        extra_info = "There is also a state dict version of the model, you can check the corresponding definition in the repo."
 
     # Create model card with algorithm-specific content
     model_card = f"""
@@ -38,15 +44,16 @@ def push_to_hub_generic(config: BaseConfig, env: gym.Env[Any, Any], username: st
 This is a trained model of a **{algorithm_name}** agent playing **{env_id}**.
 
 ## Usage
-# create the conda env in https://github.com/GeneHit/drl_practice
+### create the conda env in https://github.com/GeneHit/drl_practice
 ```bash
 conda create -n drl python=3.10
 conda activate drl
 python -m pip install -r requirements.txt
 ```
 
-# load the full model
+### play with full model
 ```python
+# load the full model
 model = load_from_hub(repo_id="{repo_id}", filename="{config.artifact_config.model_filename}")
 
 # Create the environment. {config.artifact_config.usage_instructions}
@@ -55,7 +62,7 @@ state, _ = env.reset()
 action = model.action(state)
 ...
 ```
-There is also a state dict version of the model.
+{extra_info}
 """
 
     # Push to hub
@@ -83,6 +90,8 @@ def push_model_to_hub(
 
     # Only copy tensorboard directory if it exists
     if Path(tensorboard_src).exists():
+        if tensorboard_dst.exists():
+            shutil.rmtree(tensorboard_dst)
         shutil.copytree(tensorboard_src, tensorboard_dst)
 
     _push_to_hub(
@@ -90,6 +99,7 @@ def push_model_to_hub(
         model_card=model_card,
         file_pathnames=[
             str(output_dir / artifact_config.model_filename),
+            str(output_dir / artifact_config.state_dict_filename),
             str(output_dir / artifact_config.params_filename),
             str(output_dir / artifact_config.replay_video_filename),
         ],
@@ -210,5 +220,5 @@ def _push_to_hub(
         commit_message=f"upload via upload_folder {get_utc_time_str()}",
     )
 
-    # print a new line to avoid uploading process bar.
-    print(f"Pushed to the Hub. See: {repo_url}\n")
+    # end with a space to avoid other print.
+    print(f"Pushed to the Hub. See: {repo_url} ")

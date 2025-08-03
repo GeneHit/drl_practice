@@ -173,18 +173,20 @@ def _save_model_and_result(
     out_dir = Path(artifact_config.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # save the model
-    path = str(out_dir / artifact_config.model_filename)
+    # save the full model
+    full_model_path = str(out_dir / artifact_config.model_filename)
+    state_dict_path = str(out_dir / artifact_config.state_dict_filename)
     if isinstance(agent, QTable):
-        # save the q table
-        agent.only_save_model(path)
+        # save the full QTable
+        torch.save(agent, full_model_path)
+        # save the numpy version of the q table
+        agent.only_save_model(state_dict_path)
     else:
         assert isinstance(agent, nn.Module)
         # save the full model
-        save_model(agent, path, full_model=True)
-        # save the state dict
-        path = str(out_dir / artifact_config.state_dict_filename)
-        save_model(agent, path, full_model=False)
+        save_model(agent, full_model_path, full_model=True)
+        # save the state dict of the network
+        save_model(agent, state_dict_path, full_model=False)
 
     # save the eval result
     with open(out_dir / artifact_config.eval_result_filename, "w") as f:

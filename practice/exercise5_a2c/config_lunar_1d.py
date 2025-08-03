@@ -4,7 +4,6 @@ from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import ACAgent
@@ -42,20 +41,13 @@ def get_app_config() -> A2CConfig:
             agent_type=ACAgent,
             output_dir="results/exercise5_a2c/lunar/",
             save_result=True,
-            model_filename="a2c_gae.pth",
+            fps=30,
+            fps_skip=2,
             repo_id="A2C-GAE-LunarLanderV3",
             algorithm_name="A2C-GAE",
             extra_tags=("policy-gradient", "pytorch", "a2c", "gae"),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: A2CConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    train_env.close()
-
-    return eval_env
 
 
 def generate_context(config: A2CConfig) -> ContextBase:

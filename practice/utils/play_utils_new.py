@@ -1,10 +1,11 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import gymnasium as gym
 import imageio
 import numpy as np
+import torch
 from torch import nn
 
 from practice.base.config import BaseConfig
@@ -30,22 +31,24 @@ def play_and_generate_video_generic(config: BaseConfig, ctx: ContextBase) -> Non
     video_path = Path(artifact_config.output_dir) / artifact_config.replay_video_filename
 
     # Play the game and save video
-    play_game_once(
+    _play_game_once(
         env=ctx.eval_env,
         agent=agent,
         save_video=True,
         video_pathname=str(video_path),
         fps=artifact_config.fps,
-        seed=artifact_config.seed,
+        fps_skip=artifact_config.fps_skip,
+        seed=artifact_config.seek_for_play,
     )
 
 
-def play_game_once(
+def _play_game_once(
     env: gym.Env[Any, Any],
     agent: nn.Module | QTable,
     save_video: bool = False,
     video_pathname: str = "",
     fps: int = 1,
+    fps_skip: int = 1,
     seed: int = 100,
 ) -> None:
     """Play the game once with the random seed.
@@ -56,6 +59,8 @@ def play_game_once(
         save_video (bool): Whether to save the video.
         video_pathname (str): The path and name of the video.
         fps (int): The fps of the video.
+        fps_skip (int): The frame rate to skip.
+        seed (int): The seed for the replay video.
     """
     images: list[Any] = []
     state, _ = env.reset(seed=seed)
@@ -83,21 +88,27 @@ def play_game_once(
     if save_video and video_pathname:
         # Create the directory if it doesn't exist
         os.makedirs(os.path.dirname(video_pathname), exist_ok=True)
-        imageio.mimsave(video_pathname, [np.array(img) for img in images], fps=fps)
+        imageio.mimsave(video_pathname, [np.array(img) for img in images[::fps_skip]], fps=fps)
     print(f"Play Result: reward {reward_sum:.2f}, video saved to {video_pathname}")
 
 
 def _load_model_from_config(cfg: BaseConfig, ctx: ContextBase) -> nn.Module | QTable:
-    model_path = Path(cfg.artifact_config.output_dir) / cfg.artifact_config.model_filename
-    if not model_path.exists():
-        raise FileNotFoundError(f"Model file not found: {model_path}")
-
-    path = str(model_path)
-    if isinstance(ctx.trained_target, np.ndarray):
-        return QTable.load_from_checkpoint(path, device=None)
-
-    assert isinstance(ctx.trained_target, nn.Module)
+    """Load the model from the config."""
     if cfg.artifact_config.play_full_model:
-        return load_model(pathname=path, device=cfg.device, net=None)
+        full_model_path = Path(cfg.artifact_config.output_dir) / cfg.artifact_config.model_filename
+        if not full_model_path.exists():
+            raise FileNotFoundError(f"Model file not found: {full_model_path}")
 
-    return load_model(pathname=path, device=cfg.device, net=ctx.network)
+        if isinstance(ctx.trained_target, np.ndarray):
+            return cast(QTable, torch.load(str(full_model_path)))
+
+        return load_model(pathname=str(full_model_path), device=cfg.device, net=None)
+
+    state_dict_path = Path(cfg.artifact_config.output_dir) / cfg.artifact_config.state_dict_filename
+    if not state_dict_path.exists():
+        raise FileNotFoundError(f"State dict file not found: {state_dict_path}")
+
+    if isinstance(ctx.trained_target, np.ndarray):
+        return QTable.load_from_checkpoint(str(state_dict_path), device=None)
+
+    return load_model(pathname=str(state_dict_path), device=cfg.device, net=ctx.network)

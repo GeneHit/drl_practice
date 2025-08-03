@@ -32,7 +32,7 @@ def play_and_generate_video_generic(config: BaseConfig, env: EnvType) -> None:
         save_video=True,
         video_pathname=str(video_path),
         fps=artifact_config.fps,
-        seed=artifact_config.seed,
+        seed=artifact_config.seek_for_play,
     )
     print(f"Game replay saved to: {video_path}")
 

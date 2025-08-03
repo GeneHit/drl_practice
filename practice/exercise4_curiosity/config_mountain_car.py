@@ -68,7 +68,7 @@ def get_app_config() -> EnhancedReinforceConfig:
             agent_type=NNAgent,
             output_dir="results/exercise4_curiosity/mountain_car/",
             save_result=True,
-            model_filename="model.pth",
+            seek_for_play=59,
             repo_id="Curiosity-MountainCarV0",
             algorithm_name="Reinforce_RND",
             extra_tags=("curiosity", "reinforce", "rnd", "policy-gradient", "pytorch"),

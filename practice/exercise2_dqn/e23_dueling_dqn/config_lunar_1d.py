@@ -43,7 +43,7 @@ def get_app_config() -> DQNConfig:
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
             agent_type=NNAgent,
-            output_dir="results/exercise2_dqn/dueling_dqn/lunar_1d/",
+            output_dir="results/exercise2_dqn/dueling_dqn/lunar_1d_good/",
             save_result=True,
             repo_id="DuelingDQN-1d-LunarLander-v3",
             algorithm_name="Dueling DQN",

@@ -4,7 +4,6 @@ from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise7_ppo.ppo_exercise import ActorCritic, PPOConfig, PPOTrainer
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import ACAgent
@@ -51,12 +50,6 @@ def get_app_config() -> PPOConfig:
         minibatch_num=8,
         clip_coef=0.1,
     )
-
-
-def get_env_for_play_and_hub(config: PPOConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
-    return eval_env
 
 
 def generate_context(config: PPOConfig) -> ContextBase:

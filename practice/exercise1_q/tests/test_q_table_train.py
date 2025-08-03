@@ -76,7 +76,8 @@ def test_config() -> QTableConfig:
             agent_type=QTable,
             output_dir="",  # Will be set to temp dir in tests
             save_result=True,
-            model_filename="q_table_taxi.pkl",
+            model_filename="q_table.pt",
+            state_dict_filename="table_numpy.pkl",
             repo_id="q-Taxi-v3",
             algorithm_name="Q-Learning",
             extra_tags=("q-learning", "tabular"),
@@ -152,6 +153,9 @@ class TestQTableTraining:
 
             model_file = output_dir / config.artifact_config.model_filename
             assert model_file.exists(), f"Model file should be saved: {model_file}"
+
+            state_dict_file = output_dir / config.artifact_config.state_dict_filename
+            assert state_dict_file.exists(), f"State dict file should be saved: {state_dict_file}"
 
             params_file = output_dir / config.artifact_config.params_filename
             assert params_file.exists(), f"Params file should be saved: {params_file}"
@@ -244,7 +248,7 @@ class TestQTableTraining:
 
             # Load and validate the saved Q-table
             model_file = (
-                Path(config.artifact_config.output_dir) / config.artifact_config.model_filename
+                Path(config.artifact_config.output_dir) / config.artifact_config.state_dict_filename
             )
 
             import pickle5 as pickle
@@ -315,6 +319,7 @@ class TestQTableTraining:
         assert artifact_config.trainer_type == QTableTrainer
         assert artifact_config.agent_type == QTable
         assert artifact_config.model_filename is not None
+        assert artifact_config.state_dict_filename is not None
         assert artifact_config.algorithm_name is not None
 
         # Test env config

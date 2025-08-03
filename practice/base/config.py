@@ -23,7 +23,7 @@ class ArtifactConfig(abc.ABC):
     # TODO: remove this
     agent_type: type[AgentBase]
     """The type of the agent."""
-    play_full_model: bool = True
+    play_full_model: bool = False
     """Whether to load the full model for playing."""
 
     # Output parameters
@@ -31,7 +31,7 @@ class ArtifactConfig(abc.ABC):
     """The output directory for the artifacts."""
     save_result: bool = True
     """Whether to save the result."""
-    model_filename: str = "full_model.pth"
+    model_filename: str = "full_model.pt"
     """The filename for the full model."""
     state_dict_filename: str = "state_dict.pt"
     """The filename for the state dict."""
@@ -49,14 +49,14 @@ class ArtifactConfig(abc.ABC):
     # Hub parameters (optional)
     repo_id: str
     """The repository ID for the huggingface hub."""
-    seek_for_replay_video: int = 42
+    seek_for_play: int = 42
     """The seed for the replay video."""
     replay_video_filename: str = "replay.mp4"
     """The filename for the replay video."""
-    fps: int = 10
+    fps: int = 30
     """The frame rate of the replay video."""
-    seed: int = 99
-    """The seed for the replay video."""
+    fps_skip: int = 1
+    """The frame rate to skip."""
     algorithm_name: str
     """The name of the algorithm."""
     extra_tags: tuple[str, ...] = ()

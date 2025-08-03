@@ -1,6 +1,9 @@
+from gymnasium.spaces import Discrete
+from torch.optim import Adam
+
 from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.env_typing import EnvType
-from practice.exercise5_a2c.a2c_gae_exercise import A2CTrainer
+from practice.base.context import ContextBase
+from practice.exercise5_a2c.a2c_gae_exercise import A2CTrainer, ActorCritic
 from practice.exercise6_a3c.a3c_exercise import A3CConfig
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.agent_utils import ACAgent
@@ -52,7 +55,29 @@ def get_app_config() -> A3CConfig:
     )
 
 
-def get_env_for_play_and_hub(config: A3CConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    _, eval_env = get_env_from_config(config.env_config)
-    return eval_env
+def generate_context(config: A3CConfig) -> ContextBase:
+    """Generate the context for the A3C algorithm.
+
+    Only for gameplay.
+    """
+    train_env, eval_env = get_env_from_config(config.env_config)
+
+    # Initialize the global shared actor-critic network.
+    obs_shape = eval_env.observation_space.shape
+    assert obs_shape is not None
+    assert isinstance(eval_env.action_space, Discrete)
+    action_n = int(eval_env.action_space.n)
+    actor_critic = ActorCritic(
+        obs_dim=obs_shape[0],
+        n_actions=action_n,
+        hidden_size=config.hidden_size,
+    )
+    actor_critic.to(config.device)
+
+    ctx = ContextBase(
+        train_env=train_env,
+        eval_env=eval_env,
+        trained_target=actor_critic,
+        optimizer=Adam(actor_critic.parameters(), lr=config.learning_rate),
+    )
+    return ctx

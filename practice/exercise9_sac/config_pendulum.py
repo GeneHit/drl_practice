@@ -57,7 +57,6 @@ def get_app_config() -> SACConfig:
             agent_type=ContinuousAgent,
             output_dir="results/exercise9_sac/pendulum/",
             save_result=True,
-            model_filename="sac_pendulum.pth",
             repo_id="SAC-PendulumV1",
             algorithm_name="SAC",
             extra_tags=("policy-gradient", "pytorch", "ddpg"),
