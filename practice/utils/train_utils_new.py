@@ -1,6 +1,5 @@
 import time
 
-import numpy as np
 import torch.distributed as dist
 from torch import nn
 
@@ -20,9 +19,9 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
     train_duration_min = (time.time() - start_time) / 60
 
     # Check if this is a neural network agent
-    if isinstance(ctx.trained_target, np.ndarray):
+    if isinstance(ctx.trained_target, QTable):
         # the trained target is a q-table
-        agent: nn.Module | QTable = QTable(q_table=ctx.trained_target)
+        agent: nn.Module | QTable = ctx.table
     else:
         # the trained target is a neural network
         agent = ctx.network

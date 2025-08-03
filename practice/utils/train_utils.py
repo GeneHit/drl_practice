@@ -1,6 +1,5 @@
 import time
 
-import numpy as np
 import torch.distributed as dist
 
 from practice.base.chest import AgentBase
@@ -25,8 +24,8 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
 
     # Check if this is a neural network agent
     if agent_type == QTable:
-        assert isinstance(ctx.trained_target, np.ndarray)
-        agent: AgentBase = QTable(q_table=ctx.trained_target)
+        assert isinstance(ctx.trained_target, QTable)
+        agent: AgentBase = ctx.trained_target
     elif agent_type == NNAgent:
         agent = NNAgent(net=ctx.network)
     elif agent_type == ACAgent:

@@ -99,7 +99,7 @@ def _load_model_from_config(cfg: BaseConfig, ctx: ContextBase) -> nn.Module | QT
         if not full_model_path.exists():
             raise FileNotFoundError(f"Model file not found: {full_model_path}")
 
-        if isinstance(ctx.trained_target, np.ndarray):
+        if isinstance(ctx.trained_target, QTable):
             return cast(QTable, torch.load(str(full_model_path)))
 
         return load_model(pathname=str(full_model_path), device=cfg.device, net=None)
@@ -108,7 +108,7 @@ def _load_model_from_config(cfg: BaseConfig, ctx: ContextBase) -> nn.Module | QT
     if not state_dict_path.exists():
         raise FileNotFoundError(f"State dict file not found: {state_dict_path}")
 
-    if isinstance(ctx.trained_target, np.ndarray):
+    if isinstance(ctx.trained_target, QTable):
         return QTable.load_from_checkpoint(str(state_dict_path), device=None)
 
     return load_model(pathname=str(state_dict_path), device=cfg.device, net=ctx.network)

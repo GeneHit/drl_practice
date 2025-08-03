@@ -8,7 +8,7 @@ from huggingface_hub import HfApi, snapshot_download
 from huggingface_hub.repocard import metadata_eval_result, metadata_save
 
 from practice.base.config import ArtifactConfig, BaseConfig
-from practice.exercise1_q.q_table_exercise import QTableTrainer
+from practice.exercise1_q.q_trainer_exercise import QTableTrainer
 from practice.utils.cli_utils import get_utc_time_str
 
 
