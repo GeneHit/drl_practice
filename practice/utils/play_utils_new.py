@@ -15,12 +15,17 @@ from practice.utils.eval_utils import get_action
 from practice.utils_for_coding.network_utils import load_model
 
 
-def play_and_generate_video_generic(config: BaseConfig, ctx: ContextBase) -> None:
+def play_and_generate_video_generic(
+    config: BaseConfig,
+    ctx: ContextBase,
+    save_video: bool = True,
+) -> None:
     """Generic function to play game and generate video.
 
     Args:
         config: Configuration data
         ctx: ContextBase
+        save_video: Whether to save the video.
     """
     # Load the trained model
     agent = _load_model_from_config(config, ctx)
@@ -34,7 +39,7 @@ def play_and_generate_video_generic(config: BaseConfig, ctx: ContextBase) -> Non
     _play_game_once(
         env=ctx.eval_env,
         agent=agent,
-        save_video=True,
+        save_video=save_video,
         video_pathname=str(video_path),
         fps=artifact_config.fps,
         fps_skip=artifact_config.fps_skip,
@@ -64,9 +69,9 @@ def _play_game_once(
     """
     images: list[Any] = []
     state, _ = env.reset(seed=seed)
-    img_raw: Any = env.render()
-    assert img_raw is not None, "The image is None, please check the environment for rendering."
     if save_video:
+        img_raw: Any = env.render()
+        assert img_raw is not None, "The image is None, please check the environment for rendering."
         images.append(img_raw)
 
     reward_sum = 0.0

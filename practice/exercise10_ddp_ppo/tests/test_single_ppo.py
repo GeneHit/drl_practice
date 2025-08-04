@@ -52,7 +52,8 @@ def test_ppo_trainer_basic_flow(temp_output_dir: Path) -> None:
     context = generate_context(config)
     try:
         train_and_evaluate_network(config=config, ctx=context)
-        play_and_generate_video_generic(config=config, ctx=context)
+        # don't save the video for online CI testing
+        play_and_generate_video_generic(config=config, ctx=context, save_video=False)
     finally:
         # Clean up environments
         # For vector envs, use train_env and eval_env directly
