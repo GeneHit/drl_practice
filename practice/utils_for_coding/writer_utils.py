@@ -35,7 +35,9 @@ class CustomWriter:
         assert self._writer is not None  # make mypy happy
         return self._writer
 
-    def log_episode_stats_if_has(self, infos: dict[str, Any], episode_steps: int) -> int:
+    def log_episode_stats_if_has(
+        self, infos: dict[str, Any], episode_steps: int, log_interval: int = 1
+    ) -> int:
         """Log the episode stats if has episode data.
 
         If the writer is not tracked, this method does nothing.
@@ -43,6 +45,7 @@ class CustomWriter:
         Args:
             infos: The infos, which is the return value of the env.step()
             episode_steps: The episode steps.
+            log_interval: The interval to log the stats.
 
         Returns:
             int: The number of ended episodes.
@@ -52,8 +55,15 @@ class CustomWriter:
             return len(ep_rewards)
 
         for idx, reward in enumerate(ep_rewards):
-            self.writer.add_scalar("episode/reward", reward, episode_steps)
-            self.writer.add_scalar("episode/length", ep_lengths[idx], episode_steps)
+            self.log_stats(
+                data={
+                    "episode/reward": reward,
+                    "episode/length": ep_lengths[idx],
+                },
+                step=episode_steps,
+                log_interval=log_interval,
+                blocked=True,
+            )
             episode_steps += 1
         return len(ep_rewards)
 

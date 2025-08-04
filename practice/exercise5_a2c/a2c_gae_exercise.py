@@ -1,5 +1,6 @@
 import abc
 from dataclasses import dataclass, replace
+from typing import Sequence
 
 import numpy as np
 import torch
@@ -12,7 +13,7 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.base.trainer import TrainerBase
-from practice.utils_for_coding.network_utils import init_weights
+from practice.utils_for_coding.network_utils import MLP, init_weights
 from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
@@ -21,27 +22,25 @@ from practice.utils_for_coding.writer_utils import CustomWriter
 class ActorCritic(nn.Module):
     """The actor-critic network for the A2C algorithm."""
 
-    def __init__(self, obs_dim: int, n_actions: int, hidden_size: int) -> None:
+    def __init__(self, obs_dim: int, n_actions: int, hidden_sizes: Sequence[int]) -> None:
         super().__init__()
         # shared feedforward network
-        self.shared_layers = nn.Sequential(
-            nn.Linear(obs_dim, hidden_size),
-            nn.LayerNorm(hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.LayerNorm(hidden_size),
-            nn.ReLU(),
+        self.shared_layers = MLP(
+            input_dim=obs_dim,
+            output_dim=hidden_sizes[-1],
+            hidden_sizes=hidden_sizes[:-1],
+            activation=nn.ReLU,
+            use_layer_norm=True,
         )
 
         # actor head: output logits for each action
-        self.policy_logits = nn.Linear(hidden_size, n_actions)
+        self.policy_logits = nn.Linear(hidden_sizes[-1], n_actions)
         # critic head: output value V(s)
-        self.value_head = nn.Sequential(nn.Linear(hidden_size, 1))
+        self.value_head = nn.Linear(hidden_sizes[-1], 1)
 
         # initialize parameters, it is optional but helps to stabilize the training
-        self.shared_layers.apply(init_weights)
         init_weights(self.policy_logits)
-        self.value_head.apply(init_weights)
+        init_weights(self.value_head)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """The forward pass of the actor-critic network.
@@ -107,8 +106,18 @@ class A2CConfig(BaseConfig):
     normalize_returns: bool = False
     """Whether to normalize the returns."""
 
-    hidden_size: int
-    """The hidden size for the actor-critic network."""
+    hidden_sizes: tuple[int, ...]
+    """The hidden sizes for the actor-critic network."""
+
+    # for the high-variance reward.
+    reward_clip: tuple[float, float] | None = None
+    """The clip range for the reward before calculating the advantages.
+
+    If tuple, use the clip range [-clip_min, clip_max].
+    If None, don't clip the reward.
+    """
+    value_clip_range: float | None = None
+    """The clip range for the value loss."""
 
 
 class A2CTrainer(TrainerBase):
@@ -181,7 +190,9 @@ class A2CTrainer(TrainerBase):
                 # update state
                 state = next_states
                 # record the episode data
-                episode_num += writer.log_episode_stats_if_has(infos, episode_num)
+                episode_num += writer.log_episode_stats_if_has(
+                    infos, episode_num, log_interval=self._config.log_interval
+                )
 
             # 3. Update the policy/value network
             pod.update()
@@ -315,9 +326,8 @@ class _A2CPod(abc.ABC):
             actions: The actions.
         """
         # get policy logits and value
-        states_tensor = torch.from_numpy(states).float().to(self._config.device)
-        actor_critic = self._ctx.network
-        logits, value = actor_critic(states_tensor)
+        states_tensor = _np2tensor(states.astype(np.float32), self._config.device)
+        logits, value = self._ctx.network(states_tensor)
 
         # get the action, log_prob, entropy
         probs = F.softmax(logits, dim=-1)
@@ -380,14 +390,15 @@ class _GAEPod(_A2CPod):
         # the critic/value loss
         if self._config.normalize_returns:
             returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-        value_mse = F.mse_loss(values, returns)
-        value_loss = self._config.value_loss_coef * value_mse
+        # the value loss
+        value_loss = self._value_loss(values, returns)
+        coef_value_loss = self._config.value_loss_coef * value_loss
         # the entropy loss
         entropy_coef = self._config.entropy_coef(self._rollout_count)
         entropy = entropies.mean()
         entropy_loss = -entropy_coef * entropy
         # the total loss
-        total_loss = pg_loss + value_loss + entropy_loss
+        total_loss = pg_loss + coef_value_loss + entropy_loss
 
         # 4. Update the actor and critic
         total_loss.backward()
@@ -403,12 +414,11 @@ class _GAEPod(_A2CPod):
         self._writer.log_stats(
             data={
                 "loss/policy": pg_loss,
-                "loss/value": value_loss,
+                "loss/value": coef_value_loss,
                 "loss/entropy": entropy_loss,
                 "loss/total": total_loss,
-                "other/value_mse": value_mse,
-                "other/entropy": entropy,
-                "other/entropy_coef": entropy_coef,
+                "entropy/entropy": entropy,
+                "entropy/coef": entropy_coef,
             },
             step=self._rollout_count,
             log_interval=self._config.log_interval,
@@ -455,6 +465,8 @@ class _GAEPod(_A2CPod):
 
         # stack the data to [T, N]
         rewards = torch.stack([_np2tensor(step.rewards, device) for step in rollout])
+        if isinstance(self._config.reward_clip, tuple):
+            rewards = torch.clamp(rewards, self._config.reward_clip[0], self._config.reward_clip[1])
         dones = torch.stack([_np2tensor(step.dones.astype(np.float32), device) for step in rollout])
         values = torch.stack([step.values for step in rollout])
 
@@ -540,6 +552,54 @@ class _GAEPod(_A2CPod):
         returns = returns.view(-1)[mask_flat]
 
         return advantages, log_probs, values, returns, entropies
+
+    def _value_loss(self, values: Tensor, returns: Tensor) -> Tensor:
+        """Compute the value MSE loss.
+
+        Clip the value if configured.
+
+        Args:
+            values: The predicted value.
+            returns: The returns.
+        """
+        if self._config.value_clip_range is None:
+            return self._loss(values, returns)
+
+        # Use current prediction as baseline (detach it for clipping)
+        values_detached = values.detach()
+
+        # unclipped and clipped losses
+        value_mse = self._loss(values, returns, reduction="none")
+        values_clipped = values_detached + torch.clamp(
+            values - values_detached,
+            -self._config.value_clip_range,
+            self._config.value_clip_range,
+        )
+        value_mse_clipped = self._loss(values_clipped, returns, reduction="none")
+
+        # clip the loss
+        loss = 0.5 * torch.max(value_mse, value_mse_clipped).mean()
+
+        self._writer.log_stats(
+            data={
+                "value_loss/original": value_mse,
+                "value_loss/clipped": value_mse_clipped,
+                "value_loss/loss": loss,
+            },
+            step=self._rollout_count,
+            log_interval=self._config.log_interval,
+            blocked=False,
+        )
+        return loss
+
+    def _loss(self, values: Tensor, returns: Tensor, reduction: str = "mean") -> Tensor:
+        """Compute the MSE or smooth L1 loss.
+
+        Args:
+            values: The predicted value.
+            returns: The returns.
+        """
+        return F.mse_loss(input=values.view(-1), target=returns, reduction=reduction)
 
 
 def _np2tensor(x: NDArray[np.float32], device: torch.device) -> Tensor:

@@ -2,7 +2,7 @@ import time
 from dataclasses import dataclass, replace
 
 from gymnasium.spaces import Discrete
-from torch.multiprocessing import Process
+from torch.multiprocessing import Process, Queue
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
@@ -24,6 +24,7 @@ def worker_process(
     worker_id: int,
     config: A3CConfig,
     actor_critic: ActorCritic,
+    error_queue: Queue[BaseException],
 ) -> None:
     """The worker process for the A3C algorithm.
 
@@ -86,6 +87,7 @@ def worker_process(
         trainer.train()
     except Exception as e:
         print(f"Worker {worker_id} failed with error: {e}")
+        error_queue.put(e)
     finally:
         train_env.close()
         unused_eval_env.close()
@@ -111,24 +113,30 @@ def a3c_train(config: A3CConfig) -> None:
     actor_critic = ActorCritic(
         obs_dim=obs_shape[0],
         n_actions=action_n,
-        hidden_size=config.hidden_size,
+        hidden_sizes=config.hidden_sizes,
     )
     actor_critic.to(config.device)
     actor_critic.share_memory()
 
     # Asynchronous workers and training
     start_time = time.time()
+    error_queue = Queue[BaseException]()
     if config.num_workers == 1:
-        worker_process(0, config, actor_critic)
+        # not use Process for online CI testing.
+        worker_process(0, config, actor_critic, error_queue)
     else:
         processes = []
         for worker_id in range(config.num_workers):
-            p = Process(target=worker_process, args=(worker_id, config, actor_critic))
+            p = Process(target=worker_process, args=(worker_id, config, actor_critic, error_queue))
             p.start()
             processes.append(p)
         # wait for all workers to finish
         for p in processes:
             p.join()
+
+    # check if any worker failed
+    if not error_queue.empty():
+        raise error_queue.get()
 
     # Evaluation and save results
     train_duration_min = (time.time() - start_time) / 60

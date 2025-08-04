@@ -29,7 +29,8 @@ def get_app_config() -> A2CConfig:
         value_loss_coef=0.02,
         max_grad_norm=0.5,
         normalize_returns=True,
-        hidden_size=64,
+        hidden_sizes=(64, 64),
+        log_interval=10,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
@@ -61,7 +62,7 @@ def generate_context(config: A2CConfig) -> ContextBase:
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
     actor_critic = ActorCritic(
-        obs_dim=obs_shape[0], n_actions=action_n, hidden_size=config.hidden_size
+        obs_dim=obs_shape[0], n_actions=action_n, hidden_sizes=config.hidden_sizes
     )
     # Load checkpoint if exists
     load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)

@@ -12,21 +12,24 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 def get_app_config() -> A2CConfig:
     """Get the application config."""
-    # get cuda or mps if available
+    # rollout_num = 900000 / 128 / 6 = 1171
     return A2CConfig(
         # use CPU is faster since nn model is small
         device=get_device("cpu"),
-        total_steps=200000,
-        rollout_len=32,
-        learning_rate=1e-4,
-        critic_lr=5e-5,
+        total_steps=900000,
+        rollout_len=128,
+        learning_rate=3e-4,
+        critic_lr=3e-4,
         critic_lr_gamma=0.995,
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
-        entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=200),
-        value_loss_coef=0.02,
+        entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=600),
+        value_loss_coef=0.5,
+        value_clip_range=1.0,
+        reward_clip=(-1, 1),
         max_grad_norm=0.5,
-        hidden_size=1024,
+        hidden_sizes=(256, 256),
+        log_interval=10,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
@@ -59,7 +62,7 @@ def generate_context(config: A2CConfig) -> ContextBase:
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
     actor_critic = ActorCritic(
-        obs_dim=obs_shape[0], n_actions=action_n, hidden_size=config.hidden_size
+        obs_dim=obs_shape[0], n_actions=action_n, hidden_sizes=config.hidden_sizes
     )
     # Load checkpoint if exists
     load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)

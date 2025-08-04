@@ -11,8 +11,8 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 def get_app_config() -> A3CConfig:
     """Get the application config."""
-    # rollout_len = 32, so 150000 / 32 / 6 = 781
-    global_step = 150000
+    # rollout_num = 250000 / 32 / 6 / 2 = 651
+    global_step = 250000
     num_workers = 6
     step_per_worker = global_step // num_workers
     return A3CConfig(
@@ -26,12 +26,13 @@ def get_app_config() -> A3CConfig:
         critic_lr_gamma=0.95,
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
-        entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=200),
+        entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=1000),
         # entropy_coef=ConstantSchedule(0.1),
         value_loss_coef=0.02,
         max_grad_norm=0.5,
         normalize_returns=True,
-        hidden_size=64,
+        hidden_sizes=(64, 64),
+        log_interval=10,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
@@ -45,7 +46,7 @@ def get_app_config() -> A3CConfig:
             trainer_type=A2CTrainer,
             output_dir="results/exercise6_a3c/cartpole/",
             save_result=True,
-            model_filename="a3c.pth",
+            fps_skip=2,
             repo_id="A3C-CartPoleV1",
             algorithm_name="A3C with GAE",
             extra_tags=("policy-gradient", "pytorch", "a3c", "gae"),
@@ -56,7 +57,7 @@ def get_app_config() -> A3CConfig:
 def generate_context(config: A3CConfig) -> ContextBase:
     """Generate the context for the A3C algorithm.
 
-    Only for gameplay.
+    Only for gameplay, check the `a3c_exercise.py` for the training process.
     """
     train_env, eval_env = get_env_from_config(config.env_config)
 
@@ -68,7 +69,7 @@ def generate_context(config: A3CConfig) -> ContextBase:
     actor_critic = ActorCritic(
         obs_dim=obs_shape[0],
         n_actions=action_n,
-        hidden_size=config.hidden_size,
+        hidden_sizes=config.hidden_sizes,
     )
     actor_critic.to(config.device)
 
