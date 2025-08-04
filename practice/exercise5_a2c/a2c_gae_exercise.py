@@ -117,7 +117,10 @@ class A2CConfig(BaseConfig):
     If None, don't clip the reward.
     """
     value_clip_range: float | None = None
-    """The clip range for the value loss."""
+    """The clip range for the value loss.
+
+    The clip will work during backward, does nothing during forward.
+    """
 
 
 class A2CTrainer(TrainerBase):
@@ -570,6 +573,7 @@ class _GAEPod(_A2CPod):
 
         # unclipped and clipped losses
         value_mse = self._loss(values, returns, reduction="none")
+        # the clamp works during backward, does nothing during forward
         values_clipped = values_detached + torch.clamp(
             values - values_detached,
             -self._config.value_clip_range,

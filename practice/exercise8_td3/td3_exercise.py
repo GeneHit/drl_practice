@@ -91,6 +91,13 @@ class TD3Config(BaseConfig):
     """The maximum action value."""
     tau: float = 0.005
     """The soft update factor for the target networks."""
+    smooth_l1_loss_beta: float | None = None
+    """The beta for the smooth L1 loss.
+
+    If None, use MSE loss.
+    If 0, use L1 loss.
+    If 1, use smooth L1 loss.
+    """
 
 
 class TD3Trainer(TrainerBase):
@@ -258,7 +265,7 @@ class _TD3Pod:
         # Return Single: the standard DDPG, use one Q.
         qs = q if isinstance(q, Sequence) else (q,)
         # 1.3 compute critic loss
-        critic_loss = torch.stack([nn.functional.mse_loss(qi, target_q) for qi in qs]).mean()
+        critic_loss = self._get_loss(qs, target_q)
         # 1.4 update critic
         self._ctx.critic_optimizer.zero_grad()
         critic_loss.backward()
@@ -342,3 +349,21 @@ class _TD3Pod:
                 experience.rewards + self._gamma * (self._one - experience.dones.float()) * next_q
             ).view(-1, 1)
         return target_q
+
+    def _get_loss(self, qs: Sequence[Tensor], target_q: Tensor) -> Tensor:
+        """Get the loss for the given Q-value and target Q-value.
+
+        Parameters
+        ----------
+        qs : Sequence[Tensor]
+        target_q : Tensor
+        """
+        if self._config.smooth_l1_loss_beta is None:
+            return torch.stack([nn.functional.mse_loss(qi, target_q) for qi in qs]).mean()
+
+        return torch.stack(
+            [
+                nn.functional.smooth_l1_loss(qi, target_q, beta=self._config.smooth_l1_loss_beta)
+                for qi in qs
+            ]
+        ).mean()
