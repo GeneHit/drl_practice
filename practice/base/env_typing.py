@@ -23,3 +23,6 @@ EnvsType: TypeAlias = gym.vector.VectorEnv[NDArray[ObsType], NDArray[ActType], N
 ActTypeC: TypeAlias = np.float32
 EnvTypeC: TypeAlias = gym.Env[NDArray[ObsType], ActTypeC]
 EnvsTypeC: TypeAlias = gym.vector.VectorEnv[NDArray[ObsType], NDArray[ActTypeC], NDArray[ArrayType]]
+
+# For evaluation and gameplay
+EVAL_ACT_TYPE: TypeAlias = Union[ActType, NDArray[ActType]]

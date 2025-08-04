@@ -4,14 +4,12 @@ from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     ReinforceConfig,
     ReinforceTrainer,
 )
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -37,7 +35,6 @@ def get_app_config() -> ReinforceConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ReinforceTrainer,
-            agent_type=NNAgent,
             output_dir="results/exercise3_reinforce/cartpole/",
             save_result=True,
             repo_id="Reinforce-CartPole",
@@ -68,10 +65,3 @@ def generate_context(config: ReinforceConfig) -> ContextBase:
         trained_target=policy,
         optimizer=Adam(policy.parameters(), lr=config.learning_rate),
     )
-
-
-def get_env_for_play_and_hub(config: ReinforceConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    train_env.close()
-    return eval_env

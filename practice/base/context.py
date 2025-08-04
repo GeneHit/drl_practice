@@ -1,14 +1,13 @@
 from dataclasses import dataclass
 from typing import cast
 
-import numpy as np
 import torch
 import torch.nn as nn
 from gymnasium.spaces import Box, Discrete
-from numpy.typing import NDArray
 from torch.optim.lr_scheduler import LRScheduler
 
 from practice.base.env_typing import EnvsType, EnvsTypeC, EnvType, EnvTypeC
+from practice.exercise1_q.q_table_exercise import QTable
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -17,7 +16,7 @@ class ContextBase:
     """The environment used for training."""
     eval_env: EnvType | EnvTypeC
     """The environment used for evaluation."""
-    trained_target: nn.Module | NDArray[np.float32]
+    trained_target: nn.Module | QTable
     """The trained dqn/policy/actor network, or q-table."""
     optimizer: torch.optim.Optimizer
     """The optimizer used for training."""
@@ -65,9 +64,9 @@ class ContextBase:
         return self.trained_target
 
     @property
-    def table(self) -> NDArray[np.float32]:
+    def table(self) -> QTable:
         """The q-table."""
-        assert isinstance(self.trained_target, np.ndarray)
+        assert isinstance(self.trained_target, QTable)
         return self.trained_target
 
     @property

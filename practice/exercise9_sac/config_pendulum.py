@@ -15,7 +15,6 @@ from practice.utils.env_utils import (
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.agent_utils import ContinuousAgent
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import DoubleQCritic
 
@@ -54,24 +53,13 @@ def get_app_config() -> SACConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=SACTrainer,
-            agent_type=ContinuousAgent,
             output_dir="results/exercise9_sac/pendulum/",
             save_result=True,
-            model_filename="sac_pendulum.pth",
             repo_id="SAC-PendulumV1",
             algorithm_name="SAC",
             extra_tags=("policy-gradient", "pytorch", "ddpg"),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: SACConfig) -> EnvTypeC:
-    """Get the environment for playing and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    # use cast for type checking
-    verify_vector_env_with_continuous_action(cast(EnvsTypeC, train_env))
-    train_env.close()
-    return cast(EnvTypeC, eval_env)
 
 
 def generate_context(config: SACConfig) -> ACContext:

@@ -13,12 +13,16 @@ from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.network_utils import init_weights
+from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 
 class ActorCritic(nn.Module):
-    """The actor-critic network for the PPO algorithm."""
+    """The actor-critic network for the PPO algorithm.
+
+    For the discrete action space.
+    """
 
     def __init__(self, obs_dim: int, n_actions: int, hidden_size: int) -> None:
         super().__init__()
@@ -57,6 +61,15 @@ class ActorCritic(nn.Module):
         logits = self.policy_logits(x)
         value = self.value_head(x).squeeze(-1)
         return logits, value
+
+    def action(self, x: Tensor) -> ActType:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The single action.
+        """
+        logits, _ = self.forward(x)
+        return argmax_action(logits, dtype=ActType)
 
 
 @dataclass(kw_only=True, frozen=True)

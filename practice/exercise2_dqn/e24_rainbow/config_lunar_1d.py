@@ -3,11 +3,9 @@ from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowConfig, RainbowNet
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import NNAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -45,7 +43,6 @@ def get_app_config() -> RainbowConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
-            agent_type=NNAgent,
             output_dir="results/exercise2_dqn/lunar_1d/",
             save_result=True,
             repo_id="Rainbow-1d-LunarLander-v3",
@@ -84,10 +81,3 @@ def generate_context(config: RainbowConfig) -> ContextBase:
         trained_target=q_network,
         optimizer=Adam(q_network.parameters(), lr=config.learning_rate),
     )
-
-
-def get_env_for_play_and_hub(config: RainbowConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    train_env.close()
-    return eval_env

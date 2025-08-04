@@ -8,7 +8,7 @@ python practice/cli.py --config practice/exercise10_ddp_ppo/config_reacher.py
 ```
 Train (change `pusher` to `standup` if needed)
 ```bash
-torchrun --nproc_per_node=6  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_reacher.py
+torchrun --nproc_per_node=3  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_reacher.py
 ```
 
 Play with trained model and generate video

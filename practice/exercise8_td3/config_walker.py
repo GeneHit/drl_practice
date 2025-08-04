@@ -15,7 +15,6 @@ from practice.utils.env_utils import (
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.agent_utils import ContinuousAgent
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import DoubleQCritic
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
@@ -26,23 +25,24 @@ def get_app_config() -> TD3Config:
     # timestep = total_steps // vector_env_num = 2400000 // 6 = 400000
     total_steps = 2400000
     return TD3Config(
-        device=get_device(),
+        device=get_device("cpu"),
         total_steps=total_steps,
         hidden_sizes=(400, 300),
-        learning_rate=2e-4,
-        critic_lr=3e-4,
+        learning_rate=1e-4,
+        critic_lr=1e-4,
         gamma=0.995,
-        replay_buffer_capacity=int(total_steps * 0.6),
+        replay_buffer_capacity=int(total_steps * 0.8),
         batch_size=256,
         update_start_step=10000,
         policy_delay=2,
         policy_noise=0.2,
         noise_clip=0.5,
-        exploration_noise=LinearSchedule(0.4, 0.05, 200000),
+        exploration_noise=LinearSchedule(0.4, 0.05, 300000),
         max_action=1.0,
-        tau=0.05,
+        tau=0.01,
         max_grad_norm=0.5,
-        eval_episodes=50,
+        smooth_l1_loss_beta=10.0,
+        eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
         env_config=EnvConfig(
@@ -52,24 +52,13 @@ def get_app_config() -> TD3Config:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=TD3Trainer,
-            agent_type=ContinuousAgent,
             output_dir="results/exercise8_td3/walker/",
             save_result=True,
-            model_filename="td3_walker2d.pth",
             repo_id="TD3-Walker2dV5",
             algorithm_name="TD3",
             extra_tags=("policy-gradient", "pytorch", "ddpg"),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: TD3Config) -> EnvTypeC:
-    """Get the environment for playing and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    # use cast for type checking
-    verify_vector_env_with_continuous_action(cast(EnvsTypeC, train_env))
-    train_env.close()
-    return cast(EnvTypeC, eval_env)
 
 
 def generate_context(config: TD3Config) -> ACContext:

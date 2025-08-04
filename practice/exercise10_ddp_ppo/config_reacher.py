@@ -9,13 +9,12 @@ from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvsTypeC, EnvTypeC
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
-from practice.utils.dist_utils import auto_init_distributed, get_device, is_main_process
+from practice.utils.dist_utils import auto_init_distributed, get_device
 from practice.utils.env_utils import (
     get_env_from_config,
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.agent_utils import ContAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -61,7 +60,6 @@ def get_app_config() -> ContPPOConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ContPPOTrainer,
-            agent_type=ContAgent,
             output_dir="results/exercise10_ddp_ppo/reacher/",
             save_result=True,
             repo_id="PPO-Reacher-v5",
@@ -135,5 +133,5 @@ def generate_context(config: ContPPOConfig) -> ContextBase:
         trained_target=ac,
         optimizer=optimizer,
         lr_schedulers=(),
-        track_and_evaluate=is_main_process(),
+        track_and_evaluate=True,
     )

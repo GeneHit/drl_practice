@@ -1,15 +1,13 @@
 import time
 
-import numpy as np
 import torch.distributed as dist
+from torch import nn
 
-from practice.base.chest import AgentBase
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.utils.dist_utils import is_distributed
-from practice.utils.evaluation_utils import evaluate_and_save_results
-from practice.utils_for_coding.agent_utils import ACAgent, ContAgent, ContinuousAgent, NNAgent
+from practice.utils.eval_utils import evaluate_and_save_results
 
 
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
@@ -20,23 +18,13 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
     trainer.train()
     train_duration_min = (time.time() - start_time) / 60
 
-    # Create agent based on the configured agent type
-    agent_type = config.artifact_config.agent_type
-
     # Check if this is a neural network agent
-    if agent_type == QTable:
-        assert isinstance(ctx.trained_target, np.ndarray)
-        agent: AgentBase = QTable(q_table=ctx.trained_target)
-    elif agent_type == NNAgent:
-        agent = NNAgent(net=ctx.network)
-    elif agent_type == ACAgent:
-        agent = ACAgent(net=ctx.network)
-    elif agent_type == ContinuousAgent:
-        agent = ContinuousAgent(net=ctx.network)
-    elif agent_type == ContAgent:
-        agent = ContAgent(net=ctx.network)
+    if isinstance(ctx.trained_target, QTable):
+        # the trained target is a q-table
+        agent: nn.Module | QTable = ctx.table
     else:
-        raise ValueError(f"Unsupported agent type: {agent_type}")
+        # the trained target is a neural network
+        agent = ctx.network
 
     # Evaluate and save results
     if ctx.track_and_evaluate:

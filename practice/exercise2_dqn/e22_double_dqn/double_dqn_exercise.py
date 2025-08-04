@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,6 +9,7 @@ from numpy.typing import NDArray
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import BasicDQNPod, DQNConfig
+from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 
@@ -46,9 +49,17 @@ class QNet2D(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        y = self.fc(self.conv(x / 255.0))
-        assert isinstance(y, torch.Tensor)  # make mypy happy
-        return y
+        # use cast to make mypy happy
+        return cast(torch.Tensor, self.fc(self.conv(x / 255.0)))
+
+    def action(self, x: torch.Tensor) -> ActType:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The single action.
+        """
+        # greedy strategy
+        return argmax_action(self.forward(x), dtype=ActType)
 
 
 class DoubleDQNPod(BasicDQNPod):

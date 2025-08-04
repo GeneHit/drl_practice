@@ -51,15 +51,7 @@ def temp_output_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
-def mock_agent() -> Mock:
-    """Create a mock agent for testing."""
-    agent = Mock()
-    agent.load_from_checkpoint = Mock()
-    return agent
-
-
-@pytest.fixture
-def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
+def test_config(temp_output_dir: Path) -> BaseConfig:
     """Create a test configuration for hub functionality."""
     from dataclasses import dataclass
 
@@ -70,16 +62,16 @@ def test_config(mock_agent: Mock, temp_output_dir: Path) -> BaseConfig:
 
     artifact_config = ArtifactConfig(
         trainer_type=TestTrainer,
-        agent_type=mock_agent,
         output_dir=str(temp_output_dir),
         save_result=True,
         model_filename="test_model.pth",
+        state_dict_filename="test_state_dict.pth",
         params_filename="test_params.json",
         eval_result_filename="test_eval_result.json",
         repo_id="test-repo",
         replay_video_filename="test_replay.mp4",
         fps=30,
-        seed=42,
+        seek_for_play=42,
         algorithm_name="TestAlgorithm",
         extra_tags=("test", "hub", "push"),
         usage_instructions="Test usage instructions for hub",
@@ -350,6 +342,10 @@ class TestPushModelToHub:
             ),
             str(
                 Path(test_config.artifact_config.output_dir)
+                / test_config.artifact_config.state_dict_filename
+            ),
+            str(
+                Path(test_config.artifact_config.output_dir)
                 / test_config.artifact_config.params_filename
             ),
             str(
@@ -374,16 +370,16 @@ class TestPushModelToHub:
         # Create config with different filenames
         artifact_config = ArtifactConfig(
             trainer_type=TestTrainer,
-            agent_type=Mock,
             output_dir=str(temp_output_dir),
             save_result=True,
             model_filename="custom_model.pth",
+            state_dict_filename="custom_state_dict.pth",
             params_filename="custom_params.json",
             eval_result_filename="custom_eval.json",
             repo_id="custom-repo",
             replay_video_filename="custom_replay.mp4",
             fps=60,
-            seed=123,
+            seek_for_play=123,
             algorithm_name="CustomAlgorithm",
             extra_tags=("custom", "test"),
             usage_instructions="Custom usage instructions",
@@ -407,6 +403,7 @@ class TestPushModelToHub:
         call_args = mock_push_to_hub.call_args
         expected_files = [
             str(temp_output_dir / "custom_model.pth"),
+            str(temp_output_dir / "custom_state_dict.pth"),
             str(temp_output_dir / "custom_params.json"),
             str(temp_output_dir / "custom_replay.mp4"),
         ]

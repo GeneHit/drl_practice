@@ -6,7 +6,7 @@ from typing import cast
 import numpy as np
 import torch
 from numpy.typing import NDArray
-from torch import nn
+from torch import Tensor, nn
 from tqdm import tqdm
 
 from practice.base.config import BaseConfig
@@ -14,7 +14,7 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, soft_update
-from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
+from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on, tensor2np_1d
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
@@ -39,8 +39,22 @@ class TD3Actor(nn.Module):
         )
         self.max_action = max_action
 
-    def forward(self, state: torch.Tensor) -> torch.Tensor:
-        return cast(torch.Tensor, self.net(state) * self.max_action)
+    def forward(self, state: Tensor) -> Tensor:
+        """Sample an action when training.
+
+        Returns:
+            action: The sampled action.
+        """
+        return cast(Tensor, self.net(state) * self.max_action)
+
+    def action(self, state: Tensor) -> NDArray[ActTypeC]:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The deterministic action.
+        """
+        action: Tensor = self.net(state) * self.max_action
+        return tensor2np_1d(action, dtype=ActTypeC())
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -77,6 +91,13 @@ class TD3Config(BaseConfig):
     """The maximum action value."""
     tau: float = 0.005
     """The soft update factor for the target networks."""
+    smooth_l1_loss_beta: float | None = None
+    """The beta for the smooth L1 loss.
+
+    If None, use MSE loss.
+    If 0, use L1 loss.
+    If 1, use smooth L1 loss.
+    """
 
 
 class TD3Trainer(TrainerBase):
@@ -244,7 +265,7 @@ class _TD3Pod:
         # Return Single: the standard DDPG, use one Q.
         qs = q if isinstance(q, Sequence) else (q,)
         # 1.3 compute critic loss
-        critic_loss = torch.stack([nn.functional.mse_loss(qi, target_q) for qi in qs]).mean()
+        critic_loss = self._get_loss(qs, target_q)
         # 1.4 update critic
         self._ctx.critic_optimizer.zero_grad()
         critic_loss.backward()
@@ -286,7 +307,7 @@ class _TD3Pod:
             blocked=False,
         )
 
-    def _get_target_q(self, experience: Experience) -> torch.Tensor:
+    def _get_target_q(self, experience: Experience) -> Tensor:
         """Get the target Q-value for the given experience.
 
         Steps:
@@ -316,7 +337,7 @@ class _TD3Pod:
             # Return Sequence: standard TD3, use Q1/Q2, usually train together
             # Return Single: the standard DDPG, use one Q.
             if isinstance(target_critic_q, Sequence):
-                next_q: torch.Tensor = torch.min(*target_critic_q)
+                next_q: Tensor = torch.min(*target_critic_q)
             else:
                 next_q = target_critic_q
             # next_q shape [batch, 1]，rewards shape [batch]
@@ -328,3 +349,21 @@ class _TD3Pod:
                 experience.rewards + self._gamma * (self._one - experience.dones.float()) * next_q
             ).view(-1, 1)
         return target_q
+
+    def _get_loss(self, qs: Sequence[Tensor], target_q: Tensor) -> Tensor:
+        """Get the loss for the given Q-value and target Q-value.
+
+        Parameters
+        ----------
+        qs : Sequence[Tensor]
+        target_q : Tensor
+        """
+        if self._config.smooth_l1_loss_beta is None:
+            return torch.stack([nn.functional.mse_loss(qi, target_q) for qi in qs]).mean()
+
+        return torch.stack(
+            [
+                nn.functional.smooth_l1_loss(qi, target_q, beta=self._config.smooth_l1_loss_beta)
+                for qi in qs
+            ]
+        ).mean()

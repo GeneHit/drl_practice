@@ -7,7 +7,7 @@ import pytest
 
 from practice.exercise8_td3.config_pendulum import generate_context, get_app_config
 from practice.exercise8_td3.td3_exercise import TD3Config
-from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils.train_utils_new import train_and_evaluate_network
 
 
 @pytest.fixture

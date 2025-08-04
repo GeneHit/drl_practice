@@ -16,6 +16,7 @@ from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ArrayType, ObsType
 from practice.utils_for_coding.network_utils import init_weights
+from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.replay_buffer_utils import ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
@@ -45,9 +46,17 @@ class QNet1D(nn.Module):
         self.network.apply(init_weights)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        y = self.network(x)
-        assert isinstance(y, torch.Tensor)  # make mypy happy
-        return y
+        # use cast to make mypy happy
+        return cast(Tensor, self.network(x))
+
+    def action(self, x: Tensor) -> ActType:
+        """Get the action for evaluation/gameplay with 1 environment.
+
+        Returns:
+            action: The single action.
+        """
+        # greedy strategy
+        return argmax_action(self.forward(x), dtype=ActType)
 
 
 class DQNPod(abc.ABC):

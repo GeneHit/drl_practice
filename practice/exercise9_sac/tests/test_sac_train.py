@@ -7,7 +7,7 @@ import pytest
 
 from practice.exercise9_sac.config_pendulum import generate_context, get_app_config
 from practice.exercise9_sac.sac_exercise import SACConfig
-from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils.train_utils_new import train_and_evaluate_network
 
 
 @pytest.fixture

@@ -25,30 +25,26 @@ All tests validate proper resource cleanup and file cleanup.
 import json
 import tempfile
 from pathlib import Path
-from typing import Generator, cast
+from typing import Generator
 
 import pytest
 import torch
 
-from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
+from practice.base.config import ArtifactConfig, EnvConfig
 from practice.exercise3_reinforce.config_cartpole import generate_context
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     ReinforceConfig,
     ReinforceTrainer,
 )
-from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils.env_utils import get_device
+from practice.utils.train_utils_new import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import ConstantSchedule
 
 
 @pytest.fixture
 def test_config() -> ReinforceConfig:
     """Create a test configuration based on mountain car config with reduced parameters."""
-    from practice.base.config import ArtifactConfig, EnvConfig
-    from practice.utils.env_utils import get_device
-    from practice.utils_for_coding.agent_utils import NNAgent
-
     device = get_device()
 
     return ReinforceConfig(
@@ -68,7 +64,6 @@ def test_config() -> ReinforceConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ReinforceTrainer,
-            agent_type=NNAgent,
             output_dir="",  # Will be set to temp dir in tests
             save_result=True,
             model_filename="reinforce.pth",
@@ -290,41 +285,6 @@ class TestReinforceTraining:
                 context.env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
-
-    def test_cli_integration(self, temp_output_dir: Path) -> None:
-        """Test CLI integration with the training functionality."""
-        from practice.utils.cli_utils import load_config_module
-
-        # Test train mode loading
-        config, context = load_config_module(
-            "practice/exercise3_reinforce/config_cartpole.py", "train"
-        )
-
-        assert isinstance(config, ReinforceConfig)
-        assert isinstance(context, ContextBase)
-        assert hasattr(context, "env")
-        assert hasattr(context, "eval_env")
-
-        # Test play mode loading
-        config, init_env = load_config_module(
-            "practice/exercise3_reinforce/config_cartpole.py", "play"
-        )
-
-        env = cast(EnvType, init_env)  # make mypy happy
-        assert isinstance(config, ReinforceConfig)
-        assert hasattr(env, "observation_space")
-        assert hasattr(env, "action_space")
-
-        # Clean up
-        try:
-            if hasattr(context, "env") and context.env:
-                context.env.close()
-            if hasattr(context, "eval_env") and context.eval_env:
-                context.eval_env.close()
-            if env:
-                env.close()
-        except:
-            pass
 
     def test_config_validation(self, test_config: ReinforceConfig) -> None:
         """Test that configuration has all required fields."""

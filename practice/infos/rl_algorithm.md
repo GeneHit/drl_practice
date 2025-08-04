@@ -61,3 +61,25 @@ Recommendations
 ### Summary
 - **A3C**: Lightweight and parallel-friendly for CPU or basic GPU setups.
 - **A2C/PPO**: More stable, better suited for GPU-heavy or scalable systems.
+
+
+## Skill for High-variant environment
+
+common
+- Normalize input features to reduce variance impact.
+- Use reward scaling or clipping to stabilize training.
+- Encourage exploration.
+- Use frame stacking or recurrent networks for temporal consistency.
+- Apply clip_grad_norm_
+DQN
+- Apply prioritized experience replay to focus on informative transitions.
+- Increase target network update frequency for smoother learning.
+on-policy
+- Implement reward normalization for stable policy updates.
+- Increase rollout batch size to average over more transitions.
+- Use value loss clip
+- Normalize the returns
+off-policy
+- Use huber loss or TD Error Clippi
+- Better soft target updates for stability (e.g., Polyak averaging).
+- Regularize Q-functions to prevent overfitting to noisy targets.

@@ -5,10 +5,8 @@ from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import EnvType
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
 from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.agent_utils import ACAgent
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
@@ -31,7 +29,8 @@ def get_app_config() -> A2CConfig:
         value_loss_coef=0.02,
         max_grad_norm=0.5,
         normalize_returns=True,
-        hidden_size=64,
+        hidden_sizes=(64, 64),
+        log_interval=10,
         eval_episodes=50,
         eval_random_seed=42,
         eval_video_num=10,
@@ -43,22 +42,13 @@ def get_app_config() -> A2CConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=A2CTrainer,
-            agent_type=ACAgent,
             output_dir="results/exercise5_a2c/cartpole/",
             save_result=True,
-            model_filename="a2c_gae.pth",
             repo_id="A2C-GAE-CartPoleV1",
             algorithm_name="A2C-GAE",
             extra_tags=("policy-gradient", "pytorch", "a2c", "gae"),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: A2CConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    train_env, eval_env = get_env_from_config(config.env_config)
-    train_env.close()
-    return eval_env
 
 
 def generate_context(config: A2CConfig) -> ContextBase:
@@ -72,7 +62,7 @@ def generate_context(config: A2CConfig) -> ContextBase:
     assert isinstance(eval_env.action_space, Discrete)
     action_n = int(eval_env.action_space.n)
     actor_critic = ActorCritic(
-        obs_dim=obs_shape[0], n_actions=action_n, hidden_size=config.hidden_size
+        obs_dim=obs_shape[0], n_actions=action_n, hidden_sizes=config.hidden_sizes
     )
     # Load checkpoint if exists
     load_checkpoint_if_exists(actor_critic, config.checkpoint_pathname)

@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from practice.utils.dist_utils import unwrap_model
+
 
 def init_weights(layer: nn.Module) -> None:
     """
@@ -48,6 +50,39 @@ def soft_update(source: nn.Module, target: nn.Module, tau: torch.Tensor | float)
     for param, target_param in zip(source.parameters(), target.parameters()):
         # equivalent to: tau * param + (1 - tau) * target_param
         target_param.data.lerp_(param.data, tau)
+
+
+def save_model(net: nn.Module, pathname: str, full_model: bool = False) -> None:
+    """Save the model."""
+    model = unwrap_model(net)
+    if full_model:
+        torch.save(model, pathname)
+    else:
+        # save the model as a state dict
+        torch.save(model.state_dict(), pathname)
+
+
+def load_model(pathname: str, device: torch.device, net: nn.Module | None = None) -> nn.Module:
+    """Load the model.
+
+    Args:
+        pathname: The path to the model.
+        device: The device to load the model to.
+        net: The network to load the model into. If None, will load a full model.
+
+    Returns:
+        The loaded model.
+    """
+    if net is None:
+        # load a full model
+        return cast(
+            nn.Module, torch.load(pathname, map_location=device, weights_only=False).to(device)
+        )
+
+    # load the state dict
+    net = net.to(device)
+    load_checkpoint_if_exists(net, pathname)
+    return net
 
 
 class MLP(nn.Module):

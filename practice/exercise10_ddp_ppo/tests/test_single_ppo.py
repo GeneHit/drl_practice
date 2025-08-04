@@ -7,7 +7,8 @@ import pytest
 
 from practice.exercise10_ddp_ppo.config_ddp_reacher import generate_context, get_app_config
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContPPOConfig
-from practice.utils.train_utils import train_and_evaluate_network
+from practice.utils.play_utils_new import play_and_generate_video_generic
+from practice.utils.train_utils_new import train_and_evaluate_network
 
 
 @pytest.fixture
@@ -51,6 +52,8 @@ def test_ppo_trainer_basic_flow(temp_output_dir: Path) -> None:
     context = generate_context(config)
     try:
         train_and_evaluate_network(config=config, ctx=context)
+        # don't save the video for online CI testing
+        play_and_generate_video_generic(config=config, ctx=context, save_video=False)
     finally:
         # Clean up environments
         # For vector envs, use train_env and eval_env directly

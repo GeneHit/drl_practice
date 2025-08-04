@@ -4,12 +4,8 @@ from gymnasium.spaces import Discrete
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
-from practice.exercise1_q.q_table_exercise import (
-    EnvType,
-    QTable,
-    QTableConfig,
-    QTableTrainer,
-)
+from practice.exercise1_q.q_table_exercise import QTable
+from practice.exercise1_q.q_trainer_exercise import EnvType, QTableConfig, QTableTrainer
 from practice.utils.env_utils import get_device, make_discrete_env_with_kwargs
 from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
@@ -42,10 +38,10 @@ def get_app_config() -> QTableConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=QTableTrainer,
-            agent_type=QTable,
             output_dir="results/exercise1_q/frozen_lake/",
             save_result=True,
-            model_filename="q_table.pkl",
+            state_dict_filename="table_numpy.pkl",
+            fps=2,
             repo_id="q-FrozenLake-v1-4x4-noSlippery",
             algorithm_name="Q-Learning",
             extra_tags=("tabular",),
@@ -78,10 +74,9 @@ def generate_context(config: QTableConfig) -> ContextBase:
     if config.checkpoint_pathname:
         # Load from checkpoint
         q_table = QTable.load_from_checkpoint(config.checkpoint_pathname, config.device)
-        q_table_array = q_table._q_table
     else:
         # Initialize new Q-table
-        q_table_array = np.zeros((obs_n, action_n), dtype=np.float32)
+        q_table = QTable(table=np.zeros((obs_n, action_n), dtype=np.float32))
 
     # Create dummy optimizer (not used in Q-learning but required by ContextBase)
     dummy_param = torch.tensor(0.0, requires_grad=True)
@@ -90,15 +85,9 @@ def generate_context(config: QTableConfig) -> ContextBase:
     return ContextBase(
         train_env=train_env,  # type: ignore
         eval_env=eval_env,  # type: ignore
-        trained_target=q_table_array,
+        trained_target=q_table,
         optimizer=dummy_optimizer,
     )
-
-
-def get_env_for_play_and_hub(config: QTableConfig) -> EnvType:
-    """Get the environment for play and hub."""
-    # Create evaluation environment with rgb_array render mode
-    return _get_eval_env(config)
 
 
 def _get_eval_env(config: QTableConfig) -> EnvType:

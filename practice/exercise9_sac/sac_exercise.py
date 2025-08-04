@@ -14,7 +14,7 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, init_weights, soft_update
-from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on
+from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on, tensor2np_1d
 from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
 from practice.utils_for_coding.writer_utils import CustomWriter
 
@@ -57,8 +57,8 @@ class SACActor(nn.Module):
         self.register_buffer("log_std_min", torch.tensor(log_std_min, dtype=torch.float32))
         self.register_buffer("log_std_max", torch.tensor(log_std_max, dtype=torch.float32))
 
-    def forward(self, state: torch.Tensor) -> torch.Tensor:
-        """Sample a deterministic action when evaluating.
+    def action(self, state: torch.Tensor) -> NDArray[ActTypeC]:
+        """Get the action for evaluation/gameplay with 1 environment.
 
         Returns:
             action: The deterministic action.
@@ -66,7 +66,7 @@ class SACActor(nn.Module):
         x = self.net(state)
         mean = self.mean_linear(x)
         action = torch.tanh(mean) * self.action_scale + self.action_bias
-        return action
+        return tensor2np_1d(action, dtype=ActTypeC())
 
     def sample(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Sample an action when training.
