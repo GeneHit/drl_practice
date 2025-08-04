@@ -24,7 +24,7 @@ def worker_process(
     worker_id: int,
     config: A3CConfig,
     actor_critic: ActorCritic,
-    error_queue: Queue[BaseException],
+    error_queue: Queue,  # type: ignore
 ) -> None:
     """The worker process for the A3C algorithm.
 
@@ -120,7 +120,7 @@ def a3c_train(config: A3CConfig) -> None:
 
     # Asynchronous workers and training
     start_time = time.time()
-    error_queue = Queue[BaseException]()
+    error_queue = Queue(maxsize=config.num_workers)  # type: ignore
     if config.num_workers == 1:
         # not use Process for online CI testing.
         worker_process(0, config, actor_critic, error_queue)
