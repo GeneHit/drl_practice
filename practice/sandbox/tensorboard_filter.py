@@ -1,6 +1,6 @@
 import os
 
-from tensorboard.backend.event_processing.event_accumulator import EventAccumulator  # type: ignore
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 from torch.utils.tensorboard import SummaryWriter
 
 
