@@ -3,12 +3,12 @@ from dataclasses import dataclass
 import gymnasium as gym
 from tqdm import tqdm
 
-from practice.base.chest import ScheduleBase
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType
 from practice.base.trainer import TrainerBase
 from practice.exercise1_q.q_table_exercise import ObsType
+from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 # Type alias for single environment

@@ -6,10 +6,10 @@ from numpy.typing import NDArray
 from torch import Tensor
 from tqdm import tqdm
 
-from practice.base.chest import RewardBase, RewardConfig
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
+from practice.base.rewarder import RewardBase, RewardConfig
 from practice.base.trainer import TrainerBase
 from practice.utils_for_coding.baseline_utils import (
     BaselineBase,
