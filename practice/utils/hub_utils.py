@@ -46,7 +46,7 @@ This is a trained model of a **{algorithm_name}** agent playing **{env_id}**.
 ## Usage
 ### create the conda env in https://github.com/GeneHit/drl_practice
 ```bash
-conda create -n drl python=3.10
+conda create -n drl python=3.12
 conda activate drl
 python -m pip install -r requirements.txt
 ```
