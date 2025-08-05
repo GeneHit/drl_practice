@@ -29,7 +29,7 @@ import torch.nn as nn
 from practice.base.config import ArtifactConfig, BaseConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.trainer import TrainerBase
-from practice.utils.play_utils_new import _load_model_from_config, play_and_generate_video_generic
+from practice.utils.play_utils import _load_model_from_config, play_and_generate_video_generic
 
 
 @pytest.fixture

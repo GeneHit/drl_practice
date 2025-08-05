@@ -7,8 +7,8 @@ import pytest
 
 from practice.exercise10_ddp_ppo.config_ddp_reacher import generate_context, get_app_config
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContPPOConfig
-from practice.utils.play_utils_new import play_and_generate_video_generic
-from practice.utils.train_utils_new import train_and_evaluate_network
+from practice.utils.play_utils import play_and_generate_video_generic
+from practice.utils.train_utils import train_and_evaluate_network
 
 
 @pytest.fixture

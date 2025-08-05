@@ -40,7 +40,7 @@ from practice.exercise2_dqn.config_lunar_1d import generate_context
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.utils.env_utils import get_device
-from practice.utils.train_utils_new import train_and_evaluate_network
+from practice.utils.train_utils import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 

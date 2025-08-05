@@ -35,8 +35,8 @@ import pytest
 from practice.exercise1_q.config_taxi import generate_context
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.exercise1_q.q_trainer_exercise import QTableConfig, QTableTrainer
-from practice.utils.play_utils_new import play_and_generate_video_generic
-from practice.utils.train_utils_new import train_and_evaluate_network
+from practice.utils.play_utils import play_and_generate_video_generic
+from practice.utils.train_utils import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 
 
