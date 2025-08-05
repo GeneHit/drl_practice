@@ -1,6 +1,21 @@
+import abc
+
 import numpy as np
 
-from practice.base.chest import ScheduleBase
+
+class ScheduleBase(abc.ABC):
+    """Base class for all schedules."""
+
+    @abc.abstractmethod
+    def __call__(self, t: int) -> float:
+        """Get the value for the given time.
+
+        Usage:
+        ```python
+        schedule = LinearSchedule(min_e=0.01, max_e=1.0, duration=1000)
+        epsilon = schedule(t=100)
+        ```
+        """
 
 
 class ConstantSchedule(ScheduleBase):
