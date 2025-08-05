@@ -2,9 +2,9 @@
 
 
 ## 1. Create the python env
-First, create the environment with the `python 3.10`. For conda, use
+First, create the environment with the `python 3.12`. For conda, use
 ```
-conda create -n drl python=3.10
+conda create -n drl python=3.12
 ```
 where you can rename the environment name `drl`. Then enter the env:
 ```
