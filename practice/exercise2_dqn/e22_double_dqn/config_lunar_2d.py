@@ -39,7 +39,7 @@ def get_app_config() -> DQNConfig:
             training_render_mode="rgb_array",
             image_shape=(84, 84),
             frame_stack=4,
-            frame_skip=4,
+            # frame_skip=4,
             # LunarLander-v3 default max_steps is 200
             # max_steps=100,
         ),
