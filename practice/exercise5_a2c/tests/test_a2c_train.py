@@ -7,7 +7,7 @@ import pytest
 
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig
 from practice.exercise5_a2c.config_cartpole import generate_context, get_app_config
-from practice.utils.train_utils_new import train_and_evaluate_network
+from practice.utils.train_utils import train_and_evaluate_network
 
 
 @pytest.fixture

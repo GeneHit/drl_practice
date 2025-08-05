@@ -1,7 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
-from tensorboard.backend.event_processing.event_accumulator import EventAccumulator  # type: ignore
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 
 def plot_scalar() -> None:

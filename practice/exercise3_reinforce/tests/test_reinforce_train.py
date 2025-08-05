@@ -38,7 +38,7 @@ from practice.exercise3_reinforce.reinforce_exercise import (
     ReinforceTrainer,
 )
 from practice.utils.env_utils import get_device
-from practice.utils.train_utils_new import train_and_evaluate_network
+from practice.utils.train_utils import train_and_evaluate_network
 from practice.utils_for_coding.scheduler_utils import ConstantSchedule
 
 

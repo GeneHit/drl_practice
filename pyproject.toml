@@ -97,5 +97,5 @@ module = "tqdm.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "torchvision.*"
+module = "tensorboard.*"
 ignore_missing_imports = true
