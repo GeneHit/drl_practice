@@ -71,15 +71,16 @@ common
 - Encourage exploration.
 - Use frame stacking or recurrent networks for temporal consistency.
 - Apply clip_grad_norm_
-DQN
-- Apply prioritized experience replay to focus on informative transitions.
-- Increase target network update frequency for smoother learning.
+
 on-policy
 - Implement reward normalization for stable policy updates.
 - Increase rollout batch size to average over more transitions.
 - Use value loss clip
 - Normalize the returns
+
 off-policy
+- Apply prioritized experience replay to focus on informative transitions.
+- Increase target network update frequency for smoother learning.
 - Use huber loss or TD Error Clippi
 - Better soft target updates for stability (e.g., Polyak averaging).
 - Regularize Q-functions to prevent overfitting to noisy targets.
