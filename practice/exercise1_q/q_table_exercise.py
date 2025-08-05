@@ -1,7 +1,7 @@
+import pickle
 from typing import TypeAlias, Union
 
 import numpy as np
-import pickle5 as pickle
 import torch
 from numpy.typing import NDArray
 

@@ -25,6 +25,7 @@ All tests validate proper resource cleanup and file cleanup.
 """
 
 import json
+import pickle
 import tempfile
 from pathlib import Path
 from typing import Generator
@@ -188,7 +189,6 @@ class TestQTableTraining:
 
         # Create a dummy Q-table with correct structure (Taxi has 500 states, 6 actions)
         dummy_q_table = np.random.rand(500, 6).astype(np.float32)
-        import pickle5 as pickle
 
         with open(checkpoint_file, "wb") as f:
             pickle.dump(dummy_q_table, f)
@@ -246,8 +246,6 @@ class TestQTableTraining:
             model_file = (
                 Path(config.artifact_config.output_dir) / config.artifact_config.state_dict_filename
             )
-
-            import pickle5 as pickle
 
             with open(model_file, "rb") as f:
                 q_table = pickle.load(f)

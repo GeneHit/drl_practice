@@ -147,7 +147,7 @@ def make_image_env_for_vectorized(
         observation_space=transposed_space,
     )
     if frame_skip > 1:
-        env = gym.wrappers.FrameSkip(env, skip=frame_skip)
+        env = gym.wrappers.MaxAndSkipObservation(env, skip=frame_skip)
     if max_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps=max_steps)
     if normalize_obs:
