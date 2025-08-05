@@ -123,8 +123,8 @@ def test_config(temp_output_dir: Path) -> BaseConfig:
 class TestPlayAndGenerateVideoGeneric:
     """Test play_and_generate_video_generic function."""
 
-    @patch("practice.utils.play_utils_new._play_game_once")
-    @patch("practice.utils.play_utils_new._load_model_from_config")
+    @patch("practice.utils.play_utils._play_game_once")
+    @patch("practice.utils.play_utils._load_model_from_config")
     def test_play_and_generate_video_success(
         self,
         mock_load_model: Mock,
@@ -164,8 +164,8 @@ class TestPlayAndGenerateVideoGeneric:
         captured = capsys.readouterr()
         assert captured.out == ""
 
-    @patch("practice.utils.play_utils_new._play_game_once")
-    @patch("practice.utils.play_utils_new._load_model_from_config")
+    @patch("practice.utils.play_utils._play_game_once")
+    @patch("practice.utils.play_utils._load_model_from_config")
     def test_play_and_generate_video_with_different_config(
         self,
         mock_load_model: Mock,
@@ -207,7 +207,7 @@ class TestPlayAndGenerateVideoGeneric:
             seed=123,
         )
 
-    @patch("practice.utils.play_utils_new._load_model_from_config")
+    @patch("practice.utils.play_utils._load_model_from_config")
     def test_play_and_generate_video_model_loading_error(
         self, mock_load_model: Mock, test_config: BaseConfig, mock_context: Mock
     ) -> None:
@@ -219,8 +219,8 @@ class TestPlayAndGenerateVideoGeneric:
         with pytest.raises(FileNotFoundError, match="Model file not found"):
             play_and_generate_video_generic(test_config, mock_context)
 
-    @patch("practice.utils.play_utils_new._play_game_once")
-    @patch("practice.utils.play_utils_new._load_model_from_config")
+    @patch("practice.utils.play_utils._play_game_once")
+    @patch("practice.utils.play_utils._load_model_from_config")
     def test_play_and_generate_video_play_error(
         self,
         mock_load_model: Mock,
@@ -251,7 +251,7 @@ class TestPlayAndGenerateVideoGeneric:
 class TestLoadModelFromConfig:
     """Test _load_model_from_config function."""
 
-    @patch("practice.utils.play_utils_new.load_model")
+    @patch("practice.utils.play_utils.load_model")
     def test_load_model_success(
         self,
         mock_load_model: Mock,
@@ -276,7 +276,7 @@ class TestLoadModelFromConfig:
         # Verify the result is the trained target
         assert result == mock_loaded_agent
 
-    @patch("practice.utils.play_utils_new.load_model")
+    @patch("practice.utils.play_utils.load_model")
     def test_load_model_file_not_found(
         self,
         mock_load_model: Mock,
@@ -295,7 +295,7 @@ class TestLoadModelFromConfig:
         expected_path = temp_output_dir / test_config.artifact_config.model_filename
         assert f"Model file not found: {expected_path}" in str(exc_info.value)
 
-    @patch("practice.utils.play_utils_new.load_model")
+    @patch("practice.utils.play_utils.load_model")
     def test_load_model_with_different_device(
         self,
         mock_load_model: Mock,
@@ -327,7 +327,7 @@ class TestLoadModelFromConfig:
         # Verify the result is the trained target
         assert result == mock_loaded_agent
 
-    @patch("practice.utils.play_utils_new.load_model")
+    @patch("practice.utils.play_utils.load_model")
     def test_load_model_checkpoint_error(
         self,
         mock_load_model: Mock,
@@ -349,7 +349,7 @@ class TestLoadModelFromConfig:
         with pytest.raises(RuntimeError, match="Checkpoint corrupted"):
             _load_model_from_config(test_config, mock_context)
 
-    @patch("practice.utils.play_utils_new.load_model")
+    @patch("practice.utils.play_utils.load_model")
     def test_load_model_with_state_dict(
         self,
         mock_load_model: Mock,
@@ -382,8 +382,8 @@ class TestLoadModelFromConfig:
 class TestPlayUtilsIntegration:
     """Integration tests for play utilities."""
 
-    @patch("practice.utils.play_utils_new._play_game_once")
-    @patch("practice.utils.play_utils_new.load_model")
+    @patch("practice.utils.play_utils._play_game_once")
+    @patch("practice.utils.play_utils.load_model")
     def test_full_play_workflow(
         self,
         mock_load_model: Mock,
