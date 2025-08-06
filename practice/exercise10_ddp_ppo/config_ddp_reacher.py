@@ -25,10 +25,10 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> ContPPOConfig:
-    total_steps = 1228800
+    total_steps = 1_800_000
     world_size = get_world_size()
     num_envs = 2
-    rollout_len = 256
+    rollout_len = 512
     timesteps = total_steps // (world_size * num_envs * rollout_len)
     minibatch_size = 256
     minibatch_num = (num_envs * rollout_len) // minibatch_size
@@ -41,10 +41,10 @@ def get_app_config() -> ContPPOConfig:
         critic_lr=3e-4,
         gamma=0.99,
         gae_lambda=0.95,
-        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.005, duration=int(0.8 * timesteps)),
+        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.001, duration=int(0.8 * timesteps)),
         value_loss_coef=0.5,
         max_grad_norm=0.5,
-        num_epochs=10,
+        num_epochs=6,
         minibatch_num=minibatch_num,
         clip_coef=0.2,
         value_clip_range=1.0,
@@ -56,9 +56,9 @@ def get_app_config() -> ContPPOConfig:
         log_std_max=2,
         log_std_state_dependent=False,
         reward_configs=(),
-        eval_episodes=20,
+        eval_episodes=100,
         eval_random_seed=42,
-        eval_video_num=5,
+        eval_video_num=10,
         log_interval=1,
         env_config=EnvConfig(
             env_id="Reacher-v5",

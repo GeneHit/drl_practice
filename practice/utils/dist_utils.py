@@ -102,9 +102,7 @@ def is_distributed() -> bool:
 
 def get_world_size() -> int:
     """Get the world size."""
-    if is_distributed():
-        return dist.get_world_size()
-    return 1
+    return int(os.environ.get("WORLD_SIZE", 1))
 
 
 def _get_rank() -> int:

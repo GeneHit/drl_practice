@@ -373,7 +373,6 @@ class _ContPPOPod:
         # normalize the advantages
         if len(advantages) > 1:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
         # 3. Update the policy and value network
         config = self._config

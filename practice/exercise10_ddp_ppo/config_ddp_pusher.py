@@ -27,8 +27,8 @@ def get_app_config() -> ContPPOConfig:
     device = get_device("cpu")
     total_steps = 2_500_000
     vector_env_num_per_process = 2
-    rollout_len = 1024
-    minibatch_size = 64
+    rollout_len = 512
+    minibatch_size = 128
     minibatch_num = rollout_len * vector_env_num_per_process // minibatch_size
     timesteps = total_steps // (get_world_size() * vector_env_num_per_process * rollout_len)
     return ContPPOConfig(
