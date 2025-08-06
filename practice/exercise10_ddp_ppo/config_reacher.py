@@ -69,15 +69,6 @@ def get_app_config() -> ContPPOConfig:
     )
 
 
-def get_env_for_play_and_hub(config: ContPPOConfig) -> EnvTypeC:
-    """Get the environment for play and hub."""
-    train_envs, eval_env = get_env_from_config(config.env_config)
-    train_envs.close()
-    # use cast for type checking
-    verify_env_with_continuous_action(cast(EnvTypeC, eval_env))
-    return cast(EnvTypeC, eval_env)
-
-
 def generate_context(config: ContPPOConfig) -> ContextBase:
     """Generate the context for the training."""
     train_envs, eval_env = get_env_from_config(config.env_config)

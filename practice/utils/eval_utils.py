@@ -52,6 +52,7 @@ def evaluate_and_save_results(
         video_dir=os.path.join(config.artifact_config.output_dir, "video"),
         video_num=config.eval_video_num,
     )
+    print(f"{mean_reward=:.2f}, {std_reward=:.2f}")
 
     # Create evaluation result dictionary
     eval_result = {

@@ -9,7 +9,12 @@ from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvsTypeC, EnvTypeC
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
-from practice.utils.dist_utils import auto_init_distributed, get_device, is_main_process
+from practice.utils.dist_utils import (
+    auto_init_distributed,
+    get_device,
+    get_world_size,
+    is_main_process,
+)
 from practice.utils.env_utils import (
     get_env_from_config,
     verify_env_with_continuous_action,
@@ -20,10 +25,11 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> ContPPOConfig:
+    total_steps = 1228800
+    world_size = get_world_size()
     num_envs = 2
     rollout_len = 256
-    # total steps = timesteps * num_envs * rollout_len
-    timesteps = 800
+    timesteps = total_steps // (world_size * num_envs * rollout_len)
     minibatch_size = 256
     minibatch_num = (num_envs * rollout_len) // minibatch_size
 
@@ -63,20 +69,11 @@ def get_app_config() -> ContPPOConfig:
             trainer_type=ContPPOTrainer,
             output_dir="results/exercise10_ddp_ppo/ddp_reacher/",
             save_result=True,
-            repo_id="DDP-PPO-Reacher-v5",
+            repo_id="PPO-ReacherV5",
             algorithm_name="PPO",
-            extra_tags=("mujoco", "ddp", "rnd"),
+            extra_tags=("mujoco", "ddp"),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: ContPPOConfig) -> EnvTypeC:
-    """Get the environment for play and hub."""
-    train_envs, eval_env = get_env_from_config(config.env_config)
-    train_envs.close()
-    # use cast for type checking
-    verify_env_with_continuous_action(cast(EnvTypeC, eval_env))
-    return cast(EnvTypeC, eval_env)
 
 
 def generate_context(config: ContPPOConfig) -> ContextBase:
