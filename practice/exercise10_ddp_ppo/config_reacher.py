@@ -34,7 +34,7 @@ def get_app_config() -> ContPPOConfig:
         critic_lr=3e-4,
         gamma=0.99,
         gae_lambda=0.95,
-        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.005, duration=int(0.8 * timesteps)),
+        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.001, duration=int(0.8 * timesteps)),
         value_loss_coef=0.5,
         max_grad_norm=0.5,
         num_epochs=10,
@@ -49,9 +49,9 @@ def get_app_config() -> ContPPOConfig:
         log_std_max=2,
         log_std_state_dependent=False,
         reward_configs=(),
-        eval_episodes=20,
+        eval_episodes=100,
         eval_random_seed=42,
-        eval_video_num=5,
+        eval_video_num=10,
         log_interval=1,
         env_config=EnvConfig(
             env_id="Reacher-v5",
@@ -67,15 +67,6 @@ def get_app_config() -> ContPPOConfig:
             extra_tags=("mujoco",),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: ContPPOConfig) -> EnvTypeC:
-    """Get the environment for play and hub."""
-    train_envs, eval_env = get_env_from_config(config.env_config)
-    train_envs.close()
-    # use cast for type checking
-    verify_env_with_continuous_action(cast(EnvTypeC, eval_env))
-    return cast(EnvTypeC, eval_env)
 
 
 def generate_context(config: ContPPOConfig) -> ContextBase:

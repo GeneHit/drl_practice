@@ -1,17 +1,34 @@
 # PPO + Curiosity + PyTorch DDP Distributed Reinforcement Learning Architecture
 
 
+## Files
+- `ppo_rnd_exercise.py`: continue PPO `EXERCISE`.
+- `config_reacher.py`: Configuration file for Reacher-v5 environment
+- `config_pusher.py`: Configuration file for Pusher-v5 environment
+
+Different games:
+1. `Pendulum-v1`, a easy game is used for verifying the implementation
+2. `Walker2d-v5`, a harder game, you should train it to have a good score.
+
+
 ## Command
 Verify the implementation without DDP.
 ```
 python practice/cli.py --config practice/exercise10_ddp_ppo/config_reacher.py
 ```
-Train (change `pusher` to `standup` if needed)
+DDP Train
 ```bash
+# reacher
 torchrun --nproc_per_node=3  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_reacher.py
+
+# pusher
+torchrun --nproc_per_node=3  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_pusher.py
+
+# mountain car
+torchrun --nproc_per_node=2  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_mountain_car.py
 ```
 
-Play with trained model and generate video
+Play with trained model and generate video (change `reacher` to `pusher` if needed)
 ```bash
 python practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_reacher.py --mode play
 ```
@@ -31,6 +48,12 @@ Run the comprehensive test suite:
 python -m pytest practice/exercise10_ddp_ppo/tests/ -v
 ```
 
+
+## Parameter Tuning
+Pusher:
+1. constant small entropy coef because entropy loss dominates the loss
+2. samller num_epoch and linear entropy
+3. some unused tries: clip_coef scheduler, PiecewiseSchedule for entropy, RND
 
 ## 🧠 Project Goal
 

@@ -11,7 +11,7 @@ from tqdm import tqdm
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActTypeC, ObsType
-from practice.base.rewarder import RewardConfig
+from practice.base.rewarder import RewardBase, RewardConfig
 from practice.base.trainer import TrainerBase
 from practice.exercise7_ppo.ppo_exercise import _RolloutBuffer, _StepData
 from practice.utils.dist_utils import unwrap_model
@@ -93,10 +93,11 @@ class ContACNet(nn.Module):
         Returns:
             action: The deterministic action for one environment.
         """
-        x = self.shared_net(obs)
-        mean = self.policy_mean(x)
-        action: Tensor = mean * self.action_scale + self.action_bias
-        return tensor2np_1d(action, dtype=ActTypeC())
+        with torch.no_grad():
+            x = self.shared_net(obs)
+            mean = self.policy_mean(x)
+            action: Tensor = torch.tanh(mean) * self.action_scale + self.action_bias
+            return tensor2np_1d(action, dtype=ActTypeC())
 
     def forward(
         self, obs: Tensor, actions: Tensor | None = None
@@ -192,13 +193,16 @@ class ContPPOConfig(BaseConfig):
     minibatch_num: int
     """The number of the minibatch."""
 
-    clip_coef: float
+    clip_coef: float | ScheduleBase
     """The clip coefficient for the PPO."""
 
     value_clip_range: float | None = None
     """The clip range for the value function."""
 
-    reward_configs: tuple[RewardConfig, ...]
+    reward_clip_range: ScheduleBase | None = None
+    """The clip range for the original env reward."""
+
+    reward_configs: tuple[RewardConfig, ...] = ()
     """The reward configurations."""
 
     action_scale: float
@@ -233,6 +237,7 @@ class ContPPOTrainer(TrainerBase):
     def __init__(self, config: ContPPOConfig, ctx: ContextBase) -> None:
         super().__init__(config, ctx)
         self._config: ContPPOConfig = config  # make mypy happy
+        self._rewarders = tuple(rewarder.get_rewarder() for rewarder in self._config.reward_configs)
 
     def train(self) -> None:
         """Train the policy network with a vectorized environment.
@@ -254,6 +259,8 @@ class ContPPOTrainer(TrainerBase):
 
         # Create variables for loop
         episode_num = 0
+        global_step = 0
+        prev_dones: NDArray[np.bool_] = np.zeros(envs.num_envs, dtype=np.bool_)
         assert self._config.env_config.vector_env_num is not None
         state, _ = envs.reset()
         for _ in tqdm(range(self._config.timesteps), desc="Rollouts"):
@@ -268,14 +275,26 @@ class ContPPOTrainer(TrainerBase):
                 next_states, rewards, terms, truncs, infos = envs.step(actions)
                 dones = np.logical_or(terms, truncs)
 
+                # add extra reward
+                total_rewards = _add_extra_reward(
+                    rewarders=self._rewarders,
+                    env_rewards=rewards.astype(np.float32),
+                    states=state,
+                    next_states=next_states,
+                    global_step=global_step,
+                    writer=writer,
+                    log_interval=100,
+                    prev_dones=prev_dones,
+                )
+
                 # buffer the data after stepping the environment
                 # when any pre done, it will buffer a bad transition between two episodes.
-                pod.add_stepped_data(
-                    next_states=next_states, rewards=rewards.astype(np.float32), dones=dones
-                )
+                pod.add_stepped_data(next_states=next_states, rewards=total_rewards, dones=dones)
 
                 # update state
                 state = next_states
+                global_step += 1
+                prev_dones = dones
                 # record the episode data
                 episode_num += writer.log_episode_stats_if_has(infos, episode_num)
 
@@ -302,6 +321,7 @@ class _ContPPOPod:
         assert isinstance(unwrap_model(self._actor_critic), ContACNet), (
             "The network must be a ContACNet"
         )
+        self._rewarders = [rewarder.get_rewarder() for rewarder in self._config.reward_configs]
         self._rollout_count: int = 0
         self._pre_last_dones: Tensor | None = None
 
@@ -360,7 +380,6 @@ class _ContPPOPod:
         # normalize the advantages
         if len(advantages) > 1:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-            returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
         # 3. Update the policy and value network
         config = self._config
@@ -380,17 +399,19 @@ class _ContPPOPod:
                 # [n, 1] -> [n, ]
                 ratio = torch.exp((log_probs_new - log_probs[mb_inds]).view(-1))
                 unclipped_pg_loss = ratio * advantages[mb_inds]
+                clip_coef = (
+                    config.clip_coef
+                    if isinstance(config.clip_coef, float)
+                    else config.clip_coef(self._rollout_count)
+                )
                 clipped_pg_loss = (
-                    torch.clamp(ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef)
-                    * advantages[mb_inds]
+                    torch.clamp(ratio, 1.0 - clip_coef, 1.0 + clip_coef) * advantages[mb_inds]
                 )
                 pg_loss = -torch.mean(torch.min(unclipped_pg_loss, clipped_pg_loss))
 
                 # 3.2 Update the value network
                 value_mse = self._value_mse_loss(
-                    value_old=values[mb_inds],
-                    values_pred=values_pred,
-                    returns=returns[mb_inds],
+                    value_old=values[mb_inds], values_pred=values_pred, returns=returns[mb_inds]
                 )
                 value_loss = config.value_loss_coef * value_mse
 
@@ -458,6 +479,9 @@ class _ContPPOPod:
 
         # stack the data to [T, N]
         rewards = torch.stack([np2tensor(step.rewards) for step in rollout]).to(device)
+        if self._config.reward_clip_range is not None:
+            reward_clip_range = self._config.reward_clip_range(self._rollout_count)
+            rewards = torch.clamp(rewards, -reward_clip_range, reward_clip_range)
         dones = torch.stack([np2tensor(step.dones) for step in rollout]).to(device)
         # value has been on device
         values = torch.stack([step.values.view(-1) for step in rollout])
@@ -553,11 +577,64 @@ class _ContPPOPod:
 
         value_mse = nn.functional.mse_loss(values_pred.view(-1), returns, reduction="none")
         values_pred_clipped = value_old + torch.clamp(
-            values_pred - value_old,
-            -self._config.value_clip_range,
-            self._config.value_clip_range,
+            values_pred - value_old, -self._config.value_clip_range, self._config.value_clip_range
         )
         value_mse_clipped = nn.functional.mse_loss(
             values_pred_clipped.view(-1), returns, reduction="none"
         )
         return 0.5 * torch.max(value_mse, value_mse_clipped).mean()
+
+
+def _add_extra_reward(
+    rewarders: Sequence[RewardBase],
+    env_rewards: NDArray[np.float32],
+    states: NDArray[ObsType],
+    next_states: NDArray[ObsType],
+    global_step: int,
+    writer: CustomWriter,
+    log_interval: int,
+    prev_dones: NDArray[np.bool_],
+) -> NDArray[np.float32]:
+    """Compute the reward with the extra rewarders.
+
+    Args:
+        rewarders: The rewarders.
+        env_rewards: The environment rewards, shape [v,].
+        states: The states, shape [v, obs_dim].
+        next_states: The next states, shape [v, obs_dim].
+        global_step: The global step.
+        writer: The writer.
+        log_interval: The log interval.
+
+    Returns:
+        rewards: The reward = env reward + extra rewarders' reward, shape [v,]
+    """
+    pre_non_terminal_mask = ~prev_dones
+    if not np.any(pre_non_terminal_mask):
+        return env_rewards
+
+    states = states[pre_non_terminal_mask]
+    next_states = next_states[pre_non_terminal_mask]
+    rewards = env_rewards[pre_non_terminal_mask]
+
+    extra_rewards: list[NDArray[np.float32]] = [
+        rewarder.get_reward(states, next_states, global_step) for rewarder in rewarders
+    ]
+    env_reward_mean = env_rewards.max()
+    if extra_rewards:
+        rewards += sum(extra_rewards)
+
+        writer.log_stats(
+            data={
+                "reward/env": env_reward_mean,
+                **{
+                    f"reward/{rewarder.__class__.__name__}": extra_rewards[idx].max()
+                    for idx, rewarder in enumerate(rewarders)
+                },
+            },
+            step=global_step,
+            log_interval=log_interval,
+        )
+
+    env_rewards[pre_non_terminal_mask] = rewards
+    return env_rewards

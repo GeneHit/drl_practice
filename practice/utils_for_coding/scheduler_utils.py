@@ -1,4 +1,5 @@
 import abc
+import math
 
 import numpy as np
 
@@ -79,3 +80,33 @@ class ExponentialSchedule(ScheduleBase):
         # when t -> inf, epsilon should be end_e
         epsilon = self._end_e + (self._start_e - self._end_e) * float(np.exp(-self._decay_rate * t))
         return epsilon
+
+
+class CosineSchedule(ScheduleBase):
+    def __init__(
+        self,
+        start_e: float,
+        end_e: float,
+        duration: int,
+        start_t: int = 0,
+        decay_factor: float = 1.0,
+    ) -> None:
+        """Cosine decay from start_e to end_e over duration steps starting at start_t.
+        decay_factor controls the speed of decay (default 1.0 for standard cosine).
+        """
+        self._start_e = start_e
+        self._end_e = end_e
+        self._duration = duration
+        self._start_t = start_t
+        self._end_t = start_t + duration
+        self._decay_factor = decay_factor
+
+    def __call__(self, t: int) -> float:
+        if t <= self._start_t:
+            return self._start_e
+        elif t >= self._end_t:
+            return self._end_e
+        else:
+            progress = (t - self._start_t) / self._duration
+            cosine_decay = 0.5 * (1 + math.cos(math.pi * self._decay_factor * progress))
+            return self._end_e + (self._start_e - self._end_e) * cosine_decay

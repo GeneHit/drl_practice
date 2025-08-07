@@ -7,7 +7,12 @@ from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.base.env_typing import EnvsTypeC, EnvTypeC
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
-from practice.utils.dist_utils import auto_init_distributed, get_device, is_main_process
+from practice.utils.dist_utils import (
+    auto_init_distributed,
+    get_device,
+    get_world_size,
+    is_main_process,
+)
 from practice.utils.env_utils import (
     get_env_from_config,
     verify_env_with_continuous_action,
@@ -19,58 +24,54 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 def get_app_config() -> ContPPOConfig:
     """Get the application config."""
+    device = get_device("cpu")
+    total_steps = 2_500_000
+    vector_env_num_per_process = 2
+    rollout_len = 512
+    minibatch_size = 128
+    minibatch_num = rollout_len * vector_env_num_per_process // minibatch_size
+    timesteps = total_steps // (get_world_size() * vector_env_num_per_process * rollout_len)
     return ContPPOConfig(
-        device=get_device("cpu"),
-        timesteps=600,
-        rollout_len=256,
+        device=device,
+        timesteps=timesteps,
+        rollout_len=rollout_len,
         learning_rate=1e-4,
         critic_lr=1e-4,
         gamma=0.99,
-        gae_lambda=0.97,
-        # pusher is simple, use a very small entropy coef
-        entropy_coef=LinearSchedule(0.1, 0.001, 500),
-        value_loss_coef=0.5,
-        max_grad_norm=0.5,
-        num_epochs=12,
-        # better that rollout_len // minibatch_num >= 64
-        minibatch_num=4,
-        clip_coef=0.1,
-        hidden_sizes=(64, 64),
+        gae_lambda=0.95,
+        entropy_coef=LinearSchedule(0.01, 0.001, int(timesteps * 0.9)),
+        value_loss_coef=1.0,
+        max_grad_norm=1.0,
+        num_epochs=6,
+        minibatch_num=minibatch_num,
+        clip_coef=0.2,
+        value_clip_range=1.0,
+        hidden_sizes=(128, 128),
         use_layer_norm=True,
         action_scale=1,
         action_bias=0,
-        log_std_min=-20,
+        log_std_min=-10,
         log_std_max=2,
-        log_std_state_dependent=True,
-        reward_configs=(),
-        eval_episodes=50,
+        log_std_state_dependent=False,
+        eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
         # the rollout number for logging
         log_interval=1,
         env_config=EnvConfig(
             env_id="Pusher-v5",
-            vector_env_num=6,
+            vector_env_num=vector_env_num_per_process,
             use_multi_processing=False,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=ContPPOTrainer,
-            output_dir="results/exercise10_ddp_ppo/pusher/",
+            output_dir="results/exercise10_ddp_ppo/ddp_pusher/",
             save_result=True,
-            repo_id="PPO-RND-PusherV2",
+            repo_id="PPO-DDP-PusherV2",
             algorithm_name="PPO",
-            extra_tags=("policy-gradient", "pytorch", "ddp", "rnd"),
+            extra_tags=("mujoco", "pytorch", "ddp"),
         ),
     )
-
-
-def get_env_for_play_and_hub(config: ContPPOConfig) -> EnvTypeC:
-    """Get the environment for play and hub."""
-    train_envs, eval_env = get_env_from_config(config.env_config)
-    train_envs.close()
-    # use cast for type checking
-    verify_env_with_continuous_action(cast(EnvTypeC, eval_env))
-    return cast(EnvTypeC, eval_env)
 
 
 def generate_context(config: ContPPOConfig) -> ContextBase:

@@ -56,9 +56,8 @@ def auto_init_distributed(device: torch.device, model: nn.Module) -> nn.Module:
     """
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     if world_size == 1:
-        model.to(device)
         print("[distributed] Not running distributed, will run single process.")
-        return model
+        return model.to(device)
 
     rank = int(os.environ.get("RANK", 0))
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
@@ -88,8 +87,15 @@ def unwrap_model(model: nn.Module) -> nn.Module:
     return model
 
 
+def get_rank() -> int:
+    if is_distributed():
+        return dist.get_rank()
+    # single process
+    return 0
+
+
 def is_main_process() -> bool:
-    return _get_rank() == 0
+    return get_rank() == 0
 
 
 def is_distributed() -> bool:
@@ -103,13 +109,4 @@ def is_distributed() -> bool:
 
 def get_world_size() -> int:
     """Get the world size."""
-    if is_distributed():
-        return dist.get_world_size()
-    return 1
-
-
-def _get_rank() -> int:
-    if is_distributed():
-        return dist.get_rank()
-    # single process
-    return 0
+    return int(os.environ.get("WORLD_SIZE", 1))

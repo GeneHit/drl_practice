@@ -209,14 +209,15 @@ class LogStdHead(nn.Module):
         Returns:
             log_std: Tensor of shape [batch_size, act_dim]
         """
-        return self.forward_impl(feature, mean)
+        log_std = self.forward_impl(feature, mean)
+        return torch.clamp(log_std, self.log_std_min, self.log_std_max)
 
     def _state_dependent_forward(self, feature: Tensor, mean: Tensor) -> Tensor:
         log_std = self.linear(feature)
         if self.map_to_range:
             log_std = torch.tanh(log_std)
             log_std = self.log_std_min + 0.5 * (self.log_std_max - self.log_std_min) * (1 + log_std)
-        return torch.clamp(log_std, self.log_std_min, self.log_std_max)
+        return cast(Tensor, log_std)
 
     def _constant_forward(self, feature: Tensor, mean: Tensor) -> Tensor:
         return self.log_std_param.expand_as(mean)
