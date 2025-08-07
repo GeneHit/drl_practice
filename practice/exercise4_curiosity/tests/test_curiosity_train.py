@@ -69,7 +69,7 @@ def test_config() -> EnhancedReinforceConfig:
         reward_configs=(
             RND1DNetworkConfig(
                 rnd_config=RNDRewardConfig(
-                    beta=ExponentialSchedule(start_e=5.0, end_e=1.0, decay_rate=-0.005),
+                    beta=ExponentialSchedule(v0=5.0, v1=1.0, decay_rate=-0.005),
                     device=device,
                     normalize=True,
                     max_reward=2,
@@ -80,7 +80,7 @@ def test_config() -> EnhancedReinforceConfig:
                 learning_rate=1e-3,
             ),
             XShapingRewardConfig(
-                beta=ExponentialSchedule(start_e=5.0, end_e=1.0, decay_rate=-0.005),
+                beta=ExponentialSchedule(v0=5.0, v1=1.0, decay_rate=-0.005),
                 goal_position=None,
             ),
         ),

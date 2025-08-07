@@ -21,7 +21,7 @@ def get_app_config() -> DQNConfig:
         timesteps=timesteps,
         learning_rate=1e-4,
         gamma=0.99,
-        epsilon_schedule=LinearSchedule(start_e=1.0, end_e=0.01, duration=int(0.1 * timesteps)),
+        epsilon_schedule=LinearSchedule(v0=1.0, v1=0.01, t1=int(0.1 * timesteps)),
         replay_buffer_capacity=40000,
         batch_size=64,
         train_interval=2,

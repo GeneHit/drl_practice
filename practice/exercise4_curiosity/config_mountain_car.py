@@ -32,7 +32,7 @@ def get_app_config() -> EnhancedReinforceConfig:
         gamma=0.999,
         hidden_sizes=(32, 32),
         baseline=ConstantBaseline(decay=0.9),
-        entropy_coef=LinearSchedule(start_e=0.01, end_e=0.001, duration=int(timesteps * 0.6)),
+        entropy_coef=LinearSchedule(v0=0.01, v1=0.001, t1=int(timesteps * 0.6)),
         max_grad_norm=0.5,
         log_interval=1,  # log every episode
         eval_episodes=100,
@@ -42,7 +42,7 @@ def get_app_config() -> EnhancedReinforceConfig:
             # RND and shaping reward are both needed.
             RND1DNetworkConfig(
                 rnd_config=RNDRewardConfig(
-                    beta=LinearSchedule(start_e=0.005, end_e=0.001, duration=int(timesteps * 0.8)),
+                    beta=LinearSchedule(v0=0.005, v1=0.001, t1=int(timesteps * 0.8)),
                     device=device,
                     normalize=True,
                     max_reward=2,
@@ -52,9 +52,7 @@ def get_app_config() -> EnhancedReinforceConfig:
                 hidden_sizes=(32, 32),
                 learning_rate=5e-4,
             ),
-            XShapingRewardConfig(
-                beta=LinearSchedule(start_e=5.0, end_e=1.0, duration=int(timesteps * 0.8))
-            ),
+            XShapingRewardConfig(beta=LinearSchedule(v0=5.0, v1=1.0, t1=int(timesteps * 0.8))),
         ),
         env_config=EnvConfig(
             env_id="MountainCar-v0",

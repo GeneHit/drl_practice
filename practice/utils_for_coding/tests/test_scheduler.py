@@ -48,7 +48,7 @@ class TestLinearSchedule:
         expected: float,
     ) -> None:
         """Test LinearSchedule returns correct values at different time steps."""
-        schedule = LinearSchedule(start_e=start_e, end_e=end_e, duration=duration)
+        schedule = LinearSchedule(v0=start_e, v1=end_e, t1=duration)
         result = schedule(t)
         assert abs(result - expected) < 1e-6, f"Expected {expected}, got {result}"
 
@@ -76,14 +76,14 @@ class TestLinearSchedule:
         expected_values: List[float],
     ) -> None:
         """Test LinearSchedule over a sequence of time steps."""
-        schedule = LinearSchedule(start_e=start_e, end_e=end_e, duration=duration)
+        schedule = LinearSchedule(v0=start_e, v1=end_e, t1=duration)
 
         for t, expected in zip(time_steps, expected_values):
             result = schedule(t)
             assert abs(result - expected) < 1e-6, f"At t={t}, expected {expected}, got {result}"
 
     @pytest.mark.parametrize(
-        "start_e,end_e,duration,schedule_type",
+        "v0,v1,duration,schedule_type",
         [
             (1.0, 0.1, 100, "decreasing"),
             (0.1, 1.0, 100, "increasing"),
@@ -92,10 +92,10 @@ class TestLinearSchedule:
         ],
     )
     def test_linear_schedule_properties(
-        self, start_e: float, end_e: float, duration: int, schedule_type: str
+        self, v0: float, v1: float, duration: int, schedule_type: str
     ) -> None:
         """Test LinearSchedule properties and edge cases for both decreasing and increasing schedules."""
-        schedule = LinearSchedule(start_e=start_e, end_e=end_e, duration=duration)
+        schedule = LinearSchedule(v0=v0, v1=v1, t1=duration)
 
         # Test that the schedule is monotonic
         values = [schedule(t) for t in range(0, duration + 1, max(1, duration // 10))]
@@ -109,7 +109,7 @@ class TestLinearSchedule:
 
             # Test that values never go below end_e
             for t in range(0, duration * 2, max(1, duration // 20)):
-                assert schedule(t) >= end_e, f"Value at t={t} should not be below end_e={end_e}"
+                assert schedule(t) >= v1, f"Value at t={t} should not be below end_e={v1}"
 
         elif schedule_type == "increasing":
             # For increasing schedules, values should be non-decreasing
@@ -120,17 +120,13 @@ class TestLinearSchedule:
 
             # Test that values never go above end_e (after duration)
             for t in range(duration, duration * 2, max(1, duration // 20)):
-                assert schedule(t) <= end_e + 1e-10, (
-                    f"Value at t={t} should not exceed end_e={end_e}"
-                )
+                assert schedule(t) <= v1 + 1e-10, f"Value at t={t} should not exceed end_e={v1}"
 
         # Test boundary values
-        assert abs(schedule(0) - start_e) < 1e-10, f"At t=0, should return start_e={start_e}"
-        assert abs(schedule(duration) - end_e) < 1e-10, (
-            f"At t=duration, should return end_e={end_e}"
-        )
-        assert abs(schedule(duration + 50) - end_e) < 1e-10, (
-            f"Beyond duration, should return end_e={end_e}"
+        assert abs(schedule(0) - v0) < 1e-10, f"At t=0, should return start_e={v0}"
+        assert abs(schedule(duration) - v1) < 1e-10, f"At t=duration, should return end_e={v1}"
+        assert abs(schedule(duration + 50) - v1) < 1e-10, (
+            f"Beyond duration, should return end_e={v1}"
         )
 
 
@@ -158,7 +154,7 @@ class TestExponentialSchedule:
         tolerance: float,
     ) -> None:
         """Test ExponentialSchedule returns correct start value."""
-        schedule = ExponentialSchedule(start_e=start_e, end_e=end_e, decay_rate=decay_rate)
+        schedule = ExponentialSchedule(v0=start_e, v1=end_e, decay_rate=decay_rate)
         if t == 0:
             result = schedule(t)
             assert abs(result - start_e) < tolerance, f"At t=0, expected {start_e}, got {result}"
@@ -175,7 +171,7 @@ class TestExponentialSchedule:
         self, start_e: float, end_e: float, decay_rate: float
     ) -> None:
         """Test that ExponentialSchedule is monotonically decreasing when start_e > end_e."""
-        schedule = ExponentialSchedule(start_e=start_e, end_e=end_e, decay_rate=decay_rate)
+        schedule = ExponentialSchedule(v0=start_e, v1=end_e, decay_rate=decay_rate)
 
         # Sample points throughout the schedule
         time_points = list(range(0, 200, 10))
@@ -203,7 +199,7 @@ class TestExponentialSchedule:
         test_points: List[int],
     ) -> None:
         """Test that ExponentialSchedule respects bounds."""
-        schedule = ExponentialSchedule(start_e=start_e, end_e=end_e, decay_rate=decay_rate)
+        schedule = ExponentialSchedule(v0=start_e, v1=end_e, decay_rate=decay_rate)
 
         for t in test_points:
             result = schedule(t)
@@ -219,7 +215,7 @@ class TestExponentialSchedule:
     def test_exponential_schedule_implementation(self) -> None:
         """Test the mathematical correctness of ExponentialSchedule implementation."""
         start_e, end_e, decay_rate = 1.0, 0.1, 0.01
-        schedule = ExponentialSchedule(start_e=start_e, end_e=end_e, decay_rate=decay_rate)
+        schedule = ExponentialSchedule(v0=start_e, v1=end_e, decay_rate=decay_rate)
 
         # Test specific mathematical property - exponential decay
         t = 50
@@ -235,7 +231,7 @@ class TestExponentialSchedule:
 
     def test_exponential_schedule_type_annotations(self) -> None:
         """Test that ExponentialSchedule properly handles type annotations."""
-        schedule: ExponentialSchedule = ExponentialSchedule(start_e=1.0, end_e=0.1, decay_rate=0.01)
+        schedule = ExponentialSchedule(v0=1.0, v1=0.1, decay_rate=0.01)
         result: float = schedule(50)
         assert isinstance(result, float)
 
@@ -252,8 +248,8 @@ class TestExponentialSchedule:
         """Test that schedules return the correct type."""
         start_e, end_e, decay_rate = schedule_params
 
-        linear_schedule = LinearSchedule(start_e=start_e, end_e=end_e, duration=100)
-        exp_schedule = ExponentialSchedule(start_e=start_e, end_e=end_e, decay_rate=decay_rate)
+        linear_schedule = LinearSchedule(v0=start_e, v1=end_e, t1=100)
+        exp_schedule = ExponentialSchedule(v0=start_e, v1=end_e, decay_rate=decay_rate)
 
         linear_result = linear_schedule(25)
         exp_result = exp_schedule(25)
@@ -276,8 +272,8 @@ class TestScheduleComparison:
         self, start_e: float, end_e: float, duration: int, decay_rate: float
     ) -> None:
         """Test that both schedules have consistent start and end behavior."""
-        linear_schedule = LinearSchedule(start_e=start_e, end_e=end_e, duration=duration)
-        exp_schedule = ExponentialSchedule(start_e=start_e, end_e=end_e, decay_rate=decay_rate)
+        linear_schedule = LinearSchedule(v0=start_e, v1=end_e, t1=duration)
+        exp_schedule = ExponentialSchedule(v0=start_e, v1=end_e, decay_rate=decay_rate)
 
         # Both should start at start_e
         assert abs(linear_schedule(0) - start_e) < 1e-10

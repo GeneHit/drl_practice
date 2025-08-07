@@ -34,7 +34,7 @@ def get_app_config() -> ContPPOConfig:
         critic_lr=3e-4,
         gamma=0.99,
         gae_lambda=0.95,
-        entropy_coef=LinearSchedule(start_e=0.02, end_e=0.001, duration=int(0.8 * timesteps)),
+        entropy_coef=LinearSchedule(v0=0.02, v1=0.001, t1=int(0.8 * timesteps)),
         value_loss_coef=0.5,
         max_grad_norm=0.5,
         num_epochs=10,

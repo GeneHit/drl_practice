@@ -19,11 +19,7 @@ def get_app_config() -> QTableConfig:
         episodes=25000,
         learning_rate=0.7,
         gamma=0.95,
-        epsilon_schedule=ExponentialSchedule(
-            start_e=0.05,
-            end_e=0.01,
-            decay_rate=-0.0005,
-        ),
+        epsilon_schedule=ExponentialSchedule(v0=0.05, v1=0.01, decay_rate=-0.0005),
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,

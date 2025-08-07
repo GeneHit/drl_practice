@@ -26,7 +26,7 @@ def get_app_config() -> A3CConfig:
         critic_lr_gamma=0.995,
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
-        entropy_coef=LinearSchedule(start_e=0.2, end_e=0.1, duration=300),
+        entropy_coef=LinearSchedule(v0=0.2, v1=0.1, t1=300),
         value_loss_coef=0.5,
         value_clip_range=1.0,
         reward_clip=(-1, 1),
