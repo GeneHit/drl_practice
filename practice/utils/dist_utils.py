@@ -87,8 +87,15 @@ def unwrap_model(model: nn.Module) -> nn.Module:
     return model
 
 
+def get_rank() -> int:
+    if is_distributed():
+        return dist.get_rank()
+    # single process
+    return 0
+
+
 def is_main_process() -> bool:
-    return _get_rank() == 0
+    return get_rank() == 0
 
 
 def is_distributed() -> bool:
@@ -103,10 +110,3 @@ def is_distributed() -> bool:
 def get_world_size() -> int:
     """Get the world size."""
     return int(os.environ.get("WORLD_SIZE", 1))
-
-
-def _get_rank() -> int:
-    if is_distributed():
-        return dist.get_rank()
-    # single process
-    return 0

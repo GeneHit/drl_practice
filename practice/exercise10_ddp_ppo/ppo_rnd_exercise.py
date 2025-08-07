@@ -93,10 +93,11 @@ class ContACNet(nn.Module):
         Returns:
             action: The deterministic action for one environment.
         """
-        x = self.shared_net(obs)
-        mean = self.policy_mean(x)
-        action: Tensor = mean * self.action_scale + self.action_bias
-        return tensor2np_1d(action, dtype=ActTypeC())
+        with torch.no_grad():
+            x = self.shared_net(obs)
+            mean = self.policy_mean(x)
+            action: Tensor = torch.tanh(mean) * self.action_scale + self.action_bias
+            return tensor2np_1d(action, dtype=ActTypeC())
 
     def forward(
         self, obs: Tensor, actions: Tensor | None = None
@@ -198,7 +199,10 @@ class ContPPOConfig(BaseConfig):
     value_clip_range: float | None = None
     """The clip range for the value function."""
 
-    reward_configs: tuple[RewardConfig, ...]
+    reward_clip_range: ScheduleBase | None = None
+    """The clip range for the original env reward."""
+
+    reward_configs: tuple[RewardConfig, ...] = ()
     """The reward configurations."""
 
     action_scale: float
@@ -256,6 +260,7 @@ class ContPPOTrainer(TrainerBase):
         # Create variables for loop
         episode_num = 0
         global_step = 0
+        prev_dones: NDArray[np.bool_] = np.zeros(envs.num_envs, dtype=np.bool_)
         assert self._config.env_config.vector_env_num is not None
         state, _ = envs.reset()
         for _ in tqdm(range(self._config.timesteps), desc="Rollouts"):
@@ -279,6 +284,7 @@ class ContPPOTrainer(TrainerBase):
                     global_step=global_step,
                     writer=writer,
                     log_interval=100,
+                    prev_dones=prev_dones,
                 )
 
                 # buffer the data after stepping the environment
@@ -288,6 +294,7 @@ class ContPPOTrainer(TrainerBase):
                 # update state
                 state = next_states
                 global_step += 1
+                prev_dones = dones
                 # record the episode data
                 episode_num += writer.log_episode_stats_if_has(infos, episode_num)
 
@@ -472,6 +479,9 @@ class _ContPPOPod:
 
         # stack the data to [T, N]
         rewards = torch.stack([np2tensor(step.rewards) for step in rollout]).to(device)
+        if self._config.reward_clip_range is not None:
+            reward_clip_range = self._config.reward_clip_range(self._rollout_count)
+            rewards = torch.clamp(rewards, -reward_clip_range, reward_clip_range)
         dones = torch.stack([np2tensor(step.dones) for step in rollout]).to(device)
         # value has been on device
         values = torch.stack([step.values.view(-1) for step in rollout])
@@ -583,6 +593,7 @@ def _add_extra_reward(
     global_step: int,
     writer: CustomWriter,
     log_interval: int,
+    prev_dones: NDArray[np.bool_],
 ) -> NDArray[np.float32]:
     """Compute the reward with the extra rewarders.
 
@@ -598,18 +609,26 @@ def _add_extra_reward(
     Returns:
         rewards: The reward = env reward + extra rewarders' reward, shape [v,]
     """
+    pre_non_terminal_mask = ~prev_dones
+    if not np.any(pre_non_terminal_mask):
+        return env_rewards
+
+    states = states[pre_non_terminal_mask]
+    next_states = next_states[pre_non_terminal_mask]
+    rewards = env_rewards[pre_non_terminal_mask]
+
     extra_rewards: list[NDArray[np.float32]] = [
         rewarder.get_reward(states, next_states, global_step) for rewarder in rewarders
     ]
-    env_reward_mean = env_rewards.mean()
+    env_reward_mean = env_rewards.max()
     if extra_rewards:
-        env_rewards += sum(extra_rewards)
+        rewards += sum(extra_rewards)
 
         writer.log_stats(
             data={
                 "reward/env": env_reward_mean,
                 **{
-                    f"reward/{rewarder.__class__.__name__}": extra_rewards[idx].mean()
+                    f"reward/{rewarder.__class__.__name__}": extra_rewards[idx].max()
                     for idx, rewarder in enumerate(rewarders)
                 },
             },
@@ -617,4 +636,5 @@ def _add_extra_reward(
             log_interval=log_interval,
         )
 
+    env_rewards[pre_non_terminal_mask] = rewards
     return env_rewards

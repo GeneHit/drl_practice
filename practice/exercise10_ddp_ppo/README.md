@@ -16,12 +16,19 @@ Verify the implementation without DDP.
 ```
 python practice/cli.py --config practice/exercise10_ddp_ppo/config_reacher.py
 ```
-Train (change `reacher` to `pusher` if needed)
+DDP Train
 ```bash
+# reacher
 torchrun --nproc_per_node=3  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_reacher.py
+
+# pusher
+torchrun --nproc_per_node=3  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_pusher.py
+
+# mountain car
+torchrun --nproc_per_node=2  --master_addr="127.0.0.1" --master_port=12345 practice/cli.py --config practice/exercise10_ddp_ppo/config_mountain_car.py
 ```
 
-Play with trained model and generate video
+Play with trained model and generate video (change `reacher` to `pusher` if needed)
 ```bash
 python practice/cli.py --config practice/exercise10_ddp_ppo/config_ddp_reacher.py --mode play
 ```

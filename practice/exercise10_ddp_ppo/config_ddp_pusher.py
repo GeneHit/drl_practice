@@ -53,20 +53,6 @@ def get_app_config() -> ContPPOConfig:
         log_std_min=-10,
         log_std_max=2,
         log_std_state_dependent=False,
-        reward_configs=(
-            # RND1DNetworkConfig(
-            #     rnd_config=RNDRewardConfig(
-            #         beta=LinearSchedule(start_e=5, end_e=0.5, duration=int(timesteps * 1.0)),
-            #         device=device,
-            #         normalize=True,
-            #         max_reward=1.0,
-            #     ),
-            #     obs_dim=23,  # Pusher observation dimension
-            #     output_dim=32,
-            #     hidden_sizes=(32, 32),
-            #     learning_rate=1e-4,
-            # ),
-        ),
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,
@@ -81,7 +67,7 @@ def get_app_config() -> ContPPOConfig:
             trainer_type=ContPPOTrainer,
             output_dir="results/exercise10_ddp_ppo/ddp_pusher/",
             save_result=True,
-            repo_id="PPO-PusherV2",
+            repo_id="PPO-DDP-PusherV2",
             algorithm_name="PPO",
             extra_tags=("mujoco", "pytorch", "ddp"),
         ),
