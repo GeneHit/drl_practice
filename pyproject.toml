@@ -52,9 +52,7 @@ timeout = 600
 # ******************************Configuration for mypy**************************
 [tool.mypy]
 # Specify the files and directories to be checked ** please keep sorted **
-files = [
-    "./practice"
-]
+files = []
 namespace_packages = true
 follow_imports = "silent"
 no_implicit_optional = true
@@ -66,6 +64,7 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 warn_return_any = true
 strict_optional = true
+exclude = "results/"
 
 # list external modules with no typing below ** please keep sorted **
 [[tool.mypy.overrides]]
