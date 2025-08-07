@@ -83,7 +83,7 @@ def get_app_config() -> ContPPOConfig:
             trainer_type=ContPPOTrainer,
             output_dir="results/exercise10_ddp_ppo/mountain_car/",
             save_result=True,
-            repo_id="PPO-DDP-MountainCarV0",
+            repo_id="PPO-DDP-MountainCarContinuousV0",
             algorithm_name="PPO",
             extra_tags=("pytorch", "ddp", "rnd", "curiosity"),
         ),
