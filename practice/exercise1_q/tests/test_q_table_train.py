@@ -54,11 +54,7 @@ def test_config() -> QTableConfig:
         episodes=10,  # Reduced from 25000
         learning_rate=0.7,
         gamma=0.95,
-        epsilon_schedule=ExponentialSchedule(
-            start_e=1.0,
-            end_e=0.05,
-            decay_rate=0.05,  # Increased for faster decay in short training
-        ),
+        epsilon_schedule=ExponentialSchedule(v0=1.0, v1=0.05, decay_rate=0.05),
         eval_episodes=3,  # Reduced from 100
         eval_random_seed=42,
         eval_video_num=1,  # Reduced from 10

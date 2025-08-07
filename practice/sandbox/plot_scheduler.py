@@ -7,7 +7,7 @@ from practice.utils_for_coding.scheduler_utils import CosineSchedule
 def main() -> None:
     # Specify the scheduler
     step = 1000
-    schedule = CosineSchedule(start_e=1.0, end_e=0.1, duration=step, decay_factor=1.0)
+    schedule = CosineSchedule(v0=1.0, v1=0.1, t1=step, decay_factor=1.0)
     label = "Cosine"
 
     # Generate time steps and values

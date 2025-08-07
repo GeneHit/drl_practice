@@ -23,7 +23,7 @@ def get_app_config() -> PPOConfig:
         critic_lr_gamma=0.95,
         gamma=0.99,
         gae_lambda_or_n_step=0.97,
-        entropy_coef=LinearSchedule(start_e=0.15, end_e=0.05, duration=100),
+        entropy_coef=LinearSchedule(v0=0.15, v1=0.05, t1=100),
         value_loss_coef=0.1,
         max_grad_norm=0.5,
         hidden_size=64,

@@ -55,11 +55,7 @@ def test_config() -> DQNConfig:
         timesteps=100,  # Reduced from 200000
         learning_rate=1e-3,  # Increased for faster learning
         gamma=0.99,
-        epsilon_schedule=LinearSchedule(
-            start_e=1.0,
-            end_e=0.1,
-            duration=int(0.5 * 100),
-        ),
+        epsilon_schedule=LinearSchedule(v0=1.0, v1=0.1, t1=int(0.5 * 100)),
         replay_buffer_capacity=100,  # Reduced from 120000
         batch_size=8,  # Reduced from 64
         train_interval=1,

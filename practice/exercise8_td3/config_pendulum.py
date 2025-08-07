@@ -37,7 +37,7 @@ def get_app_config() -> TD3Config:
         policy_delay=2,
         policy_noise=0.2,
         noise_clip=0.5,
-        exploration_noise=LinearSchedule(0.3, 0.001, 10000),
+        exploration_noise=LinearSchedule(v0=0.3, v1=0.001, t1=10000),
         max_action=2.0,
         tau=0.005,
         max_grad_norm=0.5,

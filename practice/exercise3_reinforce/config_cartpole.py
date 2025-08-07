@@ -23,7 +23,7 @@ def get_app_config() -> ReinforceConfig:
         episode=2000,
         learning_rate=1e-4,
         gamma=0.99,
-        entropy_coef=LinearSchedule(start_e=0.1, end_e=0.01, duration=2000),
+        entropy_coef=LinearSchedule(v0=0.1, v1=0.01, t1=2000),
         hidden_sizes=(128, 128),
         eval_episodes=20,
         eval_random_seed=42,

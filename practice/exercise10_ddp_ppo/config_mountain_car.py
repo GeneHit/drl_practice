@@ -58,7 +58,7 @@ def get_app_config() -> ContPPOConfig:
         reward_configs=(
             RND1DNetworkConfig(
                 rnd_config=RNDRewardConfig(
-                    beta=LinearSchedule(start_e=5, end_e=1, duration=int(timesteps * 0.8)),
+                    beta=LinearSchedule(v0=5, v1=1, t1=int(timesteps * 0.8)),
                     device=device,
                     normalize=True,
                     max_reward=0.5,
