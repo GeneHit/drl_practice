@@ -169,18 +169,21 @@ class PERBuffer:
         batch = self._replay_buffer.sample_by_idxs(idxs)
 
         # calculate weights for importance sampling
-        sampling_prob = leaf_priorities / (self._sum_tree.total_priority + 1e-8)
-        # Update beta schedule
-        self._beta = min(1.0, self._beta + self._config.beta_increment)
-        weights: NDArray[np.float32] = np.power(
-            self._config.capacity * sampling_prob, -self._beta, dtype=np.float32
-        )
-        # Normalize weights to avoid NaN
-        max_weight = np.max(weights)
-        if max_weight > 0:
-            weights /= max_weight + 1e-6
+        # Handle the case where SumTree fell back to uniform sampling (total_priority = 0)
+        if self._sum_tree.total_priority <= 0:
+            # Uniform sampling case - all weights should be equal
+            weights: NDArray[np.float32] = np.ones(len(idxs), dtype=np.float32)
         else:
-            weights = np.ones_like(weights)
+            sampling_prob = leaf_priorities / (self._sum_tree.total_priority + 1e-8)
+            # Update beta schedule
+            self._beta = min(1.0, self._beta + self._config.beta_increment)
+            weights = np.power(self._config.capacity * sampling_prob, -self._beta, dtype=np.float32)
+            # Normalize weights to avoid NaN
+            max_weight = np.max(weights)
+            if max_weight > 0:
+                weights /= max_weight + 1e-6
+            else:
+                weights = np.ones_like(weights)
 
         return batch.to_replay(), weights, idxs
 
@@ -461,6 +464,10 @@ class _NStepDeque:
         2. the last/latest data of a deque is done
         """
         env_deque = self._deques[env_idx]
+        # If deque is empty, return None
+        if len(env_deque) == 0:
+            return None
+
         is_full = len(env_deque) >= self._n_step
         latest_data = env_deque[-1]
         assert latest_data.dones.size == 1, "the number of dones should be 1"
@@ -471,7 +478,7 @@ class _NStepDeque:
         # handle the case when the latest data is done
         if is_latest_done:
             data_list: list[_NStepData] = []
-            while len(env_deque) > 1:
+            while len(env_deque) >= 1:
                 # _get_one_n_step_data will pop the oldest data from the deque
                 data_list.append(self._get_one_n_step_data(env_idx, is_latest_done))
             return _concat_n_step_data(data_list)
@@ -498,12 +505,23 @@ class _NStepDeque:
                 assert not np.any(data.dones), "it should process all data when is_last_done"
 
         oldest_data = env_deque.popleft()
+
+        # If this is the last item in the deque, use the current data as next_states
+        if len(env_deque) == 0:
+            # This is the last item, so use the current data as next_states
+            next_states = oldest_data.next_states
+            next_dones = oldest_data.dones
+        else:
+            # Use the remaining data in the deque
+            next_states = env_deque[-1].next_states
+            next_dones = env_deque[-1].dones
+
         return _NStepData(
             states=oldest_data.states,
             actions=oldest_data.actions,
             rewards=n_step_return,
-            n_next_states=env_deque[-1].next_states,
-            n_dones=env_deque[-1].dones,
+            n_next_states=next_states,
+            n_dones=next_dones,
             n=np.array([n_step], dtype=np.int16),
         )
 
