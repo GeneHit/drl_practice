@@ -3,7 +3,6 @@ import copy
 from dataclasses import dataclass
 from typing import Literal, Sequence, cast
 
-import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
@@ -14,15 +13,12 @@ from torch import Tensor
 
 from practice.base.config import BaseConfig
 from practice.base.context import ContextBase
-from practice.base.env_typing import ActType, ArrayType, ObsType
+from practice.base.env_typing import ActType, ObsType
 from practice.utils_for_coding.network_utils import init_weights
 from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.replay_buffer_utils import ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
-
-# Type aliases for vector environments
-EnvsType = gym.vector.VectorEnv[NDArray[ObsType], ActType, NDArray[ArrayType]]
 
 
 class QNet1D(nn.Module):
@@ -32,7 +28,7 @@ class QNet1D(nn.Module):
         self,
         state_n: int,
         action_n: int,
-        hidden_sizes: Sequence[int] = (256, 256),
+        hidden_sizes: Sequence[int],
     ) -> None:
         super().__init__()
         layers: list[nn.Module] = []
@@ -57,6 +53,71 @@ class QNet1D(nn.Module):
         """
         # greedy strategy
         return argmax_action(self.forward(x), dtype=ActType)
+
+
+def get_dqn_actions(
+    network: nn.Module,
+    state: NDArray[ObsType],
+    epsilon: float,
+    env_state_shape: tuple[int, ...],
+    action_n: int,
+    step: int,
+    writer: CustomWriter,
+    log_interval: int,
+    device: torch.device,
+) -> NDArray[ActType]:
+    """Get action(s) for state(s) with epsilon-greedy strategy.
+
+    Args:
+        network: The network to use for action selection.
+        state: Single state or batch of states
+        epsilon: The epsilon value for exploration.
+        env_state_shape: The shape of the state space.
+        action_n: The number of actions.
+        step: The current step.
+        writer: The writer to use for logging.
+        log_interval: The interval for logging.
+        device: The device to use for computation.
+
+    Returns:
+        actions: NDArray[ActType]
+            Single action or batch of actions depending on input shape.
+    """
+    # Check if input is a single state or batch of states
+    is_single = len(state.shape) == len(env_state_shape)
+    state_batch = state if not is_single else state.reshape(1, *state.shape)
+
+    # Training phase: epsilon-greedy
+    batch_size = state_batch.shape[0]
+    actions = np.zeros(batch_size, dtype=ActType)
+
+    # Random mask for exploration
+    random_mask = np.random.random(batch_size) < epsilon
+    # Random actions for exploration
+    num_random = int(np.sum(random_mask))
+    actions[random_mask] = np.random.randint(0, action_n, size=num_random, dtype=ActType)
+
+    # Greedy actions for exploitation
+    if not np.all(random_mask):
+        exploit_states = state_batch[~random_mask]
+        state_tensor = torch.from_numpy(exploit_states).to(device)
+        with torch.no_grad():
+            q_values = network(state_tensor).cpu()
+            greedy_actions = q_values.argmax(dim=1).numpy().astype(ActType)
+            actions[~random_mask] = greedy_actions
+
+    # Log epsilon
+    writer.log_stats(
+        data={
+            "action/epsilon": epsilon,
+            "action/mean": actions.mean(),
+            "action/std": actions.std(),
+        },
+        step=step,
+        log_interval=log_interval,
+        blocked=False,
+    )
+    return cast(NDArray[ActType], actions)
 
 
 class DQNPod(abc.ABC):
@@ -166,45 +227,19 @@ class BasicDQNPod(DQNPod):
             actions: NDArray[ActType]
                 Single action or batch of actions depending on input shape.
         """
-        # Check if input is a single state or batch of states
-        is_single = len(state.shape) == len(self._ctx.env_state_shape)
-        state_batch = state if not is_single else state.reshape(1, *state.shape)
-
-        # Training phase: epsilon-greedy
-        batch_size = state_batch.shape[0]
-        actions = np.zeros(batch_size, dtype=ActType)
-
-        # Random mask for exploration
-        epsilon = self._config.epsilon_schedule(self._step)
-        random_mask = np.random.random(batch_size) < epsilon
-        # Random actions for exploration
-        num_random = int(np.sum(random_mask))
-        actions[random_mask] = np.random.randint(0, self._action_n, size=num_random, dtype=ActType)
-
-        # Greedy actions for exploitation
-        if not np.all(random_mask):
-            exploit_states = state_batch[~random_mask]
-            state_tensor = torch.from_numpy(exploit_states).to(self._config.device)
-            self._ctx.network.train()
-            with torch.no_grad():
-                q_values = self._ctx.network(state_tensor).cpu()
-                greedy_actions = q_values.argmax(dim=1).numpy().astype(ActType)
-                actions[~random_mask] = greedy_actions
-
-        # Log epsilon
-        self._writer.log_stats(
-            data={
-                "action/epsilon": epsilon,
-                "action/mean": actions.mean(),
-                "action/std": actions.std(),
-            },
+        actions = get_dqn_actions(
+            network=self._ctx.network,
+            state=state,
+            epsilon=self._config.epsilon_schedule(self._step),
+            env_state_shape=self._ctx.env_state_shape,
+            action_n=self._action_n,
             step=self._step,
+            writer=self._writer,
             log_interval=self._config.log_interval,
-            blocked=False,
+            device=self._config.device,
         )
         self._step += 1
-
-        return cast(NDArray[ActType], actions)
+        return actions
 
     def update(self) -> None:
         """Update Q-network using experiences.

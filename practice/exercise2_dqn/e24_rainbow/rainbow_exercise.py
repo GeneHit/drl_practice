@@ -1,13 +1,15 @@
+import copy
 from dataclasses import dataclass
 
 import numpy as np
 import torch
 import torch.nn as nn
+from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
-from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
+from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod, get_dqn_actions
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer, PERBufferConfig
 from practice.utils_for_coding.network_utils import MLP, init_weights
 from practice.utils_for_coding.numpy_tensor_utils import argmax_action
@@ -20,14 +22,8 @@ class RainbowConfig(DQNConfig):
 
     noisy_std: float
     """The standard deviation of the noisy layer."""
-    n_step: int
-    """The n-step return."""
-    alpha: float
-    """The alpha parameter for prioritized experience replay."""
-    beta: float
-    """The beta parameter for prioritized experience replay."""
-    beta_increment: float
-    """The increment of beta per update."""
+    per_buffer_config: PERBufferConfig
+    """The configuration for the prioritized experience replay buffer."""
 
 
 class NoisyLinear(nn.Module):
@@ -112,23 +108,37 @@ class RainbowPod(DQNPod):
         # use DQNConfig for the base class
         assert isinstance(config, RainbowConfig)
         self._config: RainbowConfig = config
+        self._ctx = ctx
+        self._writer = writer
         self._noisy_std = config.noisy_std
-        self._replay_buffer = PERBuffer(
-            PERBufferConfig(
-                capacity=config.replay_buffer_capacity,
-                n_step=config.n_step,
-                gamma=config.gamma,
-                alpha=config.alpha,
-                beta=config.beta,
-                beta_increment=config.beta_increment,
-            )
-        )
+        self._replay_buffer = PERBuffer(config.per_buffer_config)
+        self._target_net = copy.deepcopy(ctx.network)
+
+        self._target_net.eval()
+        self._ctx.network.train()
+
+        # Get action space info
+        assert isinstance(self._ctx.eval_env.action_space, Discrete)
+        self._action_n = int(self._ctx.eval_env.action_space.n)
+        self._step = 0
 
     def sync_target_net(self) -> None:
-        raise NotImplementedError("Not implemented")
+        self._target_net.load_state_dict(self._ctx.network.state_dict())
 
     def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
-        raise NotImplementedError("Not implemented")
+        actions = get_dqn_actions(
+            network=self._ctx.network,
+            state=state,
+            epsilon=self._config.epsilon_schedule(self._step),
+            env_state_shape=self._ctx.env_state_shape,
+            action_n=self._action_n,
+            step=self._step,
+            writer=self._writer,
+            log_interval=self._config.log_interval,
+            device=self._config.device,
+        )
+        self._step += 1
+        return actions
 
     def update(self) -> None:
         raise NotImplementedError("Not implemented")

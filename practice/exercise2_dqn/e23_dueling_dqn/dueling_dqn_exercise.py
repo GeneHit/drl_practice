@@ -48,4 +48,5 @@ class DuelingDQN1D(nn.Module):
         Returns:
             action: The single action.
         """
-        return argmax_action(self.forward(x), dtype=ActType)
+        with torch.no_grad():
+            return argmax_action(self.forward(x), dtype=ActType)
