@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
-from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer
+from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer, PERBufferConfig
 from practice.utils_for_coding.network_utils import MLP, init_weights
 from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.writer_utils import CustomWriter
@@ -114,12 +114,14 @@ class RainbowPod(DQNPod):
         self._config: RainbowConfig = config
         self._noisy_std = config.noisy_std
         self._replay_buffer = PERBuffer(
-            config.replay_buffer_capacity,
-            config.n_step,
-            config.gamma,
-            config.alpha,
-            config.beta,
-            config.beta_increment,
+            PERBufferConfig(
+                capacity=config.replay_buffer_capacity,
+                n_step=config.n_step,
+                gamma=config.gamma,
+                alpha=config.alpha,
+                beta=config.beta,
+                beta_increment=config.beta_increment,
+            )
         )
 
     def sync_target_net(self) -> None:
