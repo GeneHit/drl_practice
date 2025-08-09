@@ -57,7 +57,7 @@ class QNet1D(nn.Module):
 
 def get_dqn_actions(
     network: nn.Module,
-    state: NDArray[ObsType],
+    states: NDArray[ObsType],
     epsilon: float,
     env_state_shape: tuple[int, ...],
     action_n: int,
@@ -67,6 +67,13 @@ def get_dqn_actions(
     device: torch.device,
 ) -> NDArray[ActType]:
     """Get action(s) for state(s) with epsilon-greedy strategy.
+
+    Steps:
+    1. ensure states is a batch of states
+    2. get random actions (exploration) for partial environments
+    3. get greedy actions (exploitation) for the rest of the environments
+    4. log stats: epsilon, action mean & std.
+    5. return actions
 
     Args:
         network: The network to use for action selection.
@@ -84,8 +91,8 @@ def get_dqn_actions(
             Single action or batch of actions depending on input shape.
     """
     # Check if input is a single state or batch of states
-    is_single = len(state.shape) == len(env_state_shape)
-    state_batch = state if not is_single else state.reshape(1, *state.shape)
+    is_single = len(states.shape) == len(env_state_shape)
+    state_batch = states if not is_single else states.reshape(1, *states.shape)
 
     # Training phase: epsilon-greedy
     batch_size = state_batch.shape[0]
@@ -106,7 +113,7 @@ def get_dqn_actions(
             greedy_actions = q_values.argmax(dim=1).numpy().astype(ActType)
             actions[~random_mask] = greedy_actions
 
-    # Log epsilon
+    # Log stats
     writer.log_stats(
         data={
             "action/epsilon": epsilon,
@@ -131,7 +138,7 @@ class DQNPod(abc.ABC):
         """Synchronize target network with current Q-network."""
 
     @abc.abstractmethod
-    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
+    def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
         """Get action(s) for state(s)."""
 
     @abc.abstractmethod
@@ -217,7 +224,7 @@ class BasicDQNPod(DQNPod):
         """Add batch of experiences to the replay buffer."""
         self._replay.add_batch(states, actions, rewards, next_states, dones)
 
-    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
+    def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
         """Get action(s) for state(s).
 
         Args:
@@ -229,7 +236,7 @@ class BasicDQNPod(DQNPod):
         """
         actions = get_dqn_actions(
             network=self._ctx.network,
-            state=state,
+            states=states,
             epsilon=self._config.epsilon_schedule(self._step),
             env_state_shape=self._ctx.env_state_shape,
             action_n=self._action_n,
@@ -273,7 +280,7 @@ class BasicDQNPod(DQNPod):
         self._ctx.optimizer.step()
 
         self._writer.log_stats(
-            data={"loss/td_loss": loss.item()},
+            data={"loss/td_loss": loss},
             step=self._step,
             log_interval=self._config.log_interval,
             blocked=False,

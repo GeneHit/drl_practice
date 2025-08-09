@@ -125,10 +125,10 @@ class RainbowPod(DQNPod):
     def sync_target_net(self) -> None:
         self._target_net.load_state_dict(self._ctx.network.state_dict())
 
-    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
+    def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
         actions = get_dqn_actions(
             network=self._ctx.network,
-            state=state,
+            states=states,
             epsilon=self._config.epsilon_schedule(self._step),
             env_state_shape=self._ctx.env_state_shape,
             action_n=self._action_n,

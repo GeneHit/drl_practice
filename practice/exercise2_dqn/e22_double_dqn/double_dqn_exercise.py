@@ -92,7 +92,7 @@ class DoubleDQNPod(BasicDQNPod):
         """Add batch of experiences to the replay buffer."""
         super().buffer_add(states, actions, rewards, next_states, dones)
 
-    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
+    def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
         """Get action(s) for state(s).
 
         Args:
@@ -102,7 +102,7 @@ class DoubleDQNPod(BasicDQNPod):
             actions: NDArray[ActType]
                 Single action or batch of actions depending on input shape.
         """
-        return super().action(state)
+        return super().action(states)
 
     def update(self) -> None:
         """Update Q-network using experiences with Double DQN logic.
