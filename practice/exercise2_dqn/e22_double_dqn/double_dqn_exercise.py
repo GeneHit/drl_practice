@@ -88,9 +88,10 @@ class DoubleDQNPod(BasicDQNPod):
         rewards: NDArray[np.float32],
         next_states: NDArray[ObsType],
         dones: NDArray[np.bool_],
+        env_idxs: NDArray[np.int16],
     ) -> None:
         """Add batch of experiences to the replay buffer."""
-        super().buffer_add(states, actions, rewards, next_states, dones)
+        super().buffer_add(states, actions, rewards, next_states, dones, env_idxs)
 
     def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
         """Get action(s) for state(s).

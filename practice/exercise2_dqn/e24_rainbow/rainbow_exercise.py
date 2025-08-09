@@ -150,5 +150,6 @@ class RainbowPod(DQNPod):
         rewards: NDArray[np.float32],
         next_states: NDArray[ObsType],
         dones: NDArray[np.bool_],
+        env_idxs: NDArray[np.int16],
     ) -> None:
-        raise NotImplementedError("Not implemented")
+        self._replay_buffer.add_batch(states, actions, rewards, next_states, dones, env_idxs)

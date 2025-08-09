@@ -128,7 +128,7 @@ def get_dqn_actions(
 
 
 class DQNPod(abc.ABC):
-    """Abstract base class for DQN pod."""
+    """Abstract base class for DQN training pod."""
 
     @abc.abstractmethod
     def __init__(self, config: BaseConfig, ctx: ContextBase, writer: CustomWriter) -> None: ...
@@ -139,7 +139,7 @@ class DQNPod(abc.ABC):
 
     @abc.abstractmethod
     def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
-        """Get action(s) for state(s)."""
+        """Get action(s) for state(s) when training."""
 
     @abc.abstractmethod
     def update(self) -> None:
@@ -153,6 +153,7 @@ class DQNPod(abc.ABC):
         rewards: NDArray[np.float32],
         next_states: NDArray[ObsType],
         dones: NDArray[np.bool_],
+        env_idxs: NDArray[np.int16],
     ) -> None:
         """Add batch of experiences to the replay buffer."""
 
@@ -220,6 +221,7 @@ class BasicDQNPod(DQNPod):
         rewards: NDArray[np.float32],
         next_states: NDArray[ObsType],
         dones: NDArray[np.bool_],
+        env_idxs: NDArray[np.int16],
     ) -> None:
         """Add batch of experiences to the replay buffer."""
         self._replay.add_batch(states, actions, rewards, next_states, dones)
