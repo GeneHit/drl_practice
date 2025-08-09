@@ -45,6 +45,7 @@ class DQNTrainer(TrainerBase):
         # Track previous step terminal status to avoid invalid transitions
         prev_dones: NDArray[np.bool_] = np.zeros(envs.num_envs, dtype=np.bool_)
         episode_steps = 0
+        env_idxs = np.arange(envs.num_envs, dtype=np.int16)
 
         # Training loop
         for step in tqdm(range(self._config.timesteps), desc="Training"):
@@ -70,6 +71,7 @@ class DQNTrainer(TrainerBase):
                     rewards=rewards_np[pre_non_terminal_mask],
                     next_states=next_states[pre_non_terminal_mask],
                     dones=dones[pre_non_terminal_mask],
+                    env_idxs=env_idxs[pre_non_terminal_mask],  # Special for PER
                 )
 
             # Update state and previous done status for next iteration

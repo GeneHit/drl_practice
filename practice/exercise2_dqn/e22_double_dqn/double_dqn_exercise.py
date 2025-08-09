@@ -88,11 +88,12 @@ class DoubleDQNPod(BasicDQNPod):
         rewards: NDArray[np.float32],
         next_states: NDArray[ObsType],
         dones: NDArray[np.bool_],
+        env_idxs: NDArray[np.int16],
     ) -> None:
         """Add batch of experiences to the replay buffer."""
-        super().buffer_add(states, actions, rewards, next_states, dones)
+        super().buffer_add(states, actions, rewards, next_states, dones, env_idxs)
 
-    def action(self, state: NDArray[ObsType]) -> NDArray[ActType]:
+    def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
         """Get action(s) for state(s).
 
         Args:
@@ -102,7 +103,7 @@ class DoubleDQNPod(BasicDQNPod):
             actions: NDArray[ActType]
                 Single action or batch of actions depending on input shape.
         """
-        return super().action(state)
+        return super().action(states)
 
     def update(self) -> None:
         """Update Q-network using experiences with Double DQN logic.
@@ -145,7 +146,7 @@ class DoubleDQNPod(BasicDQNPod):
         self._ctx.optimizer.step()
 
         self._writer.log_stats(
-            data={"loss/td_loss": loss.item()},
+            data={"loss/td_loss": loss},
             step=self._step,
             log_interval=self._config.log_interval,
             blocked=False,

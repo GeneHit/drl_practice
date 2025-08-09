@@ -4,6 +4,7 @@ from torch.optim import Adam
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
+from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBufferConfig
 from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowConfig, RainbowNet
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
@@ -22,16 +23,23 @@ def get_app_config() -> RainbowConfig:
         learning_rate=1e-4,
         gamma=0.99,
         epsilon_schedule=LinearSchedule(v0=1.0, v1=0.01, t1=int(0.6 * timesteps)),
-        replay_buffer_capacity=120_000,
         batch_size=64,
         train_interval=1,
         target_update_interval=250,
         update_start_step=2000,
-        n_step=3,
-        alpha=0.6,
-        beta=0.4,
-        beta_increment=1e-6,
+        replay_buffer_capacity=120_000,  # unused, use per_buffer_config instead
+        per_buffer_config=PERBufferConfig(
+            capacity=120_000,
+            n_step=3,
+            gamma=0.99,
+            alpha=0.6,
+            beta=0.4,
+            beta_increment=1e-6,
+        ),
         noisy_std=0.5,
+        v_min=-10.0,
+        v_max=10.0,
+        num_atoms=51,
         eval_episodes=100,
         eval_random_seed=42,
         eval_video_num=10,

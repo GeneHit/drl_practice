@@ -182,7 +182,9 @@ class TestDQNTraining:
         checkpoint_file = temp_output_dir / "checkpoint_dqn.pth"
 
         # Create a dummy model state dict with correct structure
-        dummy_model = QNet1D(state_n=8, action_n=4)  # LunarLander has 8 obs, 4 actions
+        dummy_model = QNet1D(
+            state_n=8, action_n=4, hidden_sizes=(256, 256)
+        )  # LunarLander has 8 obs, 4 actions
         torch.save(dummy_model.state_dict(), checkpoint_file)
 
         # Update config to use checkpoint
