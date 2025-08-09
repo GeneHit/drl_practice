@@ -122,7 +122,6 @@ def get_dqn_actions(
         },
         step=step,
         log_interval=log_interval,
-        blocked=False,
     )
     return cast(NDArray[ActType], actions)
 

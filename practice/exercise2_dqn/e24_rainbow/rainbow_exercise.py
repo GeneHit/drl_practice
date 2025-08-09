@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
-from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod, get_dqn_actions
+from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer, PERBufferConfig
 from practice.utils_for_coding.network_utils import MLP
 from practice.utils_for_coding.numpy_tensor_utils import argmax_action
@@ -216,10 +216,12 @@ class RainbowPod(DQNPod):
         self._writer = writer
         self._noisy_std = config.noisy_std
         self._replay_buffer = PERBuffer(config.per_buffer_config)
-        self._target_net = copy.deepcopy(ctx.network)
+        assert isinstance(self._ctx.network, RainbowNet)
+        self._online_net = self._ctx.network
+        self._target_net = copy.deepcopy(self._online_net)
 
         self._target_net.eval()
-        self._ctx.network.train()
+        self._online_net.train()
 
         # Get action space info
         assert isinstance(self._ctx.eval_env.action_space, Discrete)
@@ -227,20 +229,30 @@ class RainbowPod(DQNPod):
         self._step = 0
 
     def sync_target_net(self) -> None:
-        self._target_net.load_state_dict(self._ctx.network.state_dict())
+        self._target_net.load_state_dict(self._online_net.state_dict())
 
     def action(self, states: NDArray[ObsType]) -> NDArray[ActType]:
-        actions = get_dqn_actions(
-            network=self._ctx.network,
-            states=states,
-            epsilon=self._config.epsilon_schedule(self._step),
-            env_state_shape=self._ctx.env_state_shape,
-            action_n=self._action_n,
+        # Check if input is a single state or batch of states
+        is_single = len(states.shape) == len(self._ctx.env_state_shape)
+        state_batch = states if not is_single else states.reshape(1, *states.shape)
+        states_tensor = torch.from_numpy(state_batch).to(self._config.device)
+
+        self._online_net.reset_noise()
+        with torch.no_grad():
+            q_values = self._online_net(states_tensor).cpu()
+
+        actions: NDArray[ActType] = q_values.argmax(dim=1).numpy().astype(ActType).reshape(-1)
+
+        # Log stats
+        self._writer.log_stats(
+            data={
+                "action/mean": actions.mean(),
+                "action/std": actions.std(),
+            },
             step=self._step,
-            writer=self._writer,
             log_interval=self._config.log_interval,
-            device=self._config.device,
         )
+
         self._step += 1
         return actions
 
