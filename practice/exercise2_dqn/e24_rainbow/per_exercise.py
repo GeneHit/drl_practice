@@ -101,10 +101,7 @@ class PERBuffer:
     - https://arxiv.org/abs/1511.05952
     """
 
-    def __init__(
-        self,
-        config: PERBufferConfig,
-    ) -> None:
+    def __init__(self, config: PERBufferConfig) -> None:
         self._config = config
         self._max_priority: float = 1.0
         self._sum_tree = _SumTree(config.capacity)
@@ -151,10 +148,7 @@ class PERBuffer:
         )
         self._sum_tree.update(written_idxs, init_priorities)
 
-    def sample(
-        self,
-        batch_size: int,
-    ) -> tuple[NStepReplay, NDArray[np.float32], NDArray[np.int64]]:
+    def sample(self, batch_size: int) -> tuple[NStepReplay, NDArray[np.float32], NDArray[np.int64]]:
         """Sample a batch of experiences using the SumTree top-k.
 
         Returns:
@@ -206,8 +200,7 @@ class PERBuffer:
             raise ValueError("idxs and priorities must have the same length")
 
         # Track max priority for future insertions
-        if prios_arr.size > 0:
-            self._max_priority = max(self._max_priority, float(np.max(prios_arr)))
+        self._max_priority = max(self._max_priority, float(np.max(prios_arr)))
         # The SumTree stores alpha-powered priorities
         self._sum_tree.update(idxs_arr, np.power(prios_arr, self._config.alpha, dtype=np.float32))
 

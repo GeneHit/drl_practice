@@ -145,7 +145,7 @@ class DoubleDQNPod(BasicDQNPod):
         self._ctx.optimizer.step()
 
         self._writer.log_stats(
-            data={"loss/td_loss": loss.item()},
+            data={"loss/td_loss": loss},
             step=self._step,
             log_interval=self._config.log_interval,
             blocked=False,
