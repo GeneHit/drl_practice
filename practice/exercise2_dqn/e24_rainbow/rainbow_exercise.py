@@ -278,12 +278,7 @@ class RainbowPod(DQNPod):
         self._target_net.reset_noise()
         probs = self._online_net.forward_dist(data.states)
         # [B, action_n, atoms] -> [B, atoms]
-        try:
-            probs_a = _select_action_dist(probs, data.actions)
-        except Exception as e:
-            print(f"{data=}")
-            print(f"{data_idxs=}")
-            raise e
+        probs_a = _select_action_dist(probs, data.actions)
         # categorical distribution: [B, atoms]
         m = self._compute_m(data)
 

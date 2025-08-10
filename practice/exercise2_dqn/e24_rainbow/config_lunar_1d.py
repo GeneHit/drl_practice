@@ -32,13 +32,13 @@ def get_app_config() -> RainbowConfig:
         max_grad_norm=10.0,
         per_buffer_config=PERBufferConfig(
             capacity=int(global_steps * 0.1),
-            n_step=1,
+            n_step=3,
             gamma=0.99,
             use_uniform_sampling=True,
             alpha=0.6,
             beta=0.4,
             # ~= (1 - beta) / (timesteps * anneal_fraction) = 0.6 / (250_000 * 0.5)
-            beta_increment=5e-6,
+            beta_increment=3e-6,
         ),
         noisy_std=0.5,
         v_min=-300.0,
@@ -61,7 +61,7 @@ def get_app_config() -> RainbowConfig:
             algorithm_name="Rainbow-DQN",
             extra_tags=("deep-q-learning", "pytorch", "rainbow", "dqn"),
         ),
-        # used epsilon
+        # unsed epsilon
         epsilon_schedule=ConstantSchedule(0.0),
         replay_buffer_capacity=0,  # unused, use per_buffer_config instead
     )
@@ -85,6 +85,9 @@ def generate_context(config: RainbowConfig) -> ContextBase:
         action_n=action_n,
         hidden_sizes=(256, 256),
         noisy_std=config.noisy_std,
+        v_min=config.v_min,
+        v_max=config.v_max,
+        num_atoms=config.num_atoms,
     )
 
     load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
