@@ -185,18 +185,22 @@ class Buffer:
         self._size = min(self._size + batch_size, self._capacity)
         return written_idxs
 
-    def sample(self, batch_size: int) -> dict[str, torch.Tensor]:
+    def sample(self, batch_size: int) -> dict[str, NDArray[Any]]:
         idxs: NDArray[np.int64] = np.random.randint(0, self._size, batch_size, dtype=np.int64)
         return self.sample_by_idxs(idxs)
 
-    def sample_by_idxs(self, idxs: NDArray[np.int64]) -> dict[str, torch.Tensor]:
+    def sample_by_idxs(self, idxs: NDArray[np.int64]) -> dict[str, NDArray[Any]]:
         assert self._initialized, "Memory not initialized. Call add_batch first."
         batch_size = len(idxs)
         assert self._size >= batch_size > 0, f"buffer size {self._size}, but required {batch_size}"
-        return self._sample_by_idxs(idxs)
 
-    def _sample_by_idxs(self, indices: NDArray[np.int64]) -> dict[str, torch.Tensor]:
-        return {key: torch.as_tensor(arr[indices]) for key, arr in self._data.items()}
+        # Check if all indices are within valid range
+        if np.any(idxs >= self._size) or np.any(idxs < 0):
+            raise ValueError(
+                f"Invalid indices: indices must be in range [0, {self._size}), got {idxs}"
+            )
+
+        return {key: arr[idxs] for key, arr in self._data.items()}
 
     def __len__(self) -> int:
         return self._size

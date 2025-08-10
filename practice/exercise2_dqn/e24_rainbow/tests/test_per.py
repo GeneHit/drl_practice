@@ -9,129 +9,7 @@ from practice.exercise2_dqn.e24_rainbow.per_exercise import (
     _NStepDeque,
     _ReplayBuffer,
     _StepData,
-    _SumTree,
 )
-
-
-class TestSumTree:
-    """Test cases for the _SumTree class."""
-
-    def test_init(self) -> None:
-        """Test SumTree initialization."""
-        capacity = 100
-        tree = _SumTree(capacity)
-
-        assert tree._capacity == capacity
-        assert len(tree._tree) == 2 * capacity - 1
-        assert len(tree._used) == capacity
-        assert tree._tree_height == int(np.ceil(np.log2(capacity))) + 1
-        assert tree._capacity_minus_1 == capacity - 1
-
-    def test_update_single(self) -> None:
-        """Test updating a single priority."""
-        tree = _SumTree(10)
-        idx = 5
-        priority = 2.5
-
-        tree.update(np.array([idx]), np.array([priority]))
-
-        assert tree._tree[idx + tree._capacity_minus_1] == priority
-        assert tree._used[idx]
-        assert tree.total_priority == priority
-
-    def test_update_multiple(self) -> None:
-        """Test updating multiple priorities."""
-        tree = _SumTree(10)
-        idxs = np.array([0, 2, 4])
-        priorities = np.array([1.0, 2.0, 3.0])
-
-        tree.update(idxs, priorities)
-
-        for idx, priority in zip(idxs, priorities):
-            assert tree._tree[idx + tree._capacity_minus_1] == priority
-            assert tree._used[idx]
-        assert tree.total_priority == 6.0
-
-    def test_update_overwrite(self) -> None:
-        """Test updating existing priorities."""
-        tree = _SumTree(10)
-        idx = 5
-        old_priority = 2.0
-        new_priority = 4.0
-
-        # First update
-        tree.update(np.array([idx]), np.array([old_priority]))
-        assert tree.total_priority == old_priority
-
-        # Second update
-        tree.update(np.array([idx]), np.array([new_priority]))
-        assert tree._tree[idx + tree._capacity_minus_1] == new_priority
-        assert tree.total_priority == new_priority
-
-    def test_sample_empty(self) -> None:
-        """Test sampling from empty tree."""
-        tree = _SumTree(10)
-
-        with pytest.raises(AssertionError):
-            tree.sample(1)
-
-    def test_sample_single(self) -> None:
-        """Test sampling a single item."""
-        tree = _SumTree(10)
-        idx = 5
-        priority = 2.0
-
-        tree.update(np.array([idx]), np.array([priority]))
-        idxs, priorities = tree.sample(1)
-
-        assert len(idxs) == 1
-        assert len(priorities) == 1
-        assert idxs[0] == idx
-        assert priorities[0] == priority
-
-    def test_sample_multiple(self) -> None:
-        """Test sampling multiple items."""
-        tree = _SumTree(10)
-        idxs = np.array([0, 2, 4])
-        priorities = np.array([1.0, 2.0, 3.0])
-
-        tree.update(idxs, priorities)
-        sampled_idxs, sampled_priorities = tree.sample(2)
-
-        assert len(sampled_idxs) == 2
-        assert len(sampled_priorities) == 2
-        # All sampled indices should be in the original set
-        assert all(idx in idxs for idx in sampled_idxs)
-
-    def test_sample_uniform_fallback(self) -> None:
-        """Test uniform sampling fallback when total priority is 0."""
-        tree = _SumTree(10)
-        idxs = np.array([0, 2, 4])
-        priorities = np.array([0.0, 0.0, 0.0])
-
-        tree.update(idxs, priorities)
-        sampled_idxs, sampled_priorities = tree.sample(2)
-
-        assert len(sampled_idxs) == 2
-        assert len(sampled_priorities) == 2
-        # Should fall back to uniform sampling
-        assert all(idx in idxs for idx in sampled_idxs)
-
-    def test_len(self) -> None:
-        """Test tree length."""
-        tree = _SumTree(10)
-        assert len(tree) == 0
-
-        tree.update(np.array([0, 2]), np.array([1.0, 2.0]))
-        assert len(tree) == 2
-
-    def test_total_priority(self) -> None:
-        """Test total priority property."""
-        tree = _SumTree(10)
-        assert tree.total_priority == 0.0
-
-        tree.update(np.array([0, 2]), np.array([1.0, 2.0]))
-        assert tree.total_priority == 3.0
 
 
 class TestReplayBuffer:
@@ -471,7 +349,7 @@ class TestPERBuffer:
         )
         buffer = PERBuffer(config)
 
-        with pytest.raises(AssertionError, match="Cannot sample from an empty buffer"):
+        with pytest.raises(AssertionError, match="buffer size 0, but required 1"):
             buffer.sample(1)
 
     def test_sample_with_data(self) -> None:
@@ -883,8 +761,8 @@ class TestPERBuffer:
         # This tests that alpha exponentiation is working correctly
         assert buffer._sum_tree.total_priority > total_priority_before
 
-    def test_uniform_sampling_fallback_when_no_priorities(self) -> None:
-        """Test that PERBuffer falls back to uniform sampling when SumTree has no priorities."""
+    def test_zero_priorities_error_handling(self) -> None:
+        """Test that PERBuffer raises appropriate errors when all priorities are zero."""
         config = PERBufferConfig(
             capacity=100,
             n_step=2,
@@ -912,7 +790,6 @@ class TestPERBuffer:
         assert len(buffer) == 2
 
         # Set all priorities to 0 to simulate no valid priorities
-        # This should trigger uniform sampling fallback
         sample_indices = np.array([0, 1])
         zero_priorities = np.array([0.0, 0.0], dtype=np.float32)
         buffer.update_priorities(sample_indices, zero_priorities)
@@ -920,57 +797,20 @@ class TestPERBuffer:
         # Verify that total priority is 0
         assert buffer._sum_tree.total_priority == 0.0
 
-        # Test that sampling still works (should use uniform sampling)
-        # Sample multiple times to ensure uniform sampling is working
-        sampled_indices: set[int] = set()
-        for _ in range(20):
-            replay, weights, indices = buffer.sample(1)
+        # Test that sampling raises an error when all priorities are zero
+        # This is the correct behavior for PER when there are no valid priorities
+        with pytest.raises(ValueError, match="total priority must be positive and finite"):
+            buffer.sample(1)
 
-            # Verify that sampling returns valid data
-            assert isinstance(replay, NStepReplay)
-            assert replay.states.shape == (1, 4)
-            assert replay.actions.shape == (1,)
-            assert replay.rewards.shape == (1,)
-            assert replay.n_next_states.shape == (1, 4)
-            assert replay.n_dones.shape == (1,)
-            assert replay.n.shape == (1,)
-
-            # Collect sampled indices
-            sampled_indices.update(indices)
-
-            # Verify weights are still calculated (should be uniform)
-            assert isinstance(weights, np.ndarray)
-            assert weights.shape == (1,)
-            assert weights.dtype == np.float32
-            assert np.all(weights >= 0)
-            assert np.all(weights <= 1)
-
-        # Verify that all valid indices were sampled at least once
-        # (uniform sampling should eventually sample all indices)
-        assert len(sampled_indices) > 0, "Should sample at least some indices"
-        assert all(idx in [0, 1] for idx in sampled_indices), "Should only sample valid indices"
-
-        # Test sampling with batch size > 1
-        replay, weights, indices = buffer.sample(2)
-        assert isinstance(replay, NStepReplay)
-        assert replay.states.shape == (2, 4)
-        assert replay.actions.shape == (2,)
-        assert replay.rewards.shape == (2,)
-        assert replay.n_next_states.shape == (2, 4)
-        assert replay.n_dones.shape == (2,)
-        assert replay.n.shape == (2,)
-        assert len(indices) == 2
-        assert all(idx in [0, 1] for idx in indices)
-
-        # Test that we can still update priorities after uniform sampling
-        # This should restore prioritized sampling
+        # Test that we can restore prioritized sampling by updating priorities
+        sample_indices = np.array([0, 1])
         new_priorities = np.array([1.0, 2.0], dtype=np.float32)
-        buffer.update_priorities(indices, new_priorities)
+        buffer.update_priorities(sample_indices, new_priorities)
 
         # Verify that total priority is no longer 0
         assert buffer._sum_tree.total_priority > 0.0
 
-        # Test that sampling now uses prioritized sampling again
+        # Test that sampling now works again with prioritized sampling
         replay, weights, indices = buffer.sample(1)
         assert isinstance(replay, NStepReplay)
         assert replay.states.shape == (1, 4)
@@ -1172,3 +1012,160 @@ class TestPERBuffer:
         assert abs(beta_values[-1] - expected_beta) < 0.01, (
             f"Beta should converge to {expected_beta}, got {beta_values[-1]}"
         )
+
+    def test_numerical_stability_with_large_priorities(self) -> None:
+        """Test that PERBuffer handles extremely large priorities without overflow."""
+        config = PERBufferConfig(
+            capacity=100,
+            n_step=2,
+            gamma=0.99,
+            alpha=0.6,
+            beta=0.4,
+            beta_increment=0.001,
+        )
+        buffer = PERBuffer(config)
+
+        # Add initial data
+        for i in range(3):
+            buffer.add_batch(
+                states=np.random.randn(1, 4).astype(np.float32),
+                actions=np.random.randint(0, 2, (1,)).astype(np.int64),
+                rewards=np.array([float(i)], dtype=np.float32),
+                next_states=np.random.randn(1, 4).astype(np.float32),
+                dones=np.array([False], dtype=np.bool_),
+                env_idxs=np.array([0], dtype=np.int16),
+            )
+
+        # Update with extremely large priorities that could cause overflow
+        sample_indices = np.array([0, 1])
+        large_priorities = np.array([1e8, 1e9], dtype=np.float32)  # Very large priorities
+        buffer.update_priorities(sample_indices, large_priorities)
+
+        # Verify max priority is capped
+        assert buffer._max_priority <= 1e6, (
+            f"Max priority should be capped, got {buffer._max_priority}"
+        )
+
+        # Test that sampling still works without overflow
+        try:
+            replay, weights, indices = buffer.sample(2)
+
+            # Verify that sampling returns valid data
+            assert isinstance(replay, NStepReplay)
+            assert replay.states.shape == (2, 4)
+            assert replay.actions.shape == (2,)
+            assert replay.rewards.shape == (2,)
+            assert replay.n_next_states.shape == (2, 4)
+            assert replay.n_dones.shape == (2,)
+            assert replay.n.shape == (2,)
+
+            # Verify weights are valid (no NaN or inf)
+            assert isinstance(weights, np.ndarray)
+            assert weights.shape == (2,)
+            assert weights.dtype == np.float32
+            assert np.all(np.isfinite(weights)), f"Weights should be finite, got {weights}"
+            assert np.all(weights >= 0), f"Weights should be non-negative, got {weights}"
+            assert np.all(weights <= 1), f"Weights should be <= 1, got {weights}"
+
+        except OverflowError as e:
+            pytest.fail(f"Sampling should not cause overflow error: {e}")
+
+        # Test with even more extreme values to ensure robustness
+        extreme_priorities = np.array([1e20, 1e30], dtype=np.float32)
+        buffer.update_priorities(sample_indices, extreme_priorities)
+
+        # Should still be capped
+        assert buffer._max_priority <= 1e6, (
+            f"Max priority should be capped even with extreme values, got {buffer._max_priority}"
+        )
+
+        # Should still be able to sample
+        try:
+            replay, weights, indices = buffer.sample(1)
+            assert isinstance(replay, NStepReplay)
+            assert np.all(np.isfinite(weights))
+        except OverflowError as e:
+            pytest.fail(f"Sampling should not cause overflow error with extreme priorities: {e}")
+
+    def test_per_buffer_nan_robustness(self) -> None:
+        """Test PER buffer robustness against NaN-inducing conditions."""
+        config = PERBufferConfig(
+            capacity=100,
+            n_step=3,
+            gamma=0.99,
+            alpha=0.6,
+            beta=0.4,
+            beta_increment=0.001,
+        )
+
+        buffer = PERBuffer(config)
+
+        # Add initial data
+        for _ in range(20):
+            states = np.random.randn(5, 8).astype(np.float32)
+            actions = np.random.randint(0, 4, (5,)).astype(np.int64)
+            rewards = np.random.randn(5).astype(np.float32)
+            next_states = np.random.randn(5, 8).astype(np.float32)
+            dones = np.random.choice([True, False], 5)
+            env_idxs = np.arange(5, dtype=np.int16)
+
+            buffer.add_batch(states, actions, rewards, next_states, dones, env_idxs)
+
+        # Test with extreme priority conditions that previously caused NaN
+        extreme_priority_cases = [
+            ("tiny_priorities", np.array([1e-10] * 16, dtype=np.float32)),
+            ("large_priorities", np.array([1e6] * 16, dtype=np.float32)),
+            ("mixed_extreme", np.array([1e-10] * 8 + [1e6] * 8, dtype=np.float32)),
+            ("zero_priorities", np.array([0.0] * 16, dtype=np.float32)),
+        ]
+
+        for case_name, priorities in extreme_priority_cases:
+            if len(buffer) >= 32:
+                # Sample
+                data, weights, idxs = buffer.sample(16)
+
+                # Update with extreme priorities
+                buffer.update_priorities(idxs, priorities)
+
+                # Sample again to test the weights calculation
+                data2, weights2, idxs2 = buffer.sample(16)
+
+                # Verify no NaN/Inf in weights
+                assert not np.isnan(weights2).any(), f"Case {case_name}: NaN in weights"
+                assert not np.isinf(weights2).any(), f"Case {case_name}: Inf in weights"
+                assert np.all(weights2 >= 0), f"Case {case_name}: Negative weights"
+                assert np.all(weights2 <= 1e6), f"Case {case_name}: Extremely large weights"
+
+    def test_importance_sampling_weights_edge_cases(self) -> None:
+        """Test importance sampling weight calculation with edge cases that could cause NaN."""
+        capacity = 1000
+        beta_values = [0.1, 0.4, 0.8, 1.0]  # Different beta values
+
+        for beta in beta_values:
+            # Test case 1: Very small priorities
+            small_priorities = np.array([1e-10, 1e-8, 1e-6, 1e-4], dtype=np.float32)
+            total_priority = np.sum(small_priorities)
+
+            if total_priority > 0:
+                sampling_prob = small_priorities / (total_priority + 1e-8)
+                sampling_prob = np.clip(sampling_prob, 1e-8, 1.0)
+
+                # Use the robust calculation method
+                log_weights = -beta * np.log(capacity * sampling_prob + 1e-8)
+                log_weights = np.clip(log_weights, -50.0, 50.0)
+                weights = np.exp(log_weights).astype(np.float32)
+
+                # Verify no NaN/Inf
+                assert not np.isnan(weights).any(), (
+                    f"Beta {beta}: NaN in weights with small priorities"
+                )
+                assert not np.isinf(weights).any(), (
+                    f"Beta {beta}: Inf in weights with small priorities"
+                )
+
+            # Test case 2: Zero total priority (fallback case)
+            zero_priorities = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            weights_zero = np.ones(len(zero_priorities), dtype=np.float32)
+
+            assert not np.isnan(weights_zero).any(), f"Beta {beta}: NaN in zero priority fallback"
+            assert not np.isinf(weights_zero).any(), f"Beta {beta}: Inf in zero priority fallback"

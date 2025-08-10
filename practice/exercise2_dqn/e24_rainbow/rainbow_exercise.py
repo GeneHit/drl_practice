@@ -278,7 +278,12 @@ class RainbowPod(DQNPod):
         self._target_net.reset_noise()
         probs = self._online_net.forward_dist(data.states)
         # [B, action_n, atoms] -> [B, atoms]
-        probs_a = _select_action_dist(probs, data.actions)
+        try:
+            probs_a = _select_action_dist(probs, data.actions)
+        except Exception as e:
+            print(f"{data=}")
+            print(f"{data_idxs=}")
+            raise e
         # categorical distribution: [B, atoms]
         m = self._compute_m(data)
 
@@ -287,8 +292,14 @@ class RainbowPod(DQNPod):
         loss_per_sample = -(m * probs_a.clamp(min=1e-6).log()).sum(dim=-1)
         w = torch.from_numpy(weights).to(self._config.device)
         weighted_loss = (loss_per_sample * w).mean()
+        if not torch.isfinite(weighted_loss):
+            raise ValueError("weighted_loss is not finite")
         self._ctx.optimizer.zero_grad()
         weighted_loss.backward()
+        if self._config.max_grad_norm is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._online_net.parameters(), self._config.max_grad_norm
+            )
         self._ctx.optimizer.step()
 
         # 4. update the PER priority
@@ -451,7 +462,17 @@ def _categorical_projection(
     # 6.2 aggregate the next_prob to m
     m.scatter_add_(dim=1, index=l, src=w_l)
     m.scatter_add_(dim=1, index=u, src=w_u)
-    # 6.3 normalize the m
-    m = m / m.sum(dim=1, keepdim=True).clamp_min(1e-6)
+    # 6.3 normalize the m with robust handling of zero sums
+    m_sum = m.sum(dim=1, keepdim=True)
+    # Handle cases where the sum becomes zero (numerical issues)
+    zero_sum_mask = m_sum <= 1e-8
+    if torch.any(zero_sum_mask):
+        # For zero sum cases, create uniform distribution as fallback
+        uniform_prob = 1.0 / atoms
+        m[zero_sum_mask.squeeze(-1)] = uniform_prob
+        m_sum = m.sum(dim=1, keepdim=True)
+
+    # Normalize with additional safety margin
+    m = m / m_sum.clamp_min(1e-8)
 
     return m
