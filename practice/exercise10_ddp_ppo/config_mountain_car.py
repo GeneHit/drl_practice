@@ -136,12 +136,7 @@ def generate_context(config: ContPPOConfig) -> ContextBase:
             {"params": other_params, "lr": config.learning_rate},
             {"params": critic_params, "lr": config.critic_lr},
         ],
-        # weight_decay=1e-6,
     )
-    # lr_schedulers = (
-    #     # lr_scheduler.CosineAnnealingLR(optimizer, T_max=1400, eta_min=5e-5),
-    #     lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=0.995),
-    # )
     total_steps = config.timesteps * config.num_epochs * config.minibatch_num
     lr_schedulers = (
         lr_scheduler.OneCycleLR(
@@ -153,18 +148,6 @@ def generate_context(config: ContPPOConfig) -> ContextBase:
             final_div_factor=50,
             anneal_strategy="cos",
         ),
-        # lr_scheduler.OneCycleLR(
-        #     optimizer,
-        #     max_lr=[
-        #         config.learning_rate * 3,
-        #         config.critic_lr * 3
-        #     ],
-        #     total_steps=total_steps,
-        #     pct_start=0.2,
-        #     div_factor=10.0,
-        #     final_div_factor=10,
-        #     anneal_strategy='cos'
-        # ),
     )
 
     return ContextBase(
