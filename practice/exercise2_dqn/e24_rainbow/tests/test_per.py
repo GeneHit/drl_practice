@@ -251,7 +251,9 @@ class TestPERBuffer:
         buffer = PERBuffer(config)
 
         assert buffer._config == config
-        assert buffer._max_priority == 1.0
+        assert buffer._max_p_alpha == 1.0
+        assert buffer._p95_alpha == 0.5
+        assert buffer._epsilon_alpha == 1e-3
         assert buffer._beta == config.beta
         assert len(buffer) == 0
 
@@ -423,8 +425,9 @@ class TestPERBuffer:
 
         buffer.update_priorities(indices, new_priorities)
 
-        # Check that max priority was updated
-        assert buffer._max_priority >= 1.5
+        # Check that max p_alpha was updated (priorities are raised to alpha power)
+        expected_max = np.power(1.5, 0.6)  # 1.5^alpha
+        assert buffer._max_p_alpha >= expected_max - 0.01
 
     def test_update_priorities_mismatch_length(self) -> None:
         """Test updating priorities with mismatched lengths."""
@@ -680,8 +683,8 @@ class TestPERBuffer:
         assert len(all_weights) == 3
         assert all(len(weights) == 2 for weights in all_weights)
 
-    def test_priority_update_and_max_priority_tracking(self) -> None:
-        """Test priority updates and max priority tracking with alpha exponentiation."""
+    def test_priority_update_and_quantile_tracking(self) -> None:
+        """Test priority updates and quantile tracking with alpha exponentiation."""
         config = PERBufferConfig(
             capacity=100,
             n_step=2,
@@ -703,8 +706,9 @@ class TestPERBuffer:
                 env_idxs=np.array([0], dtype=np.int16),
             )
 
-        # Record initial max priority
-        initial_max_priority = buffer._max_priority
+        # Record initial max p_alpha and p95_alpha
+        initial_max_p_alpha = buffer._max_p_alpha
+        initial_p95_alpha = buffer._p95_alpha
 
         # Sample and update priorities with increasing values
         for i in range(3):
@@ -714,9 +718,13 @@ class TestPERBuffer:
             new_priority = 2.0 + i  # 2.0, 3.0, 4.0
             buffer.update_priorities(indices, np.array([new_priority]))
 
-        # Test that max priority has increased
-        assert buffer._max_priority > initial_max_priority
-        assert buffer._max_priority >= 4.0  # Should track the highest priority
+        # Test that max p_alpha has increased (priorities are raised to alpha power)
+        assert buffer._max_p_alpha > initial_max_p_alpha
+        expected_max = np.power(4.0, 0.6)  # 4.0^alpha
+        assert buffer._max_p_alpha >= expected_max - 0.01
+
+        # Test that p95_alpha is being tracked
+        assert buffer._p95_alpha != initial_p95_alpha
 
         # Test that new experiences get higher initial priorities
         # Add new data and check that it gets sampled more frequently
@@ -730,7 +738,7 @@ class TestPERBuffer:
         )
 
         # Sample multiple times and check that new experiences are sampled
-        # The new experience should have higher sampling probability due to max priority
+        # The new experience should have higher sampling probability due to quantile clipping
         # We'll test this by checking that the new experience gets sampled at least once
         # in a reasonable number of attempts
         for _ in range(20):  # Increase attempts
@@ -739,8 +747,8 @@ class TestPERBuffer:
             if 3 in indices:
                 break
 
-        # The new experience should have higher sampling probability due to max priority
-        # If it's not sampled, that's okay - the test still validates max priority tracking
+        # The new experience should have higher sampling probability due to quantile clipping
+        # If it's not sampled, that's okay - the test still validates quantile tracking
         # and alpha exponentiation, which are the core features being tested
 
         # Test alpha exponentiation in priority updates
@@ -794,13 +802,14 @@ class TestPERBuffer:
         zero_priorities = np.array([0.0, 0.0], dtype=np.float32)
         buffer.update_priorities(sample_indices, zero_priorities)
 
-        # Verify that total priority is 0
-        assert buffer._sum_tree.total_priority == 0.0
+        # Verify that total priority is very small (epsilon is added to avoid exact zero)
+        assert buffer._sum_tree.total_priority < 0.1  # Should be close to epsilon values
 
-        # Test that sampling raises an error when all priorities are zero
-        # This is the correct behavior for PER when there are no valid priorities
-        with pytest.raises(ValueError, match="total priority must be positive and finite"):
-            buffer.sample(1)
+        # Test that sampling still works with very small priorities (due to epsilon)
+        # The implementation adds epsilon to avoid zero priorities, so sampling should still work
+        replay, weights, indices = buffer.sample(1)
+        assert isinstance(replay, NStepReplay)
+        assert replay.states.shape == (1, 4)
 
         # Test that we can restore prioritized sampling by updating priorities
         sample_indices = np.array([0, 1])
@@ -820,7 +829,7 @@ class TestPERBuffer:
         assert weights.dtype == np.float32
 
     def test_priority_initialization_for_new_experiences(self) -> None:
-        """Test that new experiences are initialized with current max priority."""
+        """Test that new experiences are initialized with quantile clipping."""
         config = PERBufferConfig(
             capacity=100,
             n_step=2,
@@ -842,19 +851,20 @@ class TestPERBuffer:
                 env_idxs=np.array([0], dtype=np.int16),
             )
 
-        # Record initial max priority
-        initial_max_priority = buffer._max_priority
+        # Record initial max p_alpha
+        initial_max_p_alpha = buffer._max_p_alpha
 
-        # Update some priorities to increase max priority
+        # Update some priorities to increase max p_alpha
         sample_indices = np.array([0, 1])
         high_priorities = np.array([5.0, 10.0], dtype=np.float32)
         buffer.update_priorities(sample_indices, high_priorities)
 
-        # Verify max priority increased
-        assert buffer._max_priority > initial_max_priority
-        assert buffer._max_priority == 10.0
+        # Verify max p_alpha increased (priorities are raised to alpha power)
+        assert buffer._max_p_alpha > initial_max_p_alpha
+        expected_max = np.power(10.0, 0.6)  # 10.0^alpha
+        assert abs(buffer._max_p_alpha - expected_max) < 0.01
 
-        # Add new data - should be initialized with current max priority
+        # Add new data - should be initialized with quantile clipping
         buffer.add_batch(
             states=np.random.randn(1, 4).astype(np.float32),
             actions=np.random.randint(0, 2, (1,)).astype(np.int64),
@@ -864,7 +874,7 @@ class TestPERBuffer:
             env_idxs=np.array([0], dtype=np.int16),
         )
 
-        # The new experience should have been initialized with max_priority^alpha
+        # The new experience should have been initialized with quantile clipping
         # We can verify this by checking that the new experience gets sampled
         # more frequently than old experiences with lower priorities
         for _ in range(50):  # Increase attempts
@@ -874,8 +884,8 @@ class TestPERBuffer:
                 break
 
         # The new experience should have higher sampling probability
-        # due to being initialized with max priority
-        # If it's not sampled, that's okay - the test still validates max priority tracking
+        # due to being initialized with quantile clipping
+        # If it's not sampled, that's okay - the test still validates quantile tracking
         # and initialization, which are the core features being tested
 
     def test_alpha_parameter_effect_on_priority_scaling(self) -> None:
@@ -1041,9 +1051,10 @@ class TestPERBuffer:
         large_priorities = np.array([1e8, 1e9], dtype=np.float32)  # Very large priorities
         buffer.update_priorities(sample_indices, large_priorities)
 
-        # Verify max priority is capped
-        assert buffer._max_priority <= 1e6, (
-            f"Max priority should be capped, got {buffer._max_priority}"
+        # Verify max p_alpha is tracked (priorities are raised to alpha power)
+        expected_max = np.power(1e9, 0.6)
+        assert buffer._max_p_alpha >= expected_max - 1e3, (
+            f"Max p_alpha should track large priorities, got {buffer._max_p_alpha}"
         )
 
         # Test that sampling still works without overflow
@@ -1074,9 +1085,9 @@ class TestPERBuffer:
         extreme_priorities = np.array([1e20, 1e30], dtype=np.float32)
         buffer.update_priorities(sample_indices, extreme_priorities)
 
-        # Should still be capped
-        assert buffer._max_priority <= 1e6, (
-            f"Max priority should be capped even with extreme values, got {buffer._max_priority}"
+        # Should still track extreme values (but may be clipped by numerical limits)
+        assert buffer._max_p_alpha > 1e6, (
+            f"Max p_alpha should track extreme values, got {buffer._max_p_alpha}"
         )
 
         # Should still be able to sample

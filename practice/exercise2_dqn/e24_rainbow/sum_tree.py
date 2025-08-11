@@ -67,29 +67,71 @@ class SumTree:
                     break
                 parent = (parent - 1) // 2
 
-    def sample(self, k: int) -> tuple[NDArray[np.int64], NDArray[np.float32]]:
+    def get_leaves(
+        self, values: NDArray[np.float32 | np.float64]
+    ) -> tuple[NDArray[np.int64], NDArray[np.float32]]:
+        """Get the leaves of the tree given the values.
+
+        Args:
+            values: The values to retrieve.
+
+        Returns:
+            tuple[NDArray[np.int64], NDArray[np.float32]]: The leaves of the tree.
+                The first element is the indices of the leaves.
+                The second element is the priorities of the leaves.
+        """
         size = len(self)
+        k = len(values)
         if not (0 < k <= size):
             raise ValueError(f"buffer size={size}, but requested {k} samples")
         tot = self.total_priority
-        if not np.isfinite(tot) or (tot <= 1e-8):
+        if not np.isfinite(tot) or (tot < -1e-8):
             raise ValueError("total priority must be positive and finite")
-
-        eps = max(1e-8, tot * 1e-10)  # prevent right boundary hit
-        segment = tot / float(k)
-
-        # stratified sampling
-        bases = np.arange(k, dtype=np.float64) * segment
-        v = bases + np.random.uniform(0.0, segment - eps, size=k).astype(np.float64)
-        v = np.clip(v, 0.0, tot - eps)
 
         data_idx = np.empty(k, dtype=np.int64)
         prios = np.empty(k, dtype=np.float32)
-        for j, val in enumerate(v):
+        for j, val in enumerate(values):
             leaf = self._retrieve(0, float(val))
             data_idx[j] = leaf - self._leaf_start
             prios[j] = self._tree[leaf].astype(np.float32)
         return data_idx, prios
+
+    def sample(self, k: int) -> tuple[NDArray[np.int64], NDArray[np.float32]]:
+        """Sample k leaves from the tree with segment sampling.
+
+        Args:
+            k: The number of leaves to sample.
+
+        Returns:
+            tuple[NDArray[np.int64], NDArray[np.float32]]: The leaves of the tree.
+                The first element is the indices of the leaves.
+                The second element is the priorities of the leaves.
+        """
+        tot = self.total_priority
+        segment = tot / float(k)
+
+        # segment sampling
+        bases = np.arange(k, dtype=np.float64) * segment
+        v = bases + np.random.uniform(0.0, segment, size=k).astype(np.float64)
+
+        return self.get_leaves(v)
+
+    def tree_metrics(self) -> dict[str, float]:
+        """Get the metrics of the tree."""
+        leaf_values = self._tree[self._leaf_start :][self._used]
+        leaves_sum = leaf_values.sum()
+        root = self.total_priority
+        ESS = 1 / (np.sum(np.power(leaf_values, 2)) + 1e-8)
+        top5pct_idx = max(1, int(0.05 * len(leaf_values)))
+        top5pct_mass = np.sort(leaf_values)[-top5pct_idx:].sum() / (leaves_sum + 1e-8)
+        return {
+            # tree consistency: not ≈0 means there is a bug in the implementation or update
+            "per/root_minus_leafsum": abs(root - leaves_sum),
+            # whether the buffer is dominated by a few samples: 0.0 means no, 1.0 means yes
+            "per/top5pct_mass": top5pct_mass,
+            # effective sample size: larger is more diverse
+            "per/ESS": ESS,
+        }
 
     def _retrieve(self, node: int, s: float) -> int:
         """Retrieve the leaf node index given the value s.

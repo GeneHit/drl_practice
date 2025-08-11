@@ -299,13 +299,15 @@ class RainbowPod(DQNPod):
 
         # 4. update the PER priority
         priorities = loss_per_sample.detach().abs().cpu().numpy()
-        self._replay_buffer.update_priorities(data_idxs, priorities)
+        get_metrics = self._step % self._config.log_interval == 0
+        per_metrics = self._replay_buffer.update_priorities(data_idxs, priorities, get_metrics)
 
         # 5. log stats
         self._writer.log_stats(
             data={
                 "loss/original": loss_per_sample,
                 "loss/weighted": weighted_loss,
+                **per_metrics,
             },
             step=self._step,
             log_interval=self._config.log_interval,

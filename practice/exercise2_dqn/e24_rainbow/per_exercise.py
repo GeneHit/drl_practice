@@ -27,6 +27,13 @@ class PERBufferConfig:
     beta_increment: float
     """The increment of beta per update."""
 
+    def __post_init__(self) -> None:
+        assert self.capacity > 1, f"{self.capacity=} must be greater than 1"
+        assert self.n_step > 0, f"{self.n_step=} must be greater than 0"
+        assert 0.0 <= self.beta <= 1.0, f"{self.beta=} must be in [0.0, 1.0]"
+        assert 0.0 <= self.beta_increment <= 1.0, f"{self.beta_increment=} must be in [0.0, 1.0]"
+        assert 0.0 <= self.alpha <= 1.0, f"{self.alpha=} must be in [0.0, 1.0]"
+
 
 @dataclass(frozen=True, kw_only=True)
 class NStepReplay:
@@ -106,12 +113,16 @@ class PERBuffer:
 
     def __init__(self, config: PERBufferConfig) -> None:
         self._config = config
-        self._max_priority: float = 1.0
         self._sum_tree = SumTree(config.capacity)
         self._replay_buffer = _ReplayBuffer(capacity=config.capacity)
         self._n_step_deque = _NStepDeque(n_step=config.n_step, gamma=config.gamma)
+
         # Internal beta schedule state (config is frozen)
         self._beta: float = config.beta
+        # the value for quantile clipping
+        self._max_p_alpha = 1.0
+        self._p95_alpha = 0.5
+        self._epsilon_alpha = 1e-3
 
     def __len__(self) -> int:
         return len(self._replay_buffer)
@@ -154,16 +165,15 @@ class PERBuffer:
         if n_step_data is None:
             return
 
-        # Write to underlying buffer and get written indices
+        # Write the n-step return to underlying buffer and get written indices
         written_idxs = self._replay_buffer.add_batch(n_step_data=n_step_data)
         if self._config.use_uniform_sampling:
             return
 
-        # Initialize priorities for newly written samples with current max priority
-        # so that the new samples have a higher chance to be sampled and update priorities
-        init_priorities = np.full(
-            len(written_idxs), self._max_priority**self._config.alpha, dtype=np.float32
-        )
+        # Initialize priorities with quantile clipping (or fixed value), making the new samples
+        # have a higher chance to be sampled and update priorities, but not too big.
+        p0_alpha = np.clip(2 * self._p95_alpha, self._epsilon_alpha, self._max_p_alpha)
+        init_priorities = np.full(len(written_idxs), p0_alpha, dtype=np.float32)
         self._sum_tree.update(written_idxs, init_priorities)
 
     def sample(self, batch_size: int) -> tuple[NStepReplay, NDArray[np.float32], NDArray[np.int64]]:
@@ -177,40 +187,29 @@ class PERBuffer:
                 - indices: The sampled data indices in the underlying buffer.
         """
         assert len(self) >= batch_size > 0, f"buffer size {len(self)}, but required {batch_size}"
-        if self._config.use_uniform_sampling:
+
+        # use uniform sampling if configured or necessary
+        tp = self._sum_tree.total_priority
+        uniform_sampling = self._config.use_uniform_sampling or tp < 1e-4 or not np.isfinite(tp)
+        if uniform_sampling:
             idxs = np.random.randint(0, len(self), batch_size)
+            # Uniform sampling case - all weights should be equal
             return (
                 self._replay_buffer.sample_by_idxs(idxs).to_replay(),
                 np.ones(batch_size, dtype=np.float32),
                 idxs,
             )
 
+        # sample from sum tree with segement priority
         idxs, leaf_priorities = self._sum_tree.sample(batch_size)
         batch = self._replay_buffer.sample_by_idxs(idxs).to_replay()
 
-        # calculate weights for importance sampling
-        # Handle the case where SumTree fell back to uniform sampling (total_priority = 0)
-        tp = float(self._sum_tree.total_priority)
-        if tp <= 0.0 or not np.isfinite(tp):
-            # Uniform sampling case - all weights should be equal
-            return batch, np.ones(len(idxs), dtype=np.float32), idxs
-
-        # More robust importance sampling weight calculation
-        # Clamp sampling probabilities to avoid extreme values
+        # calculate importance sampling weights
         sampling_prob = leaf_priorities.astype(np.float64) / (tp + 1e-8)
-        sampling_prob = np.clip(sampling_prob, 1e-8, 1.0)
-
-        # Update beta schedule
         self._beta = min(1.0, self._beta + self._config.beta_increment)
-
-        # Calculate weights with overflow protection
         n = len(self)
-        weights = (n * sampling_prob) ** (-self._beta)
-        max_w = weights.max()
-        if not np.isfinite(max_w) or max_w <= 0.0:
-            weights = np.ones_like(weights, dtype=np.float32)
-        else:
-            weights = weights / max_w
+        weights = np.power(n * sampling_prob, -self._beta)
+        weights = weights / (weights.max() + 1e-8)  # avoid zero division
 
         return batch, weights.astype(np.float32), idxs
 
@@ -218,7 +217,8 @@ class PERBuffer:
         self,
         idxs: NDArray[np.integer[Any]] | Sequence[int],
         priorities: NDArray[np.float32] | Sequence[float],
-    ) -> None:
+        get_metrics: bool = False,
+    ) -> dict[str, float]:
         """Update the priorities of the sampled experiences.
 
         The input indices must be the data indices in the underlying `ReplayBufferPro`.
@@ -226,23 +226,37 @@ class PERBuffer:
         Args:
             idxs: Data indices of the sampled experiences.
             priorities: New priority values (TD-errors) for the sampled experiences.
+            get_metrics: Whether to get the metrics of the buffer.
+
+        Returns:
+            dict[str, float]: The metrics of the buffer.
+                If `get_metrics` is False, return {}.
         """
         if self._config.use_uniform_sampling:
-            return
+            return {}
 
         idxs_arr = np.asarray(idxs, dtype=np.int64)
         prios_arr = np.asarray(priorities, dtype=np.float32)
         if idxs_arr.shape[0] != prios_arr.shape[0]:
             raise ValueError("idxs and priorities must have the same length")
 
-        # Track max priority for future insertions
-        # Cap max priority to prevent numerical overflow
-        max_priority_cap = 1e6  # Reasonable upper bound to prevent overflow
-        self._max_priority = min(
-            max_priority_cap, max(self._max_priority, float(np.max(prios_arr)))
-        )
-        # The SumTree stores alpha-powered priorities
-        self._sum_tree.update(idxs_arr, np.power(prios_arr, self._config.alpha, dtype=np.float32))
+        # update priorities in sum tree
+        prio_raw = np.abs(prios_arr) + self._epsilon_alpha  # epsilon to avoid zero priority
+        p_alpha = np.power(prio_raw, self._config.alpha, dtype=np.float32)
+        self._sum_tree.update(idxs_arr, p_alpha)
+
+        # track max and percentile for future insertions
+        decay = 0.99
+        self._max_p_alpha = max(self._max_p_alpha, np.max(p_alpha))
+        self._p95_alpha = decay * self._p95_alpha + (1 - decay) * np.quantile(p_alpha, 0.95)
+
+        if get_metrics:
+            return {
+                # batch diversity: higher is better
+                "per/unique_ratio": len(np.unique(idxs_arr)) / len(idxs_arr),
+                **self._sum_tree.tree_metrics(),
+            }
+        return {}
 
 
 class _ReplayBuffer:
