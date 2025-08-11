@@ -44,11 +44,10 @@ from torch.optim import Adam
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
+from practice.exercise2_dqn.e24_rainbow.network import NoisyLinear, RainbowNet
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer, PERBufferConfig
 from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import (
-    NoisyLinear,
     RainbowConfig,
-    RainbowNet,
     _categorical_projection,
 )
 from practice.utils.env_utils import get_device, get_env_from_config
