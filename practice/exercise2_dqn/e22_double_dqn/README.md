@@ -4,13 +4,13 @@ Double Deep Q-Network (Double DQN):
 - Double DQN addresses the overestimation bias in standard DQN
 - decouples action selection from action evaluation to provide more stable and accurate Q-value estimates.
 
-| Aspect | Standard DQN | Double DQN |
-|--------|--------------|------------|
-| Action Selection | Target Network | Current Network |
-| Action Evaluation | Target Network | Target Network |
-| Bias Reduction | ❌ Overestimation bias | ✅ Reduced overestimation |
-| Stability | Moderate | Improved |
-| Performance | Good | Better |
+|         Aspect    |         Standard DQN      |    Double DQN     |
+|-------------------|---------------------------|-------------------|
+| Action Selection  | Target Network            | Current Network   |
+| Action Evaluation | Target Network            | Target Network    |
+| Bias Reduction    | ❌ Overestimation bias    | ✅ Reduced overestimation |
+| Stability         | Moderate                  | Improved          |
+| Performance       | Good                      | Better            |
 
 ## File Structure:
 - `double_dqn_exercise.py`: Main `EXERCISE` with Double DQN implementation.
