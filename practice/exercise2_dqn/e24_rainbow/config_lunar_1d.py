@@ -15,14 +15,14 @@ def get_app_config() -> RainbowConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device("cpu")
-    global_steps = 1500_000
+    global_steps = 750_000
     num_envs = 6
-    # 1500_000 / 6 = 250_000
+    # 750_000 / 6 = 125_000
     timesteps = global_steps // num_envs
     return RainbowConfig(
         device=device,
         dqn_algorithm="rainbow",
-        timesteps=timesteps // 2,
+        timesteps=timesteps,
         learning_rate=3e-4,
         gamma=0.99,
         batch_size=64,
@@ -31,14 +31,13 @@ def get_app_config() -> RainbowConfig:
         update_start_step=2000,
         max_grad_norm=10.0,
         per_buffer_config=PERBufferConfig(
-            capacity=int(global_steps * 0.1),
+            capacity=int(global_steps * 0.2),
             n_step=3,
             gamma=0.99,
             use_uniform_sampling=True,
             alpha=0.6,
             beta=0.4,
-            # ~= (1 - beta) / (timesteps * anneal_fraction) = 0.6 / (250_000 * 0.5)
-            beta_increment=3e-6,
+            beta_increment=schedule_beta_increment(0.4, timesteps, 1.1),
         ),
         noisy_std=0.5,
         v_min=-300.0,
@@ -99,3 +98,8 @@ def generate_context(config: RainbowConfig) -> ContextBase:
         trained_target=q_network,
         optimizer=Adam(q_network.parameters(), lr=config.learning_rate),
     )
+
+
+def schedule_beta_increment(beta0: float, total_updates: int, anneal_frac: float = 1.0) -> float:
+    """Schedule the beta increment."""
+    return (1.0 - beta0) / (total_updates * anneal_frac)

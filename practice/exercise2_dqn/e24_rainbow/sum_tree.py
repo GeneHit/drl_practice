@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 
 
 class SumTree:
-    """SumTree for prioritized experience replay.
+    """Proportional sumTree for prioritized experience replay.
 
     SumTree is a binary tree where the parent node is the sum of the two child nodes. It makes
     sampling more efficient.
@@ -97,7 +97,7 @@ class SumTree:
         return data_idx, prios
 
     def sample(self, k: int) -> tuple[NDArray[np.int64], NDArray[np.float32]]:
-        """Sample k leaves from the tree with segment sampling.
+        """Sample k leaves with proportional sampling.
 
         Args:
             k: The number of leaves to sample.
@@ -110,7 +110,7 @@ class SumTree:
         tot = self.total_priority
         segment = tot / float(k)
 
-        # segment sampling
+        # proportional sampling
         bases = np.arange(k, dtype=np.float64) * segment
         v = bases + np.random.uniform(0.0, segment, size=k).astype(np.float64)
 
@@ -121,10 +121,11 @@ class SumTree:
         leaf_values = self._tree[self._leaf_start :][self._used]
         leaves_sum = leaf_values.sum()
         root = self.total_priority
-        ESS = 1 / (np.sum(np.power(leaf_values, 2)) + 1e-8)
+        ESS = leaves_sum**2 / (np.sum(np.power(leaf_values, 2)) + 1e-8)
         top5pct_idx = max(1, int(0.05 * len(leaf_values)))
         top5pct_mass = np.sort(leaf_values)[-top5pct_idx:].sum() / (leaves_sum + 1e-8)
         return {
+            "per/root": root,
             # tree consistency: not ≈0 means there is a bug in the implementation or update
             "per/root_minus_leafsum": abs(root - leaves_sum),
             # whether the buffer is dominated by a few samples: 0.0 means no, 1.0 means yes

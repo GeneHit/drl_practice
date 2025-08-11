@@ -200,7 +200,7 @@ class PERBuffer:
                 idxs,
             )
 
-        # sample from sum tree with segement priority
+        # sample from sum tree with proportional priority
         idxs, leaf_priorities = self._sum_tree.sample(batch_size)
         batch = self._replay_buffer.sample_by_idxs(idxs).to_replay()
 
@@ -252,6 +252,7 @@ class PERBuffer:
 
         if get_metrics:
             return {
+                "per/beta": self._beta,
                 # batch diversity: higher is better
                 "per/unique_ratio": len(np.unique(idxs_arr)) / len(idxs_arr),
                 **self._sum_tree.tree_metrics(),
