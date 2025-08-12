@@ -29,10 +29,10 @@ def get_app_config() -> RainbowConfig:
         batch_size=64,
         train_interval=1,
         target_update_interval=500,
-        update_start_step=2000,
+        update_start_step=1000,
         max_grad_norm=10.0,
         per_buffer_config=PERBufferConfig(
-            capacity=int(global_steps * 0.2),
+            capacity=int(global_steps * 0.5),
             n_step=3,
             gamma=0.99,
             use_uniform_sampling=True,
