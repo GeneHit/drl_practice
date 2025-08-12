@@ -1,65 +1,12 @@
-from typing import cast
-
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from numpy.typing import NDArray
 
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import BasicDQNPod, DQNConfig
-from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.writer_utils import CustomWriter
-
-
-class QNet2D(nn.Module):
-    """Q network with 2D convolution.
-
-    Same as DeepMind's DQN paper for Atari:
-    https://www.nature.com/articles/nature14236
-    """
-
-    def __init__(self, in_shape: tuple[int, int, int], action_n: int) -> None:
-        super().__init__()
-        c, h, w = in_shape
-        # convolution layer sequence
-        self.conv = nn.Sequential(
-            nn.Conv2d(c, 32, kernel_size=8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
-
-        # calculate the output size of the convolution layer
-        with torch.no_grad():
-            # create a mock input (batch=1, c, h, w)
-            test_input = torch.zeros(1, c, h, w)
-            conv_output = self.conv(test_input)
-            conv_output_size = conv_output.size(1)
-
-        # full connected layer, original 512
-        self.fc = nn.Sequential(
-            nn.Linear(conv_output_size, 256),
-            nn.ReLU(),
-            nn.Linear(256, action_n),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # use cast to make mypy happy
-        return cast(torch.Tensor, self.fc(self.conv(x / 255.0)))
-
-    def action(self, x: torch.Tensor) -> ActType:
-        """Get the action for evaluation/gameplay with 1 environment.
-
-        Returns:
-            action: The single action.
-        """
-        # greedy strategy
-        return argmax_action(self.forward(x), dtype=ActType)
 
 
 class DoubleDQNPod(BasicDQNPod):

@@ -15,7 +15,6 @@ Double Deep Q-Network (Double DQN):
 ## File Structure:
 - `double_dqn_exercise.py`: Main `EXERCISE` with Double DQN implementation.
 - `config_lunar_1d.py`: Configuration file for LunarLander-v3 with 1D observations.
-- `config_lunar_2d.py`: Configuration file for LunarLander-v3 with 2D/image observations.
 - `tests/test_double_dqn_train.py`: Comprehensive test suite
 
 ## Command
@@ -23,9 +22,6 @@ Train the Double DQN agent using the CLI:
 ```bash
 # Train on LunarLander-v3 1D environment
 python practice/cli.py --config practice/exercise2_dqn/e22_double_dqn/config_lunar_1d.py
-
-# Train on LunarLander-v3 2D environment
-python practice/cli.py --config practice/exercise2_dqn/e22_double_dqn/config_lunar_2d.py
 ```
 
 Test the trained agent:
