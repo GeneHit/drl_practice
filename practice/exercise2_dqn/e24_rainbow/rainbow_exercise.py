@@ -135,6 +135,7 @@ class RainbowPod(DQNPod):
                 self._online_net.parameters(), self._config.max_grad_norm
             )
         self._ctx.optimizer.step()
+        self._ctx.step_lr_schedulers()
 
         # 4. update the PER priority
         priorities = loss_per_sample.detach().abs().cpu().numpy()

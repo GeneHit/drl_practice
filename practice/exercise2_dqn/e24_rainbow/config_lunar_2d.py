@@ -16,7 +16,7 @@ def get_app_config() -> RainbowConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device("cpu")
-    global_steps = 750_000
+    global_steps = 75_000
     num_envs = 6
     # 750_000 / 6 = 125_000
     timesteps = global_steps // num_envs
@@ -90,7 +90,7 @@ def generate_context(config: RainbowConfig) -> ContextBase:
         state_n=obs_shape,
         action_n=action_n,
         # the size of the CNN's last FC layer
-        hidden_sizes=(256,),
+        hidden_sizes=(128,),
         noisy_std=config.noisy_std,
         v_min=config.v_min,
         v_max=config.v_max,
@@ -99,6 +99,7 @@ def generate_context(config: RainbowConfig) -> ContextBase:
 
     load_checkpoint_if_exists(q_network, config.checkpoint_pathname)
     q_network.to(config.device)
+
     optimizer = Adam(q_network.parameters(), lr=config.learning_rate)
     total_steps = config.timesteps // config.train_interval
     lr_schedulers = (

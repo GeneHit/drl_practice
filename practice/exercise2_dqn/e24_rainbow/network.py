@@ -108,7 +108,7 @@ class QNetCNN(nn.Module):
 
         # full connected layer
         self.fc = nn.Sequential(
-            nn.LayerNorm(conv_output_size),
+            # nn.LayerNorm(conv_output_size),
             nn.Linear(conv_output_size, fc_size),
         )
 
