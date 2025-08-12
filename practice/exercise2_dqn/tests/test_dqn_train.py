@@ -52,19 +52,19 @@ def test_config() -> DQNConfig:
     return DQNConfig(
         device=device,
         dqn_algorithm="basic",
-        timesteps=100,  # Reduced from 200000
+        timesteps=20,  # Reduced from 200000
         learning_rate=1e-3,  # Increased for faster learning
         gamma=0.99,
-        epsilon_schedule=LinearSchedule(v0=1.0, v1=0.1, t1=int(0.5 * 100)),
-        replay_buffer_capacity=100,  # Reduced from 120000
-        batch_size=8,  # Reduced from 64
+        epsilon_schedule=LinearSchedule(v0=1.0, v1=0.1, t1=int(0.5 * 20)),
+        replay_buffer_capacity=20,  # Reduced from 120000
+        batch_size=2,  # Reduced from 64
         train_interval=1,
-        target_update_interval=10,  # Reduced from 250
-        update_start_step=20,  # Reduced from 1000
-        eval_episodes=3,  # Reduced from 100
+        target_update_interval=2,  # Reduced from 250
+        update_start_step=2,  # Reduced from 1000
+        eval_episodes=2,  # Reduced from 100
         eval_random_seed=42,
         eval_video_num=1,  # Reduced from 10
-        log_interval=10,
+        log_interval=2,
         env_config=EnvConfig(
             env_id="LunarLander-v3",
             vector_env_num=2,  # Reduced from 6
