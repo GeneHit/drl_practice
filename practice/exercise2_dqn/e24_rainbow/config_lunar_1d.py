@@ -4,8 +4,9 @@ from torch.optim import Adam
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
+from practice.exercise2_dqn.e24_rainbow.network import RainbowNet
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBufferConfig
-from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowConfig, RainbowNet
+from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowConfig
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import ConstantSchedule

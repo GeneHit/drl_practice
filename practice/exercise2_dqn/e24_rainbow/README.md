@@ -22,7 +22,6 @@ Rainbow:
 - `rainbow_exercise`: `EXERCISE` for Rainbow algorithm.
 - `config_lunar_1d.py`: Configuration file for LunarLander-v3 with 1D observations.
 - `config_lunar_2d.py`: Configuration file for LunarLander-v3 with 2D/image observations.
-- `config_car_race.py`: Configuration for the Car Racing.
 
 ## Command
 Train the Rainbow DQN agent using the CLI:
@@ -32,9 +31,6 @@ python practice/cli.py --config practice/exercise2_dqn/e24_rainbow/config_lunar_
 
 # Train on LunarLander-v3 2D environment
 python practice/cli.py --config practice/exercise2_dqn/e24_rainbow/config_lunar_2d.py
-
-# Train on the Car Racing environment
-python practice/cli.py --config practice/exercise2_dqn/e24_rainbow/config_car_race.py
 ```
 
 Test the trained agent:
