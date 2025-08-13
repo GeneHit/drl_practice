@@ -33,7 +33,7 @@ def get_app_config() -> RainbowConfig:
         max_grad_norm=0.5,
         per_buffer_config=PERBufferConfig(
             capacity=int(global_steps * 0.1),
-            n_step=5,
+            n_step=3,
             gamma=0.99,
             use_uniform_sampling=True,
             alpha=0.6,
