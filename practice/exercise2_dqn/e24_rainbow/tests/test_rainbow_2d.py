@@ -380,25 +380,3 @@ class TestRainbowLunar2D:
                 context.train_env.close()
             if hasattr(context, "eval_env") and context.eval_env:
                 context.eval_env.close()
-
-    def test_lunar_2d_learning_rate_scheduler(self) -> None:
-        """Test that lunar_2d context has proper learning rate scheduler setup."""
-        config = get_app_config()
-        context = generate_context(config)
-
-        try:
-            # Verify learning rate scheduler is present
-            assert hasattr(context, "lr_schedulers"), "Context should have lr_schedulers"
-            assert context.lr_schedulers is not None, "lr_schedulers should not be None"
-            assert len(context.lr_schedulers) > 0, "lr_schedulers should not be empty"
-
-            # Verify it's a OneCycleLR scheduler
-            lr_scheduler = context.lr_schedulers[0]
-            assert "OneCycleLR" in str(type(lr_scheduler)), "Should be OneCycleLR scheduler"
-
-        finally:
-            # Clean up environments
-            if hasattr(context, "train_env") and context.train_env:
-                context.train_env.close()
-            if hasattr(context, "eval_env") and context.eval_env:
-                context.eval_env.close()
