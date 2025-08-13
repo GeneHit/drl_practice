@@ -1,4 +1,4 @@
-# Model-based Policy Optimization (MBPO)
+# Model-based Policy Optimization (MBPO) (todo)
 
 Paper: https://arxiv.org/abs/1906.08253
 MBPO first learns a model of the environment dynamics, then uses this model to generate additional
