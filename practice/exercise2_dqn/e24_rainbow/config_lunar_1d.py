@@ -35,7 +35,8 @@ def get_app_config() -> RainbowConfig:
             capacity=int(global_steps * 0.2),
             n_step=3,
             gamma=0.99,
-            use_uniform_sampling=True,
+            # use True is better, but use False for testing the PER
+            use_uniform_sampling=False,
             alpha=0.6,
             beta=0.4,
             beta_increment=schedule_beta_increment(0.4, timesteps, 1.1),

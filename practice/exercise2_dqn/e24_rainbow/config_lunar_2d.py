@@ -1,5 +1,5 @@
 from gymnasium.spaces import Discrete
-from torch.optim import Adam, lr_scheduler
+from torch.optim import Adam
 
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
@@ -15,10 +15,10 @@ from practice.utils_for_coding.scheduler_utils import ConstantSchedule
 def get_app_config() -> RainbowConfig:
     """Get the application config."""
     # get cuda or mps if available
-    device = get_device("cpu")
-    global_steps = 75_000
+    device = get_device()
+    global_steps = 75_000 * 3
     num_envs = 6
-    # 750_000 / 6 = 125_000
+    # 75_000 / 6 = 12_500
     timesteps = global_steps // num_envs
     return RainbowConfig(
         device=device,
@@ -29,11 +29,11 @@ def get_app_config() -> RainbowConfig:
         batch_size=64,
         train_interval=1,
         target_update_interval=500,
-        update_start_step=1000,
-        max_grad_norm=10.0,
+        update_start_step=2000,
+        max_grad_norm=0.5,
         per_buffer_config=PERBufferConfig(
-            capacity=int(global_steps * 0.5),
-            n_step=3,
+            capacity=int(global_steps * 0.1),
+            n_step=5,
             gamma=0.99,
             use_uniform_sampling=True,
             alpha=0.6,
@@ -56,7 +56,7 @@ def get_app_config() -> RainbowConfig:
             training_render_mode="rgb_array",
             image_shape=(84, 84),
             frame_stack=4,
-            frame_skip=3,
+            frame_skip=2,
         ),
         artifact_config=ArtifactConfig(
             trainer_type=DQNTrainer,
@@ -101,23 +101,11 @@ def generate_context(config: RainbowConfig) -> ContextBase:
     q_network.to(config.device)
 
     optimizer = Adam(q_network.parameters(), lr=config.learning_rate)
-    total_steps = config.timesteps // config.train_interval
-    lr_schedulers = (
-        lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=[config.learning_rate * 5.0],
-            total_steps=total_steps,
-            pct_start=0.3,
-            div_factor=20.0,
-            final_div_factor=50,
-            anneal_strategy="cos",
-        ),
-    )
 
     return ContextBase(
         train_env=env,
         eval_env=eval_env,
         trained_target=q_network,
         optimizer=optimizer,
-        lr_schedulers=lr_schedulers,
+        lr_schedulers=(),
     )

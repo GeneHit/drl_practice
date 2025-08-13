@@ -13,7 +13,6 @@ from practice.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
 from practice.exercise2_dqn.e24_rainbow.network import RainbowNet
 from practice.exercise2_dqn.e24_rainbow.per_exercise import NStepReplay, PERBuffer, PERBufferConfig
-from practice.utils_for_coding.image_utils import augment_image
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 
@@ -112,13 +111,11 @@ class RainbowPod(DQNPod):
         # 1. sample batch from n-step PER buffer
         data, weights, data_idxs = self._replay_buffer.sample(self._config.batch_size)
         data = data.to(self._config.device)
-        # augment the image
-        states = augment_image(data.states) if (data.states.ndim == 4) else data.states
 
         # 2. calculate the m (categorical distribution)
         self._online_net.reset_noise()
         self._target_net.reset_noise()
-        probs = self._online_net.forward_dist(states)
+        probs = self._online_net.forward_dist(data.states)
         # [B, action_n, atoms] -> [B, atoms]
         probs_a = _select_action_dist(probs, data.actions)
         # categorical distribution: [B, atoms]
@@ -175,16 +172,11 @@ class RainbowPod(DQNPod):
             (B, Z) —— the m distribution for each sample
         """
         with torch.no_grad():
-            next_states = (
-                augment_image(data.n_next_states)
-                if (data.n_next_states.ndim == 4)
-                else data.n_next_states
-            )
-            q_next = self._online_net.forward(next_states)
+            q_next = self._online_net.forward(data.n_next_states)
             # [B, action_n] -> [B]
             a_next = q_next.argmax(dim=1)
 
-            target_probs = self._target_net.forward_dist(next_states)
+            target_probs = self._target_net.forward_dist(data.n_next_states)
             # [B, action_n, atoms] -> [B, atoms]
             target_probs_a = _select_action_dist(target_probs, a_next)
 
