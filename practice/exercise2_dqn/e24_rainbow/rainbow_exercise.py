@@ -1,11 +1,9 @@
 import copy
-import math
 from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
 import torch
-import torch.nn as nn
 from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 from torch import Tensor
@@ -13,9 +11,8 @@ from torch import Tensor
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
+from practice.exercise2_dqn.e24_rainbow.network import RainbowNet
 from practice.exercise2_dqn.e24_rainbow.per_exercise import NStepReplay, PERBuffer, PERBufferConfig
-from practice.utils_for_coding.network_utils import MLP
-from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 
@@ -33,164 +30,6 @@ class RainbowConfig(DQNConfig):
     """The maximum value of the value distribution."""
     num_atoms: int
     """The number of atoms for the value distribution."""
-
-
-class NoisyLinear(nn.Module):
-    """Noisy Linear Layer with factorized Gaussian noise.
-
-    Equation:
-    w = μ_w + sigma_w @ (f(ε_out) @ f(ε_in)),  b = μ_b + sigma_b @ f(ε_out)
-    where f(x) = sign(x) * sqrt(|x|)
-    It means:
-    - w = μ_w + sigma_w @ (f(ε_out) @ f(ε_in))
-    - b = μ_b + sigma_b @ f(ε_out)
-    - f(x) = sign(x) * sqrt(|x|)
-
-    Reference:
-    - https://arxiv.org/abs/1706.10295
-    - https://arxiv.org/abs/1707.06887
-    """
-
-    def __init__(self, in_features: int, out_features: int, std: float = 0.5) -> None:
-        super().__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        # learnable parameters: μ、σ
-        self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
-        self.weight_sigma = nn.Parameter(torch.empty(out_features, in_features))
-        self.bias_mu = nn.Parameter(torch.empty(out_features))
-        self.bias_sigma = nn.Parameter(torch.empty(out_features))
-
-        # register_buffer for current noise samples (no gradient)
-        self.register_buffer("eps_in", torch.zeros(in_features))
-        self.register_buffer("eps_out", torch.zeros(out_features))
-
-        self.reset_parameters(std)
-        self.reset_noise()
-
-    @staticmethod
-    def _scale_noise(size: int) -> torch.Tensor:
-        # f(ε) = sign(ε) * sqrt(|ε|)
-        x = torch.randn(size)
-        return x.sign() * x.abs().sqrt()
-
-    def reset_parameters(self, std: float) -> None:
-        # μ ~ U[-1/sqrt(in), 1/sqrt(in)]
-        mu_bound = 1.0 / math.sqrt(self.in_features)
-        nn.init.uniform_(self.weight_mu, -mu_bound, mu_bound)
-        nn.init.uniform_(self.bias_mu, -mu_bound, mu_bound)
-        # σ = std / sqrt(in_features)
-        sigma_init = std / math.sqrt(self.in_features)
-        nn.init.constant_(self.weight_sigma, sigma_init)
-        nn.init.constant_(self.bias_sigma, sigma_init)
-
-    def reset_noise(self) -> None:
-        # sample factorized noise
-        self.eps_in = self._scale_noise(self.in_features).to(self.weight_mu.device)
-        self.eps_out = self._scale_noise(self.out_features).to(self.weight_mu.device)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.training:
-            # training: use noisy weights and biases
-            w_noise = torch.outer(self.eps_out, self.eps_in)  # (out, in)
-            w = self.weight_mu + self.weight_sigma * w_noise
-            b = self.bias_mu + self.bias_sigma * self.eps_out
-        else:
-            # evaluation: use mean parameters (no noise)
-            w = self.weight_mu
-            b = self.bias_mu
-        return nn.functional.linear(x, w, b)
-
-
-class RainbowNet(nn.Module):
-    """Rainbow Network.
-
-    Rainbow network is a combination of:
-    - dueling: https://arxiv.org/abs/1511.06581
-    - noisy: https://arxiv.org/abs/1706.10295
-    - distributional (C51): https://arxiv.org/abs/1707.06887
-    """
-
-    def __init__(
-        self,
-        state_n: int,
-        action_n: int,
-        hidden_sizes: tuple[int, ...],
-        *,
-        noisy_std: float = 0.5,
-        v_min: float = -10.0,
-        v_max: float = 10.0,
-        num_atoms: int = 51,
-    ) -> None:
-        super().__init__()
-        self.num_atoms = num_atoms
-        self.action_n = action_n
-
-        # feature stream
-        self.feature = MLP(
-            input_dim=state_n, hidden_sizes=hidden_sizes[:-1], output_dim=hidden_sizes[-1]
-        )
-
-        # C51 distributional head
-        support = torch.linspace(v_min, v_max, num_atoms)  # (num_atoms,)
-        self.register_buffer("support", support)
-
-        # value / advantage heads (Dueling + Noisy + C51)
-        self.value_head = NoisyLinear(hidden_sizes[-1], num_atoms, std=noisy_std)
-        self.advantage_head = NoisyLinear(hidden_sizes[-1], action_n * num_atoms, std=noisy_std)
-
-    def reset_noise(self) -> None:
-        """Reset the noise before forward pass when training.
-
-        Usually, during training, acting and learning call this function once.
-        """
-        for m in self.modules():
-            if isinstance(m, NoisyLinear):
-                m.reset_noise()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Calculate the q value.
-
-        Returns:
-            q: The expected Q(s), shape (B, action_n).
-        """
-        # 1. get the C51 distribution: [B, action_N, atoms_Z]
-        probs = self.forward_dist(x)
-        # 2. expected Q = sum_z p(z|s,a)*z: [B, action_n]
-        # q[b,n] = sum_z probs[b,n,z] * support[z]
-        q = torch.einsum("bnz,z->bn", probs, self.support)
-        return q
-
-    def action(self, x: torch.Tensor) -> ActType:
-        """Get the action for evaluation/gameplay with 1 environment.
-
-        Returns:
-            action: The single action.
-        """
-        # greedy strategy
-        return argmax_action(self.forward(x), dtype=ActType)
-
-    def forward_dist(self, x: torch.Tensor) -> torch.Tensor:
-        """Calculate the C51 distribution.
-
-        Returns:
-            probs: The C51 distribution p(z|s,a), shape (B, action_n, num_atoms).
-        """
-        h = self.feature(x)  # (B, hidden)
-
-        # value branch: (B, atoms)
-        v_logits = self.value_head(h)
-        # advantage branch: (B, action_n * atoms) -> (B, action_n, atoms)
-        a_logits = self.advantage_head(h).view(-1, self.action_n, self.num_atoms)
-
-        # dueling combination (combine in logits level first, then softmax for stability)
-        # Q_logits(s,a,·) = V_logits(s,·) + A_logits(s,a,·) - mean_a A_logits(s,a,·)
-        a_mean = a_logits.mean(dim=1, keepdim=True)  # (B, 1, atoms)
-        q_logits = v_logits.unsqueeze(1) + (a_logits - a_mean)  # (B, action_n, atoms)
-
-        # softmax for each (s,a) atom dimension, get distribution
-        probs = nn.functional.softmax(q_logits, dim=-1).clamp(min=1e-6)  # stability
-        return probs
 
 
 class RainbowPod(DQNPod):
@@ -287,19 +126,28 @@ class RainbowPod(DQNPod):
         loss_per_sample = -(m * probs_a.clamp(min=1e-6).log()).sum(dim=-1)
         w = torch.from_numpy(weights).to(self._config.device)
         weighted_loss = (loss_per_sample * w).mean()
+        if not torch.isfinite(weighted_loss):
+            raise ValueError("weighted_loss is not finite")
         self._ctx.optimizer.zero_grad()
         weighted_loss.backward()
+        if self._config.max_grad_norm is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._online_net.parameters(), self._config.max_grad_norm
+            )
         self._ctx.optimizer.step()
+        self._ctx.step_lr_schedulers()
 
         # 4. update the PER priority
         priorities = loss_per_sample.detach().abs().cpu().numpy()
-        self._replay_buffer.update_priorities(data_idxs, priorities)
+        get_metrics = self._step % self._config.log_interval == 0
+        per_metrics = self._replay_buffer.update_priorities(data_idxs, priorities, get_metrics)
 
         # 5. log stats
         self._writer.log_stats(
             data={
                 "loss/original": loss_per_sample,
                 "loss/weighted": weighted_loss,
+                **per_metrics,
             },
             step=self._step,
             log_interval=self._config.log_interval,
@@ -451,7 +299,17 @@ def _categorical_projection(
     # 6.2 aggregate the next_prob to m
     m.scatter_add_(dim=1, index=l, src=w_l)
     m.scatter_add_(dim=1, index=u, src=w_u)
-    # 6.3 normalize the m
-    m = m / m.sum(dim=1, keepdim=True).clamp_min(1e-6)
+    # 6.3 normalize the m with robust handling of zero sums
+    m_sum = m.sum(dim=1, keepdim=True)
+    # Handle cases where the sum becomes zero (numerical issues)
+    zero_sum_mask = m_sum <= 1e-8
+    if torch.any(zero_sum_mask):
+        # For zero sum cases, create uniform distribution as fallback
+        uniform_prob = 1.0 / atoms
+        m[zero_sum_mask.squeeze(-1)] = uniform_prob
+        m_sum = m.sum(dim=1, keepdim=True)
+
+    # Normalize with additional safety margin
+    m = m / m_sum.clamp_min(1e-8)
 
     return m

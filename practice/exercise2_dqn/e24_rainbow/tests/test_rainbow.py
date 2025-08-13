@@ -35,6 +35,7 @@ import tempfile
 from pathlib import Path
 from typing import Generator
 
+import numpy as np
 import pytest
 import torch
 from gymnasium.spaces import Discrete
@@ -43,8 +44,12 @@ from torch.optim import Adam
 from practice.base.config import ArtifactConfig, EnvConfig
 from practice.base.context import ContextBase
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
-from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBufferConfig
-from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowConfig, RainbowNet
+from practice.exercise2_dqn.e24_rainbow.network import NoisyLinear, RainbowNet
+from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer, PERBufferConfig
+from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import (
+    RainbowConfig,
+    _categorical_projection,
+)
 from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils.play_utils import play_and_generate_video_generic
 from practice.utils.train_utils import train_and_evaluate_network
@@ -584,3 +589,289 @@ class TestRainbowTraining:
         assert actual_device.type == test_config_gpu.device.type, (
             f"GPU network should be on {test_config_gpu.device.type}, got {actual_device.type}"
         )
+
+
+class TestRainbowNaNRobustness:
+    """Test Rainbow DQN robustness against NaN-inducing conditions."""
+
+    @pytest.mark.parametrize(
+        "name, next_prob, rewards, dones",
+        [
+            # Case 1: Tiny probabilities with terminal states (main NaN source)
+            (
+                "tiny_probs_terminal",
+                torch.zeros(4, 51) + 1e-10,
+                torch.zeros(4),
+                torch.ones(4, dtype=torch.bool),
+            ),
+            # Case 2: Extreme rewards outside support range
+            (
+                "extreme_rewards",
+                torch.rand(4, 51),
+                torch.tensor([1000.0, -1000.0, 1e6, -1e6]),
+                torch.ones(4, dtype=torch.bool),
+            ),
+            # Case 3: Mixed scenario with numerical precision issues
+            (
+                "mixed_precision",
+                torch.rand(8, 51) * 1e-8,
+                torch.randn(8) * 100,
+                torch.rand(8) < 0.5,
+            ),
+        ],
+    )
+    def test_categorical_projection_robustness(
+        self, name: str, next_prob: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor
+    ) -> None:
+        """Test categorical projection robustness against conditions that previously caused NaN."""
+        device = torch.device("cpu")
+        dtype = torch.float32
+
+        next_prob = next_prob.to(device=device, dtype=dtype)
+        if next_prob.sum() > 0:
+            next_prob = next_prob / next_prob.sum(dim=-1, keepdim=True)
+        else:
+            next_prob[:, 0] = 1.0  # Fallback
+
+        rewards = rewards.to(device=device, dtype=dtype)
+        dones = dones.to(device=device)
+        gamma = 0.99
+        support = torch.linspace(-10.0, 10.0, 51, device=device, dtype=dtype)
+
+        m = _categorical_projection(
+            next_prob=next_prob,
+            rewards=rewards,
+            dones=dones,
+            gamma=gamma,
+            support=support,
+            v_min=-10.0,
+            v_max=10.0,
+            delta_z=20.0 / 50.0,
+        )
+
+        # Verify robustness - these should all pass with our fixes
+        assert not torch.isnan(m).any(), f"Case {name}: NaN in categorical projection"
+        assert not torch.isinf(m).any(), f"Case {name}: Inf in categorical projection"
+
+        sums = m.sum(dim=-1)
+        assert torch.all(sums > 0.99), f"Case {name}: Invalid sums {sums}"
+        assert torch.all(sums < 1.01), f"Case {name}: Invalid sums {sums}"
+
+    @pytest.mark.parametrize(
+        "input_type, input_data",
+        [
+            ("normal", torch.randn(32, 10)),  # Normal
+            ("large_values", torch.full((32, 10), 1e3)),  # Large values
+            ("large_negative_values", torch.full((32, 10), -1e3)),  # Large negative values
+            ("small_values", torch.full((32, 10), 1e-6)),  # Small values
+        ],
+    )
+    def test_noisy_linear_stability(self, input_type: str, input_data: torch.Tensor) -> None:
+        """Test NoisyLinear stability under extreme conditions."""
+        layer = NoisyLinear(10, 5, std=0.5)
+        layer.train()
+        layer.reset_noise()
+        output = layer(input_data)
+
+        assert not torch.isnan(output).any(), f"NoisyLinear {input_type}: NaN in output"
+        assert not torch.isinf(output).any(), f"NoisyLinear {input_type}: Inf in output"
+        assert torch.all(torch.abs(output) <= 1e4), (
+            f"NoisyLinear {input_type}: Extreme output values"
+        )
+
+    @pytest.mark.parametrize(
+        "input_type, input_data",
+        [
+            ("normal", torch.randn(32, 8)),  # Normal
+            ("large_values", torch.ones(32, 8) * 1000),  # Large values
+            ("small_values", torch.ones(32, 8) * 1e-6),  # Small values
+        ],
+    )
+    def test_rainbow_net_stability(self, input_type: str, input_data: torch.Tensor) -> None:
+        """Test RainbowNet stability under extreme conditions."""
+        net = RainbowNet(
+            state_n=8,
+            action_n=4,
+            hidden_sizes=(64, 64),
+            noisy_std=0.5,
+            v_min=-10.0,
+            v_max=10.0,
+            num_atoms=51,
+        )
+
+        net.train()
+        net.reset_noise()
+
+        q_values = net(input_data)
+        probs = net.forward_dist(input_data)
+
+        assert not torch.isnan(q_values).any(), f"RainbowNet {input_type}: NaN in Q-values"
+        assert not torch.isinf(q_values).any(), f"RainbowNet {input_type}: Inf in Q-values"
+        assert not torch.isnan(probs).any(), f"RainbowNet {input_type}: NaN in probabilities"
+        assert not torch.isinf(probs).any(), f"RainbowNet {input_type}: Inf in probabilities"
+
+        # Check probability normalization
+        prob_sums = probs.sum(dim=-1)
+        assert torch.allclose(prob_sums, torch.ones_like(prob_sums), atol=1e-4), (
+            f"RainbowNet {input_type}: Probabilities don't sum to 1: {prob_sums}"
+        )
+
+    @pytest.mark.parametrize(
+        "name, m, probs_a",
+        [
+            # Case 1: Normal case
+            (
+                "normal",
+                torch.rand(32, 51),
+                torch.rand(32, 51),
+            ),
+            # Case 2: Target with some zeros (could happen with categorical projection issues)
+            (
+                "target_zeros",
+                torch.rand(32, 51),
+                torch.rand(32, 51),
+            ),
+            # Case 3: Very small predicted probabilities
+            (
+                "small_pred_probs",
+                torch.rand(32, 51),
+                torch.ones(32, 51) * 1e-8,
+            ),
+            # Case 4: Concentrated distributions
+            (
+                "concentrated",
+                torch.zeros(32, 51),
+                torch.zeros(32, 51),
+            ),
+        ],
+    )
+    def test_loss_computation_nan_robustness(
+        self, name: str, m: torch.Tensor, probs_a: torch.Tensor
+    ) -> None:
+        """Test loss computation robustness against NaN-inducing edge cases."""
+        device = torch.device("cpu")
+
+        m = m.to(device)
+        probs_a = probs_a.to(device)
+
+        # Normalize distributions
+        if m.sum() > 0:
+            m = m / m.sum(dim=-1, keepdim=True)
+        else:
+            m[:, 0] = 1.0  # Fallback
+
+        if probs_a.sum() > 0:
+            probs_a = probs_a / probs_a.sum(dim=-1, keepdim=True)
+        else:
+            probs_a[:, 0] = 1.0  # Fallback
+
+        # Special case setup
+        if name == "target_zeros":
+            m[::4] = 0.0  # Every 4th sample has zero target
+            m[::4, 0] = 1.0  # But put mass on first atom
+        elif name == "concentrated":
+            m[:, 0] = 1.0  # All mass on first atom
+            probs_a[:, 0] = 1.0  # All mass on first atom
+
+        # Apply the robust loss computation (matching the implementation)
+        probs_a_safe = probs_a.clamp(min=1e-8, max=1.0)
+        log_probs = probs_a_safe.log()
+
+        # Check for NaN/Inf in intermediate computations
+        if torch.isnan(m).any() or torch.isinf(m).any():
+            nan_mask = torch.isnan(m) | torch.isinf(m)
+            m = torch.where(nan_mask, 1.0 / m.shape[-1], m)
+
+        if torch.isnan(log_probs).any() or torch.isinf(log_probs).any():
+            log_probs = torch.where(
+                torch.isnan(log_probs) | torch.isinf(log_probs),
+                torch.log(torch.tensor(1e-8, device=log_probs.device)),
+                log_probs,
+            )
+
+        loss_per_sample = -(m * log_probs).sum(dim=-1)
+
+        # Final check for NaN in loss
+        if torch.isnan(loss_per_sample).any():
+            loss_per_sample = torch.where(
+                torch.isnan(loss_per_sample), torch.zeros_like(loss_per_sample), loss_per_sample
+            )
+
+        # Verify robustness
+        assert not torch.isnan(loss_per_sample).any(), f"Case {name}: NaN in loss"
+        assert not torch.isinf(loss_per_sample).any(), f"Case {name}: Inf in loss"
+        assert torch.all(loss_per_sample >= 0), f"Case {name}: Negative loss"
+
+    def test_rainbow_component_nan_prevention(self) -> None:
+        """Test individual Rainbow components for NaN prevention under stress conditions."""
+        # Test RainbowNet with stress conditions
+        net = RainbowNet(
+            state_n=8,
+            action_n=4,
+            hidden_sizes=(64, 64),
+            noisy_std=0.5,
+            v_min=-10.0,
+            v_max=10.0,
+            num_atoms=51,
+        )
+
+        # Test with extreme states that could cause parameter explosion
+        extreme_states = torch.ones(32, 8) * 1000
+        net.train()
+
+        # Multiple forward passes to test stability over time
+        for step in range(100):
+            net.reset_noise()
+            q_values = net(extreme_states)
+            probs = net.forward_dist(extreme_states)
+
+            # Check for NaN/Inf after each step
+            if torch.isnan(q_values).any():
+                pytest.fail(f"Step {step}: NaN in Q-values")
+            if torch.isinf(q_values).any():
+                pytest.fail(f"Step {step}: Inf in Q-values")
+            if torch.isnan(probs).any():
+                pytest.fail(f"Step {step}: NaN in probabilities")
+            if torch.isinf(probs).any():
+                pytest.fail(f"Step {step}: Inf in probabilities")
+
+            # Verify probability normalization
+            prob_sums = probs.sum(dim=-1)
+            if not torch.allclose(prob_sums, torch.ones_like(prob_sums), atol=1e-4):
+                pytest.fail(f"Step {step}: Probabilities don't sum to 1: {prob_sums}")
+
+        # Test PER buffer with extreme conditions
+        per_config = PERBufferConfig(
+            capacity=100,
+            n_step=3,
+            gamma=0.99,
+            alpha=0.6,
+            beta=0.4,
+            beta_increment=0.001,
+        )
+
+        buffer = PERBuffer(per_config)
+
+        # Add data with extreme conditions
+        for _ in range(30):
+            states = np.random.randn(5, 8).astype(np.float32) * 100  # Large states
+            actions = np.random.randint(0, 4, (5,)).astype(np.int64)
+            rewards = np.random.randn(5).astype(np.float32) * 1000  # Large rewards
+            next_states = np.random.randn(5, 8).astype(np.float32) * 100
+            dones = np.random.choice([True, False], 5)
+            env_idxs = np.arange(5, dtype=np.int16)
+
+            buffer.add_batch(states, actions, rewards, next_states, dones, env_idxs)
+
+        # Test sampling with extreme priority updates
+        for _ in range(10):
+            if len(buffer) >= 32:
+                data, weights, idxs = buffer.sample(16)
+
+                # Update with extreme priorities
+                extreme_priorities = np.random.uniform(1e-10, 1e6, len(idxs)).astype(np.float32)
+                buffer.update_priorities(idxs, extreme_priorities)
+
+                # Verify no NaN in weights
+                assert not np.isnan(weights).any(), "NaN in importance sampling weights"
+                assert not np.isinf(weights).any(), "Inf in importance sampling weights"

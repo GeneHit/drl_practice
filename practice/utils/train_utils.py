@@ -12,8 +12,8 @@ from practice.utils.eval_utils import evaluate_and_save_results
 
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
     """Main training function for reinforcement learning algorithms."""
+    # training
     trainer = config.artifact_config.trainer_type(config=config, ctx=ctx)
-
     start_time = time.time()
     trainer.train()
     train_duration_min = (time.time() - start_time) / 60
@@ -24,8 +24,9 @@ def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:
         agent: nn.Module | QTable = ctx.table
     else:
         # the trained target is a neural network
+        assert isinstance(ctx.network, nn.Module)
         agent = ctx.network
-
+        agent.eval()
     # Evaluate and save results
     if ctx.track_and_evaluate:
         evaluate_and_save_results(

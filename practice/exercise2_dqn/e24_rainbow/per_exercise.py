@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
+from practice.exercise2_dqn.e24_rainbow.sum_tree import SumTree
 from practice.utils_for_coding.replay_buffer_utils import Buffer
 
 
@@ -17,12 +18,21 @@ class PERBufferConfig:
     """The n-step return."""
     gamma: float
     """The discount factor."""
+    use_uniform_sampling: bool = False
+    """Whether to use uniform sampling instead of prioritized sampling."""
     alpha: float
     """The alpha parameter for prioritized experience replay."""
     beta: float
     """The beta parameter for prioritized experience replay."""
     beta_increment: float
     """The increment of beta per update."""
+
+    def __post_init__(self) -> None:
+        assert self.capacity > 1, f"{self.capacity=} must be greater than 1"
+        assert self.n_step > 0, f"{self.n_step=} must be greater than 0"
+        assert 0.0 <= self.beta <= 1.0, f"{self.beta=} must be in [0.0, 1.0]"
+        assert 0.0 <= self.beta_increment <= 1.0, f"{self.beta_increment=} must be in [0.0, 1.0]"
+        assert 0.0 <= self.alpha <= 1.0, f"{self.alpha=} must be in [0.0, 1.0]"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -103,12 +113,16 @@ class PERBuffer:
 
     def __init__(self, config: PERBufferConfig) -> None:
         self._config = config
-        self._max_priority: float = 1.0
-        self._sum_tree = _SumTree(config.capacity)
+        self._sum_tree = SumTree(config.capacity)
         self._replay_buffer = _ReplayBuffer(capacity=config.capacity)
         self._n_step_deque = _NStepDeque(n_step=config.n_step, gamma=config.gamma)
+
         # Internal beta schedule state (config is frozen)
         self._beta: float = config.beta
+        # the value for quantile clipping
+        self._max_p_alpha = 1.0
+        self._p95_alpha = 0.5
+        self._epsilon_alpha = 1e-3
 
     def __len__(self) -> int:
         return len(self._replay_buffer)
@@ -124,6 +138,19 @@ class PERBuffer:
     ) -> None:
         if len(rewards) == 0:
             return
+        # n_step == 1 is a special case, we can directly add the data to the buffer
+        if self._config.n_step == 1:
+            self._replay_buffer.add_batch(
+                n_step_data=_NStepData(
+                    states=states,
+                    actions=actions,
+                    rewards=rewards,
+                    n_next_states=next_states,
+                    n_dones=dones,
+                    n=np.ones_like(env_idxs, dtype=np.int16),
+                )
+            )
+            return
 
         n_step_data = self._n_step_deque.append(
             step_data=_StepData(
@@ -138,14 +165,15 @@ class PERBuffer:
         if n_step_data is None:
             return
 
-        # Write to underlying buffer and get written indices
+        # Write the n-step return to underlying buffer and get written indices
         written_idxs = self._replay_buffer.add_batch(n_step_data=n_step_data)
+        if self._config.use_uniform_sampling:
+            return
 
-        # Initialize priorities for newly written samples with current max priority
-        # so that the new samples have a higher chance to be sampled and update priorities
-        init_priorities = np.full(
-            len(written_idxs), self._max_priority**self._config.alpha, dtype=np.float32
-        )
+        # Initialize priorities with quantile clipping (or fixed value), making the new samples
+        # have a higher chance to be sampled and update priorities, but not too big.
+        p0_alpha = np.clip(2 * self._p95_alpha, self._epsilon_alpha, self._max_p_alpha)
+        init_priorities = np.full(len(written_idxs), p0_alpha, dtype=np.float32)
         self._sum_tree.update(written_idxs, init_priorities)
 
     def sample(self, batch_size: int) -> tuple[NStepReplay, NDArray[np.float32], NDArray[np.int64]]:
@@ -158,34 +186,39 @@ class PERBuffer:
                     to normalize the TD-errors.
                 - indices: The sampled data indices in the underlying buffer.
         """
-        assert len(self) > 0, "Cannot sample from an empty buffer"
-        idxs, leaf_priorities = self._sum_tree.sample(batch_size)
-        batch = self._replay_buffer.sample_by_idxs(idxs)
+        assert len(self) >= batch_size > 0, f"buffer size {len(self)}, but required {batch_size}"
 
-        # calculate weights for importance sampling
-        # Handle the case where SumTree fell back to uniform sampling (total_priority = 0)
-        if self._sum_tree.total_priority <= 0:
+        # use uniform sampling if configured or necessary
+        tp = self._sum_tree.total_priority
+        uniform_sampling = self._config.use_uniform_sampling or tp < 1e-4 or not np.isfinite(tp)
+        if uniform_sampling:
+            idxs = np.random.randint(0, len(self), batch_size)
             # Uniform sampling case - all weights should be equal
-            weights: NDArray[np.float32] = np.ones(len(idxs), dtype=np.float32)
-        else:
-            sampling_prob = leaf_priorities / (self._sum_tree.total_priority + 1e-8)
-            # Update beta schedule
-            self._beta = min(1.0, self._beta + self._config.beta_increment)
-            weights = np.power(self._config.capacity * sampling_prob, -self._beta, dtype=np.float32)
-            # Normalize weights to avoid NaN
-            max_weight = np.max(weights)
-            if max_weight > 0:
-                weights /= max_weight + 1e-6
-            else:
-                weights = np.ones_like(weights)
+            return (
+                self._replay_buffer.sample_by_idxs(idxs).to_replay(),
+                np.ones(batch_size, dtype=np.float32),
+                idxs,
+            )
 
-        return batch.to_replay(), weights, idxs
+        # sample from sum tree with proportional priority
+        idxs, leaf_priorities = self._sum_tree.sample(batch_size)
+        batch = self._replay_buffer.sample_by_idxs(idxs).to_replay()
+
+        # calculate importance sampling weights
+        sampling_prob = leaf_priorities.astype(np.float64) / (tp + 1e-8)
+        self._beta = min(1.0, self._beta + self._config.beta_increment)
+        n = len(self)
+        weights = np.power(n * sampling_prob, -self._beta)
+        weights = weights / (weights.max() + 1e-8)  # avoid zero division
+
+        return batch, weights.astype(np.float32), idxs
 
     def update_priorities(
         self,
         idxs: NDArray[np.integer[Any]] | Sequence[int],
         priorities: NDArray[np.float32] | Sequence[float],
-    ) -> None:
+        get_metrics: bool = False,
+    ) -> dict[str, float]:
         """Update the priorities of the sampled experiences.
 
         The input indices must be the data indices in the underlying `ReplayBufferPro`.
@@ -193,174 +226,38 @@ class PERBuffer:
         Args:
             idxs: Data indices of the sampled experiences.
             priorities: New priority values (TD-errors) for the sampled experiences.
+            get_metrics: Whether to get the metrics of the buffer.
+
+        Returns:
+            dict[str, float]: The metrics of the buffer.
+                If `get_metrics` is False, return {}.
         """
+        if self._config.use_uniform_sampling:
+            return {}
+
         idxs_arr = np.asarray(idxs, dtype=np.int64)
         prios_arr = np.asarray(priorities, dtype=np.float32)
         if idxs_arr.shape[0] != prios_arr.shape[0]:
             raise ValueError("idxs and priorities must have the same length")
 
-        # Track max priority for future insertions
-        self._max_priority = max(self._max_priority, float(np.max(prios_arr)))
-        # The SumTree stores alpha-powered priorities
-        self._sum_tree.update(idxs_arr, np.power(prios_arr, self._config.alpha, dtype=np.float32))
+        # update priorities in sum tree
+        prio_raw = np.abs(prios_arr) + self._epsilon_alpha  # epsilon to avoid zero priority
+        p_alpha = np.power(prio_raw, self._config.alpha, dtype=np.float32)
+        self._sum_tree.update(idxs_arr, p_alpha)
 
+        # track max and percentile for future insertions
+        decay = 0.99
+        self._max_p_alpha = max(self._max_p_alpha, np.max(p_alpha))
+        self._p95_alpha = decay * self._p95_alpha + (1 - decay) * np.quantile(p_alpha, 0.95)
 
-class _SumTree:
-    """SumTree for prioritized experience replay.
-
-    SumTree is a binary tree where the parent node is the sum of the two child nodes. It makes
-    sampling more efficient.
-    - The leaf nodes are the priorities of the experiences.
-    - The root node is the total priority of all experiences.
-
-    Reference:
-    - https://arxiv.org/abs/1511.05952
-    """
-
-    def __init__(self, capacity: int) -> None:
-        self._capacity = capacity
-        # [0, Capacity) is the tree, [Capacity, 2*Capacity-1) is the data
-        self._tree = np.zeros(2 * capacity - 1, dtype=np.float32)
-        # Track which leaves have been initialized (non-zero at least once)
-        self._used = np.zeros(capacity, dtype=np.bool_)
-
-        # pre-calculate variables
-        self._tree_height = int(np.ceil(np.log2(self._capacity))) + 1
-        self._capacity_minus_1 = self._capacity - 1
-
-    def update(self, idxs: NDArray[np.integer[Any]], priorities: NDArray[np.float32]) -> None:
-        """Batch update priorities."""
-        # 1. update used flag
-        newly_used_mask = ~self._used[idxs]
-        if np.any(newly_used_mask):
-            self._used[idxs[newly_used_mask]] = True
-
-        # 2. calculate leaf indices and differences
-        leaf_indices = idxs + self._capacity_minus_1
-        old_priorities = self._tree[leaf_indices]
-        diffs = priorities - old_priorities
-
-        # 3. update leaf nodes
-        self._tree[leaf_indices] = priorities
-
-        # 4. update parent nodes level by level
-        current_level = leaf_indices.copy()
-        for _ in range(self._tree_height):
-            # calculate parent nodes
-            parents = (current_level - 1) // 2
-            parents[parents < 0] = 0  # handle root node
-
-            # stop if all parents are root
-            if np.all(parents == 0):
-                # update root node
-                self._tree[0] += np.sum(diffs)
-                break
-
-            # group by parent and aggregate differences
-            unique_parents, inverse_indices = np.unique(parents, return_inverse=True)
-            parent_diffs = np.bincount(
-                inverse_indices, weights=diffs, minlength=len(unique_parents)
-            )
-
-            # update parent nodes
-            self._tree[unique_parents] += parent_diffs
-
-            # prepare for next level
-            current_level = unique_parents
-            diffs = parent_diffs
-
-    def sample(self, k: int) -> tuple[NDArray[np.int64], NDArray[np.float32]]:
-        """Return the k data indices with stratified sampling.
-
-        Returns:
-            (idxs, priorities):
-                - idxs: Data indices of the sampled data.
-                - priorities: Their leaf priorities.
-        """
-        size = len(self)
-        assert 0 < k <= size, f"the buffer size: {size}, but required: {k}"
-        total_prio = self.total_priority
-        if total_prio <= 0:
-            # Fallback to uniform sampling if no priority
-            valid_indices = np.where(self._used)[0]
-            idxs = np.random.choice(valid_indices, size=k, replace=True)
-            return idxs, self._tree[idxs + self._capacity_minus_1]
-
-        segment = total_prio / k  # Stratified sampling interval
-        # Generate stratified random values
-        v_values = np.random.uniform(
-            np.arange(k) * segment,
-            (np.arange(k) + 1) * segment,
-        ).astype(np.float32)
-
-        # Use vectorized get_leaves method
-        return self._get_leaves(v_values)
-
-    def _get_leaves(
-        self,
-        v_values: NDArray[np.float32],
-    ) -> tuple[NDArray[np.int64], NDArray[np.float32]]:
-        """Get multiple leaf nodes and data indices in a vectorized manner.
-
-        Args:
-            v_values: Array of values to get leaf nodes for.
-
-        Returns:
-            (data_indices, priorities):
-                - data_indices: The indices of the data in the buffer.
-                - priorities: The priorities of the leaf nodes.
-        """
-        batch_size = len(v_values)
-        if batch_size == 0:
-            return np.array([], dtype=np.int64), np.array([], dtype=np.float32)
-
-        # Initialize arrays for batch processing
-        leaf_idxs = np.zeros(batch_size, dtype=np.int64)
-
-        # Vectorized tree traversal
-        # We need to traverse the tree level by level for all values simultaneously
-
-        for level in range(self._tree_height):
-            # Check if we've reached the leaf level
-            if level == self._tree_height - 1:
-                break
-
-            # Calculate left and right child indices for all current positions
-            left_children = 2 * leaf_idxs + 1
-            right_children = left_children + 1
-
-            # Check which path to take for each value
-            # We need to be careful about bounds checking
-            valid_mask = left_children < len(self._tree)
-
-            if not np.any(valid_mask):
-                break
-
-            # Get left child values where valid
-            left_values = np.where(valid_mask, self._tree[left_children], 0.0)
-
-            # Determine which path to take
-            go_left = (v_values <= left_values) & valid_mask
-            go_right = ~go_left & valid_mask
-
-            # Update indices and values
-            leaf_idxs[go_left] = left_children[go_left]
-            leaf_idxs[go_right] = right_children[go_right]
-            v_values[go_right] -= left_values[go_right]
-
-        # Calculate data indices and get priorities
-        data_indices = leaf_idxs - self._capacity_minus_1
-        priorities = self._tree[leaf_idxs]
-
-        return data_indices, priorities
-
-    @property
-    def total_priority(self) -> float:
-        return float(self._tree[0])
-
-    def __len__(self) -> int:
-        """The number of data in the buffer."""
-        return int(np.sum(self._used))
+        if get_metrics:
+            return {
+                "per/beta": self._beta,
+                # batch diversity: higher is better
+                "per/unique_ratio": len(np.unique(idxs_arr)) / len(idxs_arr),
+                **self._sum_tree.tree_metrics(),
+            }
+        return {}
 
 
 class _ReplayBuffer:
@@ -392,12 +289,12 @@ class _ReplayBuffer:
         idxs_arr: NDArray[np.int64] = np.asarray(idxs, dtype=np.int64)
         batch = self._buffer.sample_by_idxs(idxs_arr)
         return _NStepData(
-            states=batch["states"].numpy(),
-            actions=batch["actions"].numpy(),
-            rewards=batch["rewards"].numpy(),
-            n_next_states=batch["n_next_states"].numpy(),
-            n_dones=batch["n_dones"].numpy(),
-            n=batch["n"].numpy(),
+            states=batch["states"],
+            actions=batch["actions"],
+            rewards=batch["rewards"],
+            n_next_states=batch["n_next_states"],
+            n_dones=batch["n_dones"],
+            n=batch["n"],
         )
 
     def __len__(self) -> int:

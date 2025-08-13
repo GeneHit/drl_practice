@@ -91,8 +91,8 @@ class TestBuffer:
         assert "actions" in sample
         assert sample["states"].shape == (3, 4)
         assert sample["actions"].shape == (3,)
-        assert isinstance(sample["states"], torch.Tensor)
-        assert isinstance(sample["actions"], torch.Tensor)
+        assert isinstance(sample["states"], np.ndarray)
+        assert isinstance(sample["actions"], np.ndarray)
 
     def test_sample_by_idxs(self) -> None:
         """Test sampling by specific indices."""
@@ -111,6 +111,8 @@ class TestBuffer:
         assert "actions" in sample
         assert sample["states"].shape == (3, 4)
         assert sample["actions"].shape == (3,)
+        assert isinstance(sample["states"], np.ndarray)
+        assert isinstance(sample["actions"], np.ndarray)
 
     def test_sample_uninitialized_error(self) -> None:
         """Test error when sampling from uninitialized buffer."""
@@ -147,6 +149,44 @@ class TestBuffer:
 
         with pytest.raises(AssertionError):
             buffer.sample_by_idxs(np.array([0, 1, 2, 3, 4]))
+
+    def test_sample_by_idxs_invalid_indices_error(self) -> None:
+        """Test error when sampling by indices that are out of valid range."""
+        buffer = Buffer(10)
+        states = np.random.randn(3, 4).astype(np.float32)
+        actions = np.random.randint(0, 2, (3,)).astype(np.int64)
+
+        buffer.add_batch(states=states, actions=actions)
+
+        # Test indices beyond the current buffer size
+        with pytest.raises(ValueError, match="Invalid indices: indices must be in range"):
+            buffer.sample_by_idxs(np.array([0, 3, 4]))
+
+        # Test negative indices
+        with pytest.raises(ValueError, match="Invalid indices: indices must be in range"):
+            buffer.sample_by_idxs(np.array([0, -1, 2]))
+
+        # Test mixed valid and invalid indices
+        with pytest.raises(ValueError, match="Invalid indices: indices must be in range"):
+            buffer.sample_by_idxs(np.array([0, 1, 5]))
+
+    def test_sample_by_idxs_valid_indices(self) -> None:
+        """Test that valid indices work correctly."""
+        buffer = Buffer(10)
+        states = np.random.randn(5, 4).astype(np.float32)
+        actions = np.random.randint(0, 2, (5,)).astype(np.int64)
+
+        buffer.add_batch(states=states, actions=actions)
+
+        # Test with valid indices
+        valid_indices = np.array([0, 2, 4])
+        sample = buffer.sample_by_idxs(valid_indices)
+
+        assert isinstance(sample, dict)
+        assert "states" in sample
+        assert "actions" in sample
+        assert sample["states"].shape == (3, 4)
+        assert sample["actions"].shape == (3,)
 
     def test_len(self) -> None:
         """Test buffer length."""
@@ -194,8 +234,8 @@ class TestBuffer:
         assert "rewards" in buffer._data
         assert "dones" in buffer._data
 
-    def test_sample_returns_tensors(self) -> None:
-        """Test that sample returns torch tensors."""
+    def test_sample_returns_numpy_arrays(self) -> None:
+        """Test that sample returns numpy arrays."""
         buffer = Buffer(10)
         states = np.random.randn(3, 4).astype(np.float32)
         actions = np.random.randint(0, 2, (3,)).astype(np.int64)
@@ -204,11 +244,11 @@ class TestBuffer:
         sample = buffer.sample(2)
 
         for key, value in sample.items():
-            assert isinstance(value, torch.Tensor)
+            assert isinstance(value, np.ndarray)
             assert value.shape[0] == 2
 
-    def test_sample_by_idxs_returns_tensors(self) -> None:
-        """Test that sample_by_idxs returns torch tensors."""
+    def test_sample_by_idxs_returns_numpy_arrays(self) -> None:
+        """Test that sample_by_idxs returns numpy arrays."""
         buffer = Buffer(10)
         states = np.random.randn(3, 4).astype(np.float32)
         actions = np.random.randint(0, 2, (3,)).astype(np.int64)
@@ -218,7 +258,7 @@ class TestBuffer:
         sample = buffer.sample_by_idxs(indices)
 
         for key, value in sample.items():
-            assert isinstance(value, torch.Tensor)
+            assert isinstance(value, np.ndarray)
             assert value.shape[0] == 2
 
 
