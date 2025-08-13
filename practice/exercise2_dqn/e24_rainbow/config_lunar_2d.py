@@ -16,9 +16,9 @@ def get_app_config() -> RainbowConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device()
-    global_steps = 75_000 * 3
+    global_steps = 225_000
     num_envs = 6
-    # 75_000 / 6 = 12_500
+    # 225_000 / 6 = 37_500
     timesteps = global_steps // num_envs
     return RainbowConfig(
         device=device,
