@@ -16,10 +16,10 @@ def get_app_config() -> RainbowConfig:
     """Get the application config."""
     # get cuda or mps if available
     device = get_device()
-    global_steps = 225_000
     num_envs = 6
-    # 225_000 / 6 = 37_500
-    timesteps = global_steps // num_envs
+    timesteps = 225_000
+    # 225_000 * 6 = 1_350_000
+    global_steps = timesteps * num_envs
     return RainbowConfig(
         device=device,
         dqn_algorithm="rainbow",
@@ -28,7 +28,7 @@ def get_app_config() -> RainbowConfig:
         gamma=0.99,
         batch_size=64,
         train_interval=1,
-        target_update_interval=500,
+        target_update_interval=250,
         update_start_step=2000,
         max_grad_norm=0.5,
         per_buffer_config=PERBufferConfig(
@@ -90,7 +90,7 @@ def generate_context(config: RainbowConfig) -> ContextBase:
         state_n=obs_shape,
         action_n=action_n,
         # the size of the CNN's last FC layer
-        hidden_sizes=(128,),
+        hidden_sizes=(64,),
         noisy_std=config.noisy_std,
         v_min=config.v_min,
         v_max=config.v_max,
