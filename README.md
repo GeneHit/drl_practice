@@ -29,6 +29,7 @@ Don't choose too hard game and big neural network. But you can try it by yoursel
 | [10. PPO+DDP](./practice/exercise10_ddp_ppo/README.md)    | PPO+Curiosity             | Reacher-v5        | Pusher-v5             | 🌊    | 🌊 |
 | [11. SAC+DDP](./practice/exercise11_ddp_sac/README.md)    | SAC+PER                   | Reacher-v5        | Pusher-v5             | 🌊    | 🌊 |
 | [12. MBPO](./practice/exercise12_mbpo/README.md)          | Model-based Policy Optim. | Pusher-v5         | Walker2d-v5           | 🌊    | 🌊 |
+
 where, 🌊: Continuous,  📊: Discrete
 
 
