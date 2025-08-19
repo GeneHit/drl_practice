@@ -15,7 +15,7 @@ from torch.utils.data.dataset import Subset
 from practice.utils_for_coding.network_utils import MLP
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class TrainConfig:
     """Training config for dynamics models."""
 
@@ -31,11 +31,12 @@ class TrainConfig:
     bootstrap: bool = True  # bootstrap per model (with replacement)
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class ModelBasedConfig:
     """Config consumed by ModelBasedEnv (includes TrainConfig)."""
 
-    train: TrainConfig = TrainConfig()
+    num_models: int
+    train: TrainConfig
     done_threshold: float = 0.5
     log_std_bounds: tuple[float, float] = (-5.0, 2.0)
     eps: float = 1e-6
@@ -43,13 +44,7 @@ class ModelBasedConfig:
 
 
 class EnvModel(nn.Module):
-    """Predict the [Δs,r], and done's logit.
-
-    Output dimensions:
-      mean:     (B, state_dim+1) for [Δs, r]
-      log_std:  (B, state_dim+1)
-      done_logit: (B, 1)
-    """
+    """Predict the [Δs,r], and done's logit."""
 
     def __init__(self, state_dim: int, action_dim: int, hidden_sizes: Sequence[int]) -> None:
         super().__init__()
@@ -72,6 +67,17 @@ class EnvModel(nn.Module):
     def forward(
         self, state: torch.Tensor, action: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Predict the [Δs,r], and done's logit.
+
+        Args:
+            state: (B, state_dim)
+            action: (B, action_dim)
+
+        Returns:
+            mean: (B, state_dim+1) for [Δs, r]
+            log_std: (B, state_dim+1)
+            done_logit: (B, 1)
+        """
         x = torch.cat([state, action], dim=-1)
         h = self.backbone(x)
         gauss = self.head_gauss(h)
@@ -134,9 +140,9 @@ class ModelBasedEnv:
         mu_out: torch.Tensor,
         std_out: torch.Tensor,
     ) -> None:
-        """
-        Convenience method to set BOTH normalizer and rollout model at once.
-        This is often what you want when starting a new rollout phase.
+        """Convenience method to set BOTH normalizer and rollout model at once.
+
+        You should call this before starting a new rollout phase.
         """
         self.set_normalizer(mu_in, std_in, mu_out, std_out)
         self.set_rollout_model()
@@ -150,6 +156,7 @@ class ModelBasedEnv:
         Args:
             state:  (B, state_dim)
             action: (B, action_dim)
+
         Returns:
             next_state: (B, state_dim)
             reward:     (B, 1)
@@ -206,8 +213,7 @@ class ModelBasedEnv:
         reward = y[:, self.state_dim : self.state_dim + 1]
 
         next_state = state + delta_s
-        done_prob = torch.sigmoid(done_logit)
-        done = (done_prob > self.cfg.done_threshold).to(next_state.dtype)
+        done = (torch.sigmoid(done_logit) > self.cfg.done_threshold).to(torch.bool)
         return next_state, reward, done
 
     def train(
