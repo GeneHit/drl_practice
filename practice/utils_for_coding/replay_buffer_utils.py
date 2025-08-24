@@ -114,14 +114,18 @@ class ReplayBuffer:
             dones=torch.from_numpy(self._dones[indices]),
         )
 
-    def dataloader(self, batch_size: int) -> Generator[Experience, None, None]:
+    def dataloader(
+        self, batch_size: int, shuffle: bool = True
+    ) -> Generator[Experience, None, None]:
         """Yield all data in the replay buffer.
 
         Yields:
             A generator of all data in the replay buffer.
         """
+        indices = np.random.permutation(self._size) if shuffle else np.arange(self._size)
+
         for i in range(0, self._size, batch_size):
-            indices = slice(i, i + batch_size)
+            indices = indices[i : i + batch_size]
             yield Experience(
                 states=torch.from_numpy(self._states[indices]),
                 actions=torch.from_numpy(self._actions[indices]),
