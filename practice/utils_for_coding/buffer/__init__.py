@@ -1,7 +1,6 @@
-"""Replay buffer implementation for numpy and torch.
+"""Torch-based replay buffer implementation."""
 
-The main class:
-.data_type.Experience: the experience of the agent for one or a batch of steps
-.replay_np.ReplayBuffer: for numpy arrays
-.replay_torch.ReplayBuffer: for torch tensors
-"""
+from .data_type import Experience
+from .replay import ReplayBuffer
+
+__all__ = ["Experience", "ReplayBuffer"]
