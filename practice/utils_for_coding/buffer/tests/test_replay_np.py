@@ -147,14 +147,22 @@ class TestReplayBuffer:
         # Should have ceil(3/2) = 2 batches
         assert len(batches) == 2
 
-        # First batch should have 2 samples
-        assert batches[0].states.shape[0] == 2
+        # First batch should have 2 samples - now returns dict of tensors
+        assert batches[0]["states"].shape[0] == 2
+        assert batches[0]["actions"].shape[0] == 2
+        assert batches[0]["rewards"].shape[0] == 2
+        assert batches[0]["next_states"].shape[0] == 2
+        assert batches[0]["dones"].shape[0] == 2
 
         # Second batch should have 1 sample
-        assert batches[1].states.shape[0] == 1
+        assert batches[1]["states"].shape[0] == 1
+        assert batches[1]["actions"].shape[0] == 1
+        assert batches[1]["rewards"].shape[0] == 1
+        assert batches[1]["next_states"].shape[0] == 1
+        assert batches[1]["dones"].shape[0] == 1
 
         # Check that all samples are accounted for
-        total_samples = sum(batch.states.shape[0] for batch in batches)
+        total_samples = sum(batch["states"].shape[0] for batch in batches)
         assert total_samples == len(sample_data["states"])
 
     def test_dataloader_shuffle(self, buffer: ReplayBuffer) -> None:
@@ -178,8 +186,9 @@ class TestReplayBuffer:
 
         # With high probability, at least one batch should be different
         # (this test might rarely fail due to randomness, but very unlikely)
+        # Now batches are dicts of tensors instead of Experience objects
         for b1, b2 in zip(no_shuffle_batches, shuffle_batches):
-            if not torch.equal(b1.states, b2.states):
+            if not torch.equal(b1["states"], b2["states"]):
                 break
         # Note: We don't assert this because shuffle might occasionally produce the same order
 

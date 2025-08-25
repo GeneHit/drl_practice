@@ -151,11 +151,60 @@ class TestBufferNP:
         assert np.array_equal(sampled["obs"], expected_obs)
         assert np.array_equal(sampled["action"], expected_action)
 
+    def test_getitem_not_initialized(self) -> None:
+        """Test __getitem__ on uninitialized buffer."""
+        buffer = BufferNP(capacity=5)
+        with pytest.raises(RuntimeError, match="Buffer not initialized"):
+            buffer[0]
+
+    def test_getitem_valid_index(self) -> None:
+        """Test __getitem__ with valid index."""
+        buffer = BufferNP(capacity=5)
+        data = {
+            "obs": np.array([[1, 2], [3, 4], [5, 6]]),
+            "action": np.array([10, 20, 30]),
+        }
+        buffer.add_batch(**data)
+
+        # Get first sample
+        sample = buffer[0]
+        assert isinstance(sample, dict)
+        assert "obs" in sample
+        assert "action" in sample
+
+        # Check that returned values are torch tensors
+        assert isinstance(sample["obs"], torch.Tensor)
+        assert isinstance(sample["action"], torch.Tensor)
+
+        # Check values
+        assert torch.equal(sample["obs"], torch.tensor([1, 2]))
+        assert torch.equal(sample["action"], torch.tensor(10))
+
+        # Get second sample
+        sample = buffer[1]
+        assert torch.equal(sample["obs"], torch.tensor([3, 4]))
+        assert torch.equal(sample["action"], torch.tensor(20))
+
+    def test_getitem_invalid_index(self) -> None:
+        """Test __getitem__ with invalid index."""
+        buffer = BufferNP(capacity=5)
+        data = {"obs": np.array([[1, 2], [3, 4]])}
+        buffer.add_batch(**data)
+
+        # Test negative index (should work in numpy/torch for valid range)
+        sample = buffer[-1]  # Should get last valid element (index 1)
+        assert torch.equal(sample["obs"], torch.tensor([3, 4]))
+
+        # Test out of range index
+        with pytest.raises(IndexError):
+            buffer[2]  # Only indices 0,1 are valid (buffer size is 2)
+
     def test_dataloader_not_initialized(self) -> None:
         """Test dataloader on uninitialized buffer."""
         buffer = BufferNP(capacity=5)
-        with pytest.raises(AssertionError, match="Memory not initialized"):
-            list(buffer.dataloader(2))
+        # Empty buffer should raise error
+        with pytest.raises(RuntimeError, match="Cannot create dataloader from empty buffer"):
+            buffer.dataloader(2)
 
     def test_dataloader_no_shuffle(self) -> None:
         """Test dataloader without shuffling."""
@@ -166,12 +215,12 @@ class TestBufferNP:
         batches = list(buffer.dataloader(batch_size=2, shuffle=False))
         assert len(batches) == 3  # 5 samples, batch_size=2 -> 3 batches
 
-        # First batch should have indices [0, 1]
-        assert np.array_equal(batches[0]["obs"], np.array([[0], [1]]))
+        # First batch should have indices [0, 1] - now returns torch tensors
+        assert torch.equal(batches[0]["obs"], torch.tensor([[0], [1]]))
         # Second batch should have indices [2, 3]
-        assert np.array_equal(batches[1]["obs"], np.array([[2], [3]]))
+        assert torch.equal(batches[1]["obs"], torch.tensor([[2], [3]]))
         # Third batch should have index [4]
-        assert np.array_equal(batches[2]["obs"], np.array([[4]]))
+        assert torch.equal(batches[2]["obs"], torch.tensor([[4]]))
 
     def test_dataloader_with_shuffle(self) -> None:
         """Test dataloader with shuffling."""
@@ -180,18 +229,18 @@ class TestBufferNP:
         buffer.add_batch(**data)
 
         # Set seed for reproducible test
-        np.random.seed(42)
+        torch.manual_seed(42)
         batches = list(buffer.dataloader(batch_size=2, shuffle=True))
         assert len(batches) == 3
 
-        # Collect all sampled data
-        all_sampled = np.concatenate([batch["obs"] for batch in batches])
-        all_original = np.array([[i] for i in range(5)])
+        # Collect all sampled data - now returns torch tensors
+        all_sampled = torch.cat([batch["obs"] for batch in batches])
+        all_original = torch.tensor([[i] for i in range(5)])
 
         # Should contain same data but potentially different order
         assert len(all_sampled) == len(all_original)
         for item in all_original:
-            assert any(np.array_equal(item, sampled_item) for sampled_item in all_sampled)
+            assert any(torch.equal(item, sampled_item) for sampled_item in all_sampled)
 
 
 class TestBufferTorch:
@@ -340,11 +389,60 @@ class TestBufferTorch:
         assert torch.equal(sampled["obs"], expected_obs)
         assert torch.equal(sampled["action"], expected_action)
 
+    def test_getitem_not_initialized(self) -> None:
+        """Test __getitem__ on uninitialized buffer."""
+        buffer = BufferTorch(capacity=5)
+        with pytest.raises(RuntimeError, match="Buffer not initialized"):
+            buffer[0]
+
+    def test_getitem_valid_index(self) -> None:
+        """Test __getitem__ with valid index."""
+        buffer = BufferTorch(capacity=5)
+        data = {
+            "obs": torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]),
+            "action": torch.tensor([10, 20, 30]),
+        }
+        buffer.add_batch(**data)
+
+        # Get first sample
+        sample = buffer[0]
+        assert isinstance(sample, dict)
+        assert "obs" in sample
+        assert "action" in sample
+
+        # Check that returned values are torch tensors
+        assert isinstance(sample["obs"], torch.Tensor)
+        assert isinstance(sample["action"], torch.Tensor)
+
+        # Check values
+        assert torch.equal(sample["obs"], torch.tensor([1.0, 2.0]))
+        assert torch.equal(sample["action"], torch.tensor(10))
+
+        # Get second sample
+        sample = buffer[1]
+        assert torch.equal(sample["obs"], torch.tensor([3.0, 4.0]))
+        assert torch.equal(sample["action"], torch.tensor(20))
+
+    def test_getitem_invalid_index(self) -> None:
+        """Test __getitem__ with invalid index."""
+        buffer = BufferTorch(capacity=5)
+        data = {"obs": torch.tensor([[1.0, 2.0], [3.0, 4.0]])}
+        buffer.add_batch(**data)
+
+        # Test negative index (should work in torch for valid range)
+        sample = buffer[-1]  # Should get last valid element (index 1)
+        assert torch.equal(sample["obs"], torch.tensor([3.0, 4.0]))
+
+        # Test out of range index
+        with pytest.raises(IndexError):
+            buffer[2]  # Only indices 0,1 are valid (buffer size is 2)
+
     def test_dataloader_not_initialized(self) -> None:
         """Test dataloader on uninitialized buffer."""
         buffer = BufferTorch(capacity=5)
-        with pytest.raises(AssertionError, match="Memory not initialized"):
-            list(buffer.dataloader(2))
+        # Empty buffer should raise error
+        with pytest.raises(RuntimeError, match="Cannot create dataloader from empty buffer"):
+            buffer.dataloader(2)
 
     def test_dataloader_no_shuffle(self) -> None:
         """Test dataloader without shuffling."""
@@ -373,7 +471,7 @@ class TestBufferTorch:
         batches = list(buffer.dataloader(batch_size=2, shuffle=True))
         assert len(batches) == 3
 
-        # Collect all sampled data
+        # Collect all sampled data - already torch tensors
         all_sampled = torch.cat([batch["obs"] for batch in batches])
         all_original = torch.tensor([[float(i)] for i in range(5)])
 

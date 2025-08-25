@@ -3,14 +3,15 @@ from typing import Any
 import numpy as np
 import torch
 from numpy.typing import NDArray
+from torch import Tensor
 from torch.utils.data import DataLoader
 
-from .buffer_utils import BufferNP
+from .buffer_utils import BufferTorch
 from .data_type import Experience
 
 
 class ReplayBuffer:
-    """A replay buffer implementation using BufferNP for numpy-based storage."""
+    """A replay buffer implementation using BufferTorch for torch-based storage."""
 
     def __init__(self, capacity: int) -> None:
         """Initialize the replay buffer with a given capacity.
@@ -18,28 +19,40 @@ class ReplayBuffer:
         Args:
             capacity: Maximum number of experiences the buffer can hold
         """
-        self._buffer = BufferNP(capacity)
+        self._buffer = BufferTorch(capacity)
 
     def add_batch(
         self,
-        states: NDArray[Any],
-        actions: NDArray[Any],
-        rewards: NDArray[Any],
-        next_states: NDArray[Any],
-        dones: NDArray[Any],
-    ) -> NDArray[np.int64]:
+        states: Tensor | NDArray[Any],
+        actions: Tensor | NDArray[Any],
+        rewards: Tensor | NDArray[Any],
+        next_states: Tensor | NDArray[Any],
+        dones: Tensor | NDArray[Any],
+    ) -> Tensor:
         """Add a batch of experiences to the buffer.
 
         Args:
-            states: Array of states with shape [batch_size, *state_shape]
-            actions: Array of actions with shape [batch_size, *action_shape]
-            rewards: Array of rewards with shape [batch_size]
-            next_states: Array of next states with shape [batch_size, *state_shape]
-            dones: Array of done flags with shape [batch_size]
+            states: states with shape [batch_size, *state_shape]
+            actions: actions with shape [batch_size, *action_shape]
+            rewards: rewards with shape [batch_size]
+            next_states: next states with shape [batch_size, *state_shape]
+            dones: done flags with shape [batch_size]
 
         Returns:
             Indices where the data was written
         """
+        # Note: the from_numpy use the original numpy array, so the memory is not copied
+        if isinstance(states, np.ndarray):
+            states = torch.from_numpy(states)
+        if isinstance(actions, np.ndarray):
+            actions = torch.from_numpy(actions)
+        if isinstance(rewards, np.ndarray):
+            rewards = torch.from_numpy(rewards)
+        if isinstance(next_states, np.ndarray):
+            next_states = torch.from_numpy(next_states)
+        if isinstance(dones, np.ndarray):
+            dones = torch.from_numpy(dones)
+
         return self._buffer.add_batch(
             states=states,
             actions=actions,
@@ -58,19 +71,19 @@ class ReplayBuffer:
             Experience object containing sampled data as torch tensors
         """
         batch_data = self._buffer.sample(batch_size)
-        return Experience.from_numpy(**batch_data)
+        return Experience.from_kwargs(**batch_data)
 
-    def sample_by_idxs(self, idxs: NDArray[np.int64]) -> Experience:
+    def sample_by_idxs(self, idxs: Tensor) -> Experience:
         """Sample experiences by specific indices.
 
         Args:
-            idxs: Array of indices to sample
+            idxs: Tensor of indices to sample
 
         Returns:
             Experience object containing sampled data as torch tensors
         """
         batch_data = self._buffer.sample_by_idxs(idxs)
-        return Experience.from_numpy(**batch_data)
+        return Experience.from_kwargs(**batch_data)
 
     def dataloader(
         self,
@@ -82,7 +95,7 @@ class ReplayBuffer:
         persistent_workers: bool = False,
         drop_last: bool = False,
         generator: torch.Generator | None = None,
-    ) -> DataLoader[dict[str, torch.Tensor]]:
+    ) -> DataLoader[dict[str, Tensor]]:
         """Get a standard torch.utils.data.DataLoader of all data in the buffer."""
         return self._buffer.dataloader(
             batch_size=batch_size,

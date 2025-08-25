@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Any, Generator
+from typing import Any
 
 import numpy as np
 import torch
 from numpy.typing import NDArray
+from torch import Tensor
+from torch.utils.data import DataLoader, Dataset
 
 
 class BufferBase(ABC):
@@ -53,27 +55,93 @@ class BufferBase(ABC):
 
         return ptr_end, old_ptr
 
+    def _validate_index(self, idx: int) -> int:
+        """Validate index."""
+        if not self._initialized:
+            raise RuntimeError("Buffer not initialized. Call add_batch first.")
+
+        if idx < 0:
+            idx = self._size + idx
+        if idx < 0 or idx >= self._size:
+            raise IndexError(f"Index {idx} out of range for buffer of size {self._size}")
+        return idx
+
     @abstractmethod
     def add_batch(self, **batch_data: Any) -> Any:
         """Add a batch of data to the buffer."""
-        pass
 
     @abstractmethod
     def sample(self, batch_size: int) -> dict[str, Any]:
         """Sample a random batch from the buffer."""
-        pass
 
     @abstractmethod
     def sample_by_idxs(self, idxs: Any) -> dict[str, Any]:
         """Sample data by specific indices."""
-        pass
 
     @abstractmethod
+    def __getitem__(self, idx: int) -> dict[str, Tensor]:
+        """Get a sample by index.
+
+        For self.dataloader method.
+        """
+
     def dataloader(
-        self, batch_size: int, shuffle: bool = True
-    ) -> Generator[dict[str, Any], None, None]:
-        """Yield all data in the buffer in batches."""
-        pass
+        self,
+        batch_size: int,
+        shuffle: bool = True,
+        *,
+        num_workers: int = 0,
+        pin_memory: bool = False,
+        persistent_workers: bool = False,
+        drop_last: bool = False,
+        generator: torch.Generator | None = None,
+    ) -> DataLoader[dict[str, Tensor]]:
+        """Get a standard torch.utils.data.DataLoader of all data in the buffer.
+
+        - If the buffer stores CPU tensors:
+            set num_workers>0, pin_memory=True to get asynchronous H->D transfer.
+        - If the buffer stores GPU tensors:
+            recommend num_workers=0 (CUDA tensors cannot be pickled between processes).
+
+        Args:
+            batch_size: Size of each batch
+            shuffle: Whether to shuffle the data
+            num_workers: Number of workers for data loading
+            pin_memory: Whether to pin memory for data loading
+            persistent_workers: Whether to persist the workers
+            drop_last: Whether to drop the last batch if it's not full
+            generator: Random number generator for shuffling
+
+        Returns:
+            A standard torch.utils.data.DataLoader of all data in the buffer
+        """
+
+        class _DatasetView(Dataset[dict[str, Tensor]]):
+            def __init__(self, buf: "BufferBase") -> None:
+                self._buf = buf
+
+            def __len__(self) -> int:
+                return len(self._buf)
+
+            def __getitem__(self, idx: int) -> dict[str, Tensor]:
+                # return a sample dict; DataLoader's default collate can stack them into a batch
+                # Note: if the underlying tensors are on GPU, they will also be returned on GPU
+                return self._buf[idx]
+
+        # Handle empty buffer case
+        if len(self) == 0:
+            raise RuntimeError("Cannot create dataloader from empty buffer. Add data first.")
+
+        return DataLoader(
+            _DatasetView(self),
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=persistent_workers,
+            drop_last=drop_last,
+            generator=generator,
+        )
 
 
 class BufferNP(BufferBase):
@@ -82,6 +150,14 @@ class BufferNP(BufferBase):
     def __init__(self, capacity: int) -> None:
         super().__init__(capacity)
         self._data: dict[str, NDArray[Any]] = {}
+
+    def __getitem__(self, idx: int) -> dict[str, Tensor]:
+        """Get a sample by index."""
+        idx = self._validate_index(idx)
+        return {
+            key: torch.tensor(arr[idx]) if np.isscalar(arr[idx]) else torch.from_numpy(arr[idx])
+            for key, arr in self._data.items()
+        }
 
     def add_batch(self, **batch_data: NDArray[Any]) -> NDArray[np.int64]:
         """Add a batch of numpy arrays to the buffer.
@@ -144,29 +220,6 @@ class BufferNP(BufferBase):
 
         return {key: arr[idxs] for key, arr in self._data.items()}
 
-    def dataloader(
-        self, batch_size: int, shuffle: bool = True
-    ) -> Generator[dict[str, NDArray[Any]], None, None]:
-        """Yield all data in the buffer in batches.
-
-        Args:
-            batch_size: Size of each batch
-            shuffle: Whether to shuffle the data
-
-        Yields:
-            dictionary containing batch numpy arrays
-        """
-        assert self._initialized, "Memory not initialized. Call add_batch first."
-
-        if shuffle:
-            idxs = np.random.permutation(self._size).astype(np.int64)
-        else:
-            idxs = np.arange(self._size, dtype=np.int64)
-
-        for i in range(0, self._size, batch_size):
-            batch_idxs = idxs[i : i + batch_size]
-            yield {key: arr[batch_idxs] for key, arr in self._data.items()}
-
     def _write_no_wraparound(
         self, batch_data: dict[str, NDArray[Any]], start: int, end: int
     ) -> NDArray[np.int64]:
@@ -211,14 +264,23 @@ class BufferNP(BufferBase):
 
 
 class BufferTorch(BufferBase):
-    """Buffer implementation for torch tensors."""
+    """Buffer implementation for torch tensors.
+
+    All tensors are stored on the same device.
+    """
 
     def __init__(self, capacity: int) -> None:
         super().__init__(capacity)
-        self._data: dict[str, torch.Tensor] = {}
-        self._device: dict[str, torch.device] = {}
+        self._data: dict[str, Tensor] = {}
+        # Note: all tensors are stored on the same device. cpu will be overwritten during init.
+        self._device: torch.device = torch.device("cpu")
 
-    def add_batch(self, **batch_data: torch.Tensor) -> torch.Tensor:
+    def __getitem__(self, idx: int) -> dict[str, Tensor]:
+        """Get a sample by index."""
+        idx = self._validate_index(idx)
+        return {key: arr[idx] for key, arr in self._data.items()}
+
+    def add_batch(self, **batch_data: Tensor) -> Tensor:
         """Add a batch of torch tensors to the buffer.
 
         Args:
@@ -247,7 +309,7 @@ class BufferTorch(BufferBase):
             # Wrap-around writing
             return self._write_wraparound(batch_data, batch_size, old_ptr)
 
-    def sample(self, batch_size: int) -> dict[str, torch.Tensor]:
+    def sample(self, batch_size: int) -> dict[str, Tensor]:
         """Sample a random batch from the buffer.
 
         Args:
@@ -260,7 +322,7 @@ class BufferTorch(BufferBase):
         idxs = torch.randint(0, self._size, (batch_size,), dtype=torch.int64)
         return self.sample_by_idxs(idxs)
 
-    def sample_by_idxs(self, idxs: torch.Tensor) -> dict[str, torch.Tensor]:
+    def sample_by_idxs(self, idxs: Tensor) -> dict[str, Tensor]:
         """Sample data by specific indices.
 
         Args:
@@ -277,43 +339,18 @@ class BufferTorch(BufferBase):
                 f"Invalid indices: indices must be in range [0, {self._size}), got {idxs}"
             )
 
-        return {key: arr[idxs.to(self._device[key])] for key, arr in self._data.items()}
+        idxs = idxs.to(self._device)
 
-    def dataloader(
-        self, batch_size: int, shuffle: bool = True
-    ) -> Generator[dict[str, torch.Tensor], None, None]:
-        """Yield all data in the buffer in batches.
+        return {key: arr[idxs] for key, arr in self._data.items()}
 
-        Args:
-            batch_size: Size of each batch
-            shuffle: Whether to shuffle the data
-
-        Yields:
-            dictionary containing batch torch tensors
-        """
-        assert self._initialized, "Memory not initialized. Call add_batch first."
-
-        if shuffle:
-            indices = torch.randperm(self._size, dtype=torch.int64)
-        else:
-            indices = torch.arange(self._size, dtype=torch.int64)
-
-        for i in range(0, self._size, batch_size):
-            batch_indices = indices[i : i + batch_size]
-            yield {key: arr[batch_indices.to(self._device[key])] for key, arr in self._data.items()}
-
-    def _write_no_wraparound(
-        self, batch_data: dict[str, torch.Tensor], start: int, end: int
-    ) -> torch.Tensor:
+    def _write_no_wraparound(self, batch_data: dict[str, Tensor], start: int, end: int) -> Tensor:
         """Write data without wrap-around."""
         for key, data in batch_data.items():
             self._data[key][start:end] = data
 
         return torch.arange(start, end, dtype=torch.int64)
 
-    def _write_wraparound(
-        self, batch_data: dict[str, torch.Tensor], batch_size: int, ptr: int
-    ) -> torch.Tensor:
+    def _write_wraparound(self, batch_data: dict[str, Tensor], batch_size: int, ptr: int) -> Tensor:
         """Write data with wrap-around."""
         head_size = self._capacity - ptr
         tail_size = batch_size - head_size
@@ -328,7 +365,7 @@ class BufferTorch(BufferBase):
         tail_indices = torch.arange(0, tail_size, dtype=torch.int64)
         return torch.cat([head_indices, tail_indices])
 
-    def _init_memory_if_necessary(self, **batch_data: torch.Tensor) -> None:
+    def _init_memory_if_necessary(self, **batch_data: Tensor) -> None:
         """Initialize memory allocation based on the first batch of data.
 
         Args:
@@ -340,7 +377,7 @@ class BufferTorch(BufferBase):
         # Pre-allocate memory for each field
         for key, data in batch_data.items():
             shape = (self._capacity, *data.shape[1:])
-            self._device[key] = data.device
+            self._device = data.device
             self._data[key] = torch.empty(shape, dtype=data.dtype, device=data.device)
 
         self._initialized = True

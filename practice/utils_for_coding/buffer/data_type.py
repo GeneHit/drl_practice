@@ -46,7 +46,7 @@ class Experience:
         )
 
     @classmethod
-    def from_dict(cls, **batch_data: Tensor) -> "Experience":
+    def from_kwargs(cls, **batch_data: Tensor) -> "Experience":
         """Create an Experience from a dictionary of torch tensors."""
         return cls(
             states=batch_data["states"],

@@ -1,10 +1,12 @@
-from typing import Dict
+from typing import Any, Dict
 
+import numpy as np
 import pytest
 import torch
+from numpy.typing import NDArray
 from torch import Tensor
 
-from practice.utils_for_coding.buffer.replay_torch import ReplayBuffer
+from practice.utils_for_coding.buffer.replay import ReplayBuffer
 
 
 class TestReplayBuffer:
@@ -28,6 +30,21 @@ class TestReplayBuffer:
             "rewards": torch.rand(batch_size, dtype=torch.float32),
             "next_states": torch.rand(batch_size, state_dim, dtype=torch.float32),
             "dones": torch.randint(0, 2, (batch_size,), dtype=torch.bool),
+        }
+
+    @pytest.fixture
+    def numpy_sample_data(self) -> Dict[str, NDArray[Any]]:
+        """Create numpy sample data for testing."""
+        batch_size = 3
+        state_dim = 4
+        action_dim = 2
+
+        return {
+            "states": np.random.rand(batch_size, state_dim).astype(np.float32),
+            "actions": np.random.rand(batch_size, action_dim).astype(np.float32),
+            "rewards": np.random.rand(batch_size).astype(np.float32),
+            "next_states": np.random.rand(batch_size, state_dim).astype(np.float32),
+            "dones": np.random.choice([True, False], batch_size),
         }
 
     def test_init(self) -> None:
@@ -144,14 +161,22 @@ class TestReplayBuffer:
         # Should have ceil(3/2) = 2 batches
         assert len(batches) == 2
 
-        # First batch should have 2 samples
-        assert batches[0].states.shape[0] == 2
+        # First batch should have 2 samples - now returns dict of tensors
+        assert batches[0]["states"].shape[0] == 2
+        assert batches[0]["actions"].shape[0] == 2
+        assert batches[0]["rewards"].shape[0] == 2
+        assert batches[0]["next_states"].shape[0] == 2
+        assert batches[0]["dones"].shape[0] == 2
 
         # Second batch should have 1 sample
-        assert batches[1].states.shape[0] == 1
+        assert batches[1]["states"].shape[0] == 1
+        assert batches[1]["actions"].shape[0] == 1
+        assert batches[1]["rewards"].shape[0] == 1
+        assert batches[1]["next_states"].shape[0] == 1
+        assert batches[1]["dones"].shape[0] == 1
 
         # Check that all samples are accounted for
-        total_samples = sum(batch.states.shape[0] for batch in batches)
+        total_samples = sum(batch["states"].shape[0] for batch in batches)
         assert total_samples == len(sample_data["states"])
 
     def test_dataloader_shuffle(self, buffer: ReplayBuffer) -> None:
@@ -175,8 +200,9 @@ class TestReplayBuffer:
 
         # With high probability, at least one batch should be different
         # (this test might rarely fail due to randomness, but very unlikely)
+        # Now batches are dicts of tensors instead of Experience objects
         for b1, b2 in zip(no_shuffle_batches, shuffle_batches):
-            if not torch.equal(b1.states, b2.states):
+            if not torch.equal(b1["states"], b2["states"]):
                 break
         # Note: We don't assert this because shuffle might occasionally produce the same order
 
@@ -346,3 +372,194 @@ class TestReplayBuffer:
 
         # Check that we can sample (device handling is up to BufferTorch implementation)
         assert experience.states.shape[0] == 1
+
+    def test_add_batch_numpy_input(
+        self, buffer: ReplayBuffer, numpy_sample_data: Dict[str, NDArray[Any]]
+    ) -> None:
+        """Test adding a batch of numpy arrays."""
+        initial_len = len(buffer)
+        indices = buffer.add_batch(**numpy_sample_data)
+
+        # Check that buffer size increased
+        assert len(buffer) == initial_len + len(numpy_sample_data["states"])
+
+        # Check that indices are returned correctly
+        expected_indices = torch.arange(initial_len, initial_len + len(numpy_sample_data["states"]))
+        torch.testing.assert_close(indices, expected_indices)
+
+        # Sample the data to verify it was stored correctly
+        experience = buffer.sample(len(numpy_sample_data["states"]))
+
+        # Check types - should all be torch tensors now
+        assert isinstance(experience.states, torch.Tensor)
+        assert isinstance(experience.actions, torch.Tensor)
+        assert isinstance(experience.rewards, torch.Tensor)
+        assert isinstance(experience.next_states, torch.Tensor)
+        assert isinstance(experience.dones, torch.Tensor)
+
+        # Check shapes
+        assert experience.states.shape[0] == len(numpy_sample_data["states"])
+        assert experience.actions.shape[0] == len(numpy_sample_data["actions"])
+
+    def test_add_batch_mixed_input(self, buffer: ReplayBuffer) -> None:
+        """Test adding a batch with mixed numpy arrays and tensors."""
+        batch_size = 2
+
+        # Mix of numpy arrays and tensors
+        states = np.random.rand(batch_size, 4).astype(np.float32)  # numpy
+        actions = torch.rand(batch_size, 2, dtype=torch.float32)  # tensor
+        rewards = np.random.rand(batch_size).astype(np.float32)  # numpy
+        next_states = torch.rand(batch_size, 4, dtype=torch.float32)  # tensor
+        dones = np.array([True, False])  # numpy
+
+        initial_len = len(buffer)
+        indices = buffer.add_batch(
+            states=states,
+            actions=actions,
+            rewards=rewards,
+            next_states=next_states,
+            dones=dones,
+        )
+
+        # Check that buffer size increased
+        assert len(buffer) == initial_len + batch_size
+
+        # Check that indices are returned correctly
+        expected_indices = torch.arange(initial_len, initial_len + batch_size)
+        torch.testing.assert_close(indices, expected_indices)
+
+        # Sample the data to verify it was stored correctly
+        experience = buffer.sample(batch_size)
+
+        # All should be torch tensors now
+        assert isinstance(experience.states, torch.Tensor)
+        assert isinstance(experience.actions, torch.Tensor)
+        assert isinstance(experience.rewards, torch.Tensor)
+        assert isinstance(experience.next_states, torch.Tensor)
+        assert isinstance(experience.dones, torch.Tensor)
+
+    def test_numpy_to_tensor_conversion_dtypes(self, buffer: ReplayBuffer) -> None:
+        """Test that numpy dtypes are preserved when converting to tensors."""
+        # Test different numpy dtypes
+        states = np.random.rand(2, 4).astype(np.float64)
+        actions = np.array([0, 1], dtype=np.int32)
+        rewards = np.array([1.5, -0.5], dtype=np.float32)
+        next_states = np.random.rand(2, 4).astype(np.float32)
+        dones = np.array([True, False], dtype=bool)
+
+        buffer.add_batch(
+            states=states,
+            actions=actions,
+            rewards=rewards,
+            next_states=next_states,
+            dones=dones,
+        )
+        experience = buffer.sample(2)
+
+        # Check that dtypes are preserved (torch.from_numpy preserves dtypes)
+        assert experience.states.dtype == torch.float64
+        assert experience.actions.dtype == torch.int32
+        assert experience.rewards.dtype == torch.float32
+        assert experience.next_states.dtype == torch.float32
+        assert experience.dones.dtype == torch.bool
+
+    def test_numpy_conversion_behavior(self, buffer: ReplayBuffer) -> None:
+        """Test that numpy arrays are properly converted to tensors and stored independently."""
+        # Create numpy arrays
+        states = np.random.rand(2, 4).astype(np.float32)
+        actions = np.random.rand(2, 2).astype(np.float32)
+        rewards = np.random.rand(2).astype(np.float32)
+        next_states = np.random.rand(2, 4).astype(np.float32)
+        dones = np.array([True, False])
+
+        # Store original values
+        original_states = states.copy()
+
+        numpy_data = {
+            "states": states,
+            "actions": actions,
+            "rewards": rewards,
+            "next_states": next_states,
+            "dones": dones,
+        }
+
+        buffer.add_batch(**numpy_data)
+
+        # Store the original value before modification
+        original_states_value = original_states[0, 0]
+
+        # Modify the original numpy array
+        states[0, 0] = 999.0
+
+        # The tensor in the buffer should NOT reflect this change because
+        # the buffer stores its own copy of the data (torch assignment copies data)
+        experience = buffer.sample_by_idxs(torch.tensor([0], dtype=torch.int64))
+
+        # The stored value should be the original value, not the modified one
+        assert experience.states[0, 0].item() == original_states_value
+        assert experience.states[0, 0].item() != 999.0
+
+    def test_add_batch_empty_numpy_arrays(self, buffer: ReplayBuffer) -> None:
+        """Test adding empty numpy arrays."""
+        empty_numpy_data = {
+            "states": np.empty((0, 4), dtype=np.float32),
+            "actions": np.empty((0, 2), dtype=np.float32),
+            "rewards": np.empty((0,), dtype=np.float32),
+            "next_states": np.empty((0, 4), dtype=np.float32),
+            "dones": np.empty((0,), dtype=bool),
+        }
+
+        initial_len = len(buffer)
+        indices = buffer.add_batch(**empty_numpy_data)
+
+        assert len(buffer) == initial_len
+        assert len(indices) == 0
+        assert isinstance(indices, torch.Tensor)
+
+    def test_numpy_multidimensional_arrays(self, buffer: ReplayBuffer) -> None:
+        """Test buffer with multidimensional numpy arrays (e.g., image states)."""
+        # Test with image-like numpy states (e.g., 84x84x3)
+        batch_size = 2
+        states = np.random.randint(0, 255, (batch_size, 84, 84, 3), dtype=np.uint8)
+        actions = np.array([0, 1], dtype=np.int64)
+        rewards = np.array([1.0, -1.0], dtype=np.float32)
+        next_states = np.random.randint(0, 255, (batch_size, 84, 84, 3), dtype=np.uint8)
+        dones = np.array([False, True])
+
+        buffer.add_batch(
+            states=states,
+            actions=actions,
+            rewards=rewards,
+            next_states=next_states,
+            dones=dones,
+        )
+        experience = buffer.sample(1)
+
+        # Check shapes are preserved
+        assert experience.states.shape[1:] == (84, 84, 3)
+        assert experience.next_states.shape[1:] == (84, 84, 3)
+        assert experience.states.dtype == torch.uint8
+        assert experience.next_states.dtype == torch.uint8
+
+    def test_numpy_large_batch_addition(self) -> None:
+        """Test adding large numpy batches that exceed capacity."""
+        capacity = 5
+        buffer = ReplayBuffer(capacity)
+
+        # Add numpy batch larger than capacity
+        large_numpy_batch = {
+            "states": np.random.rand(8, 4).astype(np.float32),
+            "actions": np.random.rand(8, 2).astype(np.float32),
+            "rewards": np.random.rand(8).astype(np.float32),
+            "next_states": np.random.rand(8, 4).astype(np.float32),
+            "dones": np.array([False] * 8),
+        }
+
+        indices = buffer.add_batch(**large_numpy_batch)
+
+        # Buffer should be at capacity
+        assert len(buffer) == capacity
+
+        # Should return indices for all written data
+        assert len(indices) == 8
+        assert isinstance(indices, torch.Tensor)
