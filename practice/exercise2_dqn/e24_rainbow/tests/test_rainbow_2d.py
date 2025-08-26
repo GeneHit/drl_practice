@@ -126,7 +126,7 @@ class TestRainbowLunar2D:
             assert isinstance(context.trained_target, torch.nn.Module), (
                 "trained_target should be a Module"
             )
-            assert next(context.trained_target.parameters()).device == config.device
+            assert next(context.trained_target.parameters()).device.type == config.device.type
 
             # Verify environment action space is discrete
             assert isinstance(context.eval_env.action_space, Discrete)

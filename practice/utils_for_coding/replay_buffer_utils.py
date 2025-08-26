@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Generator, Union
 
 import numpy as np
 import torch
@@ -40,6 +40,7 @@ class ReplayBuffer:
     def __init__(
         self,
         capacity: int,
+        # TODO: remove below arguments and use Buffer instead
         state_shape: tuple[int, ...],
         state_dtype: type[np.float32] | type[np.uint8] = np.float32,
         action_dtype: type[np.int64] | type[np.float32] = np.int64,
@@ -72,9 +73,11 @@ class ReplayBuffer:
     ) -> None:
         self._warn_if_necessary(states)
         batch_size = len(states)
-        if self._ptr + batch_size <= self._capacity:
+
+        current_ptr = self._ptr + batch_size
+        if current_ptr <= self._capacity:
             # no wrap-around writing
-            indices: Union[slice, list[slice]] = slice(self._ptr, self._ptr + batch_size)
+            indices: Union[slice, list[slice]] = slice(self._ptr, current_ptr)
         else:
             # segment writing (wrap-around case)
             head_size = self._capacity - self._ptr
@@ -92,7 +95,7 @@ class ReplayBuffer:
                 arr[indices] = data
 
         # update pointer and count
-        self._ptr = (self._ptr + batch_size) % self._capacity
+        self._ptr = current_ptr % self._capacity
         self._size = min(self._size + batch_size, self._capacity)
 
     def sample(self, batch_size: int) -> Experience:
@@ -102,21 +105,34 @@ class ReplayBuffer:
         # generate unique random indices
         indices = np.random.choice(self._size, batch_size, replace=False)
 
-        # batch extract data (avoid loop)
-        states = self._states[indices]
-        actions = self._actions[indices]
-        rewards = self._rewards[indices]
-        next_states = self._next_states[indices]
-        dones = self._dones[indices]
-
         # convert to tensor (keep data sharing without copying)
         return Experience(
-            states=torch.as_tensor(states),
-            actions=torch.as_tensor(actions),
-            rewards=torch.as_tensor(rewards),
-            next_states=torch.as_tensor(next_states),
-            dones=torch.as_tensor(dones),
+            states=torch.from_numpy(self._states[indices]),
+            actions=torch.from_numpy(self._actions[indices]),
+            rewards=torch.from_numpy(self._rewards[indices]),
+            next_states=torch.from_numpy(self._next_states[indices]),
+            dones=torch.from_numpy(self._dones[indices]),
         )
+
+    def dataloader(
+        self, batch_size: int, shuffle: bool = True
+    ) -> Generator[Experience, None, None]:
+        """Yield all data in the replay buffer.
+
+        Yields:
+            A generator of all data in the replay buffer.
+        """
+        indices = np.random.permutation(self._size) if shuffle else np.arange(self._size)
+
+        for i in range(0, self._size, batch_size):
+            indices = indices[i : i + batch_size]
+            yield Experience(
+                states=torch.from_numpy(self._states[indices]),
+                actions=torch.from_numpy(self._actions[indices]),
+                rewards=torch.from_numpy(self._rewards[indices]),
+                next_states=torch.from_numpy(self._next_states[indices]),
+                dones=torch.from_numpy(self._dones[indices]),
+            )
 
     def __len__(self) -> int:
         return self._size
