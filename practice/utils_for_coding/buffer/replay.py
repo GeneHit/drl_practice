@@ -88,13 +88,11 @@ class ReplayBuffer:
     def dataloader(
         self,
         batch_size: int,
-        shuffle: bool = True,
         *,
+        shuffle: bool = True,
         num_workers: int = 0,
         pin_memory: bool = False,
-        persistent_workers: bool = False,
         drop_last: bool = False,
-        generator: torch.Generator | None = None,
     ) -> DataLoader[dict[str, Tensor]]:
         """Get a standard torch.utils.data.DataLoader of all data in the buffer.
 
@@ -109,9 +107,7 @@ class ReplayBuffer:
             shuffle: Whether to shuffle the data
             num_workers: Number of workers for data loading
             pin_memory: Whether to pin memory for data loading
-            persistent_workers: Whether to persist the workers
             drop_last: Whether to drop the last batch if it's not full
-            generator: Random number generator for shuffling
 
         Returns:
             A standard torch.utils.data.DataLoader of all data in the buffer
@@ -121,9 +117,7 @@ class ReplayBuffer:
             shuffle=shuffle,
             num_workers=num_workers,
             pin_memory=pin_memory,
-            persistent_workers=persistent_workers,
             drop_last=drop_last,
-            generator=generator,
         )
 
     def clear(self) -> None:
