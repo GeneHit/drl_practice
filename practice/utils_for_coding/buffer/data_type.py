@@ -24,16 +24,14 @@ class Experience:
     next_states: Tensor
     dones: Tensor
 
-    def to(
-        self, device: torch.device, dtype: torch.dtype | None = None, non_blocking: bool = True
-    ) -> "Experience":
+    def to(self, device: torch.device, dtype: torch.dtype | None = None) -> "Experience":
         """Move all tensors to a device and/or dtype."""
         return Experience(
-            states=self.states.to(device, dtype, non_blocking=non_blocking),
-            actions=self.actions.to(device, dtype, non_blocking=non_blocking),
-            rewards=self.rewards.to(device, dtype, non_blocking=non_blocking),
-            next_states=self.next_states.to(device, dtype, non_blocking=non_blocking),
-            dones=self.dones.to(device, dtype, non_blocking=non_blocking),
+            states=self.states.to(device, dtype, non_blocking=True),
+            actions=self.actions.to(device, dtype, non_blocking=True),
+            rewards=self.rewards.to(device, dtype, non_blocking=True),
+            next_states=self.next_states.to(device, dtype, non_blocking=True),
+            dones=self.dones.to(device, dtype, non_blocking=True),
         )
 
     @classmethod
