@@ -96,7 +96,26 @@ class ReplayBuffer:
         drop_last: bool = False,
         generator: torch.Generator | None = None,
     ) -> DataLoader[dict[str, Tensor]]:
-        """Get a standard torch.utils.data.DataLoader of all data in the buffer."""
+        """Get a standard torch.utils.data.DataLoader of all data in the buffer.
+
+        - If the buffer stores CPU tensors:
+            set num_workers>0, pin_memory=True to get asynchronous H->D transfer.
+        - If the buffer stores GPU tensors:
+            recommend num_workers=0 (CUDA tensors cannot be pickled between processes)
+            and pin_memory=True.
+
+        Args:
+            batch_size: Size of each batch
+            shuffle: Whether to shuffle the data
+            num_workers: Number of workers for data loading
+            pin_memory: Whether to pin memory for data loading
+            persistent_workers: Whether to persist the workers
+            drop_last: Whether to drop the last batch if it's not full
+            generator: Random number generator for shuffling
+
+        Returns:
+            A standard torch.utils.data.DataLoader of all data in the buffer
+        """
         return self._buffer.dataloader(
             batch_size=batch_size,
             shuffle=shuffle,

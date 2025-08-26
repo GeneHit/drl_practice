@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Generator, cast
 
 import numpy as np
 import torch
 from numpy.typing import NDArray
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from practice.base.context import ContextBase
@@ -11,7 +11,7 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.exercise9_sac.sac_exercise import SACConfig
 from practice.exercise12_mbpo.model_based_env import EnvModel, ModelBasedConfig
-from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
+from practice.utils_for_coding.buffer import Experience, ReplayBuffer
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
 
@@ -94,14 +94,7 @@ class MBPOTrainer(TrainerBase):
         obs_dtype = envs.single_observation_space.dtype
         assert obs_dtype in (np.float32, np.uint8)
         assert envs.single_action_space.dtype == np.float32
-        env_buffer = ReplayBuffer(
-            capacity=self._config.replay_buffer_capacity,
-            state_shape=self._ctx.env_state_shape,
-            # use cast for mypy
-            state_dtype=cast(type[np.float32] | type[np.uint8], obs_dtype),
-            action_dtype=np.float32,
-            action_shape=envs.single_action_space.shape,  # correct for continuous actions
-        )
+        env_buffer = ReplayBuffer(capacity=self._config.replay_buffer_capacity)
 
         # Initialize environments
         states, _ = envs.reset()
@@ -140,6 +133,8 @@ class MBPOTrainer(TrainerBase):
 
             states = next_states
             prev_dones = dones
+            # Log episode metrics
+            episode_steps += writer.log_episode_stats_if_has(infos, episode_steps)
 
             # Training updates
             if step >= start_step and step % self._config.train_interval == 0:
@@ -148,25 +143,22 @@ class MBPOTrainer(TrainerBase):
 
                 # 2. train all env models
                 pod.train_env_model(
-                    experience=env_buffer.dataloader(
+                    dataloader=env_buffer.dataloader(
                         batch_size=self._config.model_based_config.train.batch_size,
                         shuffle=True,
+                        num_workers=2,
+                        pin_memory=True,
                     ),
                     step=step,
                 )
 
                 # 3. use random model to generate rollout
-                # TODO: add rollout to model buffer
                 pod.generate_rollout(
-                    experience=env_buffer.sample(self._config.rollout_num), step=step
+                    real_data=env_buffer.sample(self._config.rollout_num), step=step
                 )
 
                 # 4. train the SAC with mixed data
-                # TODO: use the mix data from model buffer and real replay buffer
-                pod.train_sac(env_buffer.sample(self._config.batch_size), step)
-
-            # Log episode metrics
-            episode_steps += writer.log_episode_stats_if_has(infos, episode_steps)
+                pod.train_sac(real_data=env_buffer.sample(pod.num_for_real_data(step)), step=step)
 
         writer.close()
 
@@ -179,18 +171,29 @@ class _MBPOPod:
         self._ctx = ctx
         self._writer = writer
 
+        self._model_buffer = ReplayBuffer(capacity=config.model_replay_buffer_capacity)
+
+    def num_for_real_data(self, step: int) -> int:
+        """Get the number to get real data for training SAC."""
+        return int(self._config.batch_size * (1 - self._config.batch_rate_of_model_sample(step)))
+
     def action(self, state: NDArray[ObsType], step: int) -> NDArray[ActTypeC]:
         """Get actions for all environments."""
         raise NotImplementedError("Not implemented")
 
-    def train_env_model(self, experience: Generator[Experience, None, None], step: int) -> None:
-        """Train the environment model."""
+    def train_env_model(self, dataloader: DataLoader[dict[str, torch.Tensor]], step: int) -> None:
+        """Train the environment model with real data."""
         raise NotImplementedError("Not implemented")
 
-    def generate_rollout(self, experience: Experience, step: int) -> None:
-        """Generate rollout."""
+    def generate_rollout(self, real_data: Experience, step: int) -> None:
+        """Generate rollout and buffer it."""
         raise NotImplementedError("Not implemented")
 
-    def train_sac(self, experience: Experience, step: int) -> None:
-        """Train the policy network with a vectorized environment."""
+    def train_sac(self, real_data: Experience, step: int) -> None:
+        """Train the policy network with mixed data.
+
+        Args:
+            real_data: The experience from real data. It will be mixed with model data inside.
+            step: The current step.
+        """
         raise NotImplementedError("Not implemented")
