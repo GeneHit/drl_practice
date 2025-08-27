@@ -12,10 +12,11 @@ from tqdm import tqdm
 from practice.base.config import BaseConfig
 from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
+from practice.utils_for_coding.buffer import Experience
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, init_weights, soft_update
 from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on, tensor2np_1d
-from practice.utils_for_coding.replay_buffer_utils import Experience, ReplayBuffer
+from practice.utils_for_coding.replay_buffer_utils import ReplayBuffer
 from practice.utils_for_coding.writer_utils import CustomWriter
 
 
