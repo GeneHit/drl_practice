@@ -5,8 +5,6 @@ import torch
 from numpy.typing import NDArray
 from torch import Tensor
 
-from practice.utils_for_coding.replay_buffer_utils import Experience as ExperienceOld
-
 
 @dataclass(frozen=True, kw_only=True)
 class Experience:
@@ -56,16 +54,6 @@ class Experience:
             rewards=batch_data["rewards"],
             next_states=batch_data["next_states"],
             dones=batch_data["dones"],
-        )
-
-    def to_old_experience(self) -> ExperienceOld:
-        """Convert to the old experience."""
-        return ExperienceOld(
-            states=self.states,
-            actions=self.actions,
-            rewards=self.rewards,
-            next_states=self.next_states,
-            dones=self.dones,
         )
 
 

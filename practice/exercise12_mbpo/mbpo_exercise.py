@@ -227,4 +227,4 @@ class _MBPOPod:
             real_data = env_buffer.sample(real_data_num)
             mixed_data = merge_experiences([model_data, real_data])
 
-            self._sac_pod.update(experience=mixed_data.to_old_experience(), step=step)
+            self._sac_pod.update(experience=mixed_data, step=step)
