@@ -6,6 +6,7 @@ import torch
 from numpy.typing import NDArray
 
 
+# TODO: remove this class and use ExperienceBase instead
 @dataclass(frozen=True, kw_only=True)
 class Experience:
     """

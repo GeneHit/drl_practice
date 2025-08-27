@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 import torch
 from numpy.typing import NDArray
 from torch import Tensor
+
+from practice.utils_for_coding.replay_buffer_utils import Experience as ExperienceOld
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -55,3 +57,33 @@ class Experience:
             next_states=batch_data["next_states"],
             dones=batch_data["dones"],
         )
+
+    def to_old_experience(self) -> ExperienceOld:
+        """Convert to the old experience."""
+        return ExperienceOld(
+            states=self.states,
+            actions=self.actions,
+            rewards=self.rewards,
+            next_states=self.next_states,
+            dones=self.dones,
+        )
+
+
+def merge_experiences(exps: Sequence[Experience]) -> Experience:
+    """Merge a sequence of experiences into one experience."""
+    exps = list(exps)
+    if not exps:
+        raise ValueError("exps is empty")
+
+    # collect all fields
+    states, actions, rewards, next_states, dones = zip(
+        *((e.states, e.actions, e.rewards, e.next_states, e.dones) for e in exps)
+    )
+
+    return Experience(
+        states=torch.cat(list(states), dim=0),
+        actions=torch.cat(list(actions), dim=0),
+        rewards=torch.cat(list(rewards), dim=0),
+        next_states=torch.cat(list(next_states), dim=0),
+        dones=torch.cat(list(dones), dim=0),
+    )

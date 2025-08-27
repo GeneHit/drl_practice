@@ -3,15 +3,16 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 from numpy.typing import NDArray
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from practice.base.context import ContextBase
 from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
-from practice.exercise9_sac.sac_exercise import SACConfig
-from practice.exercise12_mbpo.model_based_env import EnvModel, ModelBasedConfig
-from practice.utils_for_coding.buffer import Experience, ReplayBuffer
+from practice.exercise9_sac.sac_exercise import SACConfig, _SACPod
+from practice.exercise12_mbpo.model_based_env import EnvModel, ModelBasedConfig, ModelBasedEnv
+from practice.utils_for_coding.buffer import ReplayBuffer
+from practice.utils_for_coding.buffer.data_type import merge_experiences
+from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
 from practice.utils_for_coding.writer_utils import CustomWriter
 
@@ -70,15 +71,15 @@ class MBPOTrainer(TrainerBase):
         Steps:
         for epoch in 1...epochs:
             1. step the real environment for real_step_per_epoch steps, and buffer the replay
-            2. train all env models with real replay buffer
-            3. use random model to generate rollout
-                - 3.1 get rollout_num samples from real replay
-                - 3.2 run rollout_len(epoch) steps for each sample
-                - 3.3 buffer the model replay
-            4. train the SAC with mixed data in update_num_per_epoch steps
-                - 4.1 sample from the model replay with changed batch_rate_of_model_sample
-                - 4.2 sample from the real replay with (1 - batch_rate_of_model_sample)
-                - 4.3 train the SAC with mixed data
+            2. update env model, model replay buffer and SAC if necessary
+                - 2.1 train all env models with real replay buffer
+                - 2.2 use random model to generate rollout
+                    - 2.2.1 get rollout_num samples from real replay
+                    - 2.2.2 run rollout_len(epoch) steps for each sample and buffer it
+                - 2.3 train the SAC with mixed data in update_num_per_epoch steps
+                    - 2.3.1 sample from the model replay with changed batch_rate_of_model_sample
+                    - 2.3.2 sample from the real replay with (1 - batch_rate_of_model_sample)
+                    - 2.3.3 train the SAC with mixed data
         """
         # Initialize tensorboard writer
         writer = CustomWriter(
@@ -141,24 +142,8 @@ class MBPOTrainer(TrainerBase):
                 if len(env_buffer) < self._config.batch_size:
                     continue
 
-                # 2. train all env models
-                pod.train_env_model(
-                    dataloader=env_buffer.dataloader(
-                        batch_size=self._config.model_based_config.train.batch_size,
-                        shuffle=True,
-                        num_workers=2,
-                        pin_memory=True,
-                    ),
-                    step=step,
-                )
-
-                # 3. use random model to generate rollout
-                pod.generate_rollout(
-                    real_data=env_buffer.sample(self._config.rollout_num), step=step
-                )
-
-                # 4. train the SAC with mixed data
-                pod.train_sac(real_data=env_buffer.sample(pod.num_for_real_data(step)), step=step)
+                # update env model, model replay buffer and SAC
+                pod.update(env_buffer=env_buffer, step=step)
 
         writer.close()
 
@@ -172,28 +157,74 @@ class _MBPOPod:
         self._writer = writer
 
         self._model_buffer = ReplayBuffer(capacity=config.model_replay_buffer_capacity)
-
-    def num_for_real_data(self, step: int) -> int:
-        """Get the number to get real data for training SAC."""
-        return int(self._config.batch_size * (1 - self._config.batch_rate_of_model_sample(step)))
+        self._model_env = ModelBasedEnv(model=ctx.env_model, cfg=config.model_based_config)
+        self._sac_pod = _SACPod(
+            config=config,
+            ctx=ACContext(
+                train_env=ctx.train_env,
+                eval_env=ctx.eval_env,
+                trained_target=ctx.trained_target,
+                optimizer=ctx.optimizer,
+                critic=ctx.critic,
+                critic_optimizer=ctx.critic_optimizer,
+                lr_schedulers=ctx.lr_schedulers,
+                track_and_evaluate=ctx.track_and_evaluate,
+            ),
+            writer=writer,
+        )
 
     def action(self, state: NDArray[ObsType], step: int) -> NDArray[ActTypeC]:
         """Get actions for all environments."""
-        raise NotImplementedError("Not implemented")
+        return self._sac_pod.action(state=state, step=step)
 
-    def train_env_model(self, dataloader: DataLoader[dict[str, torch.Tensor]], step: int) -> None:
-        """Train the environment model with real data."""
-        raise NotImplementedError("Not implemented")
+    def update(self, env_buffer: ReplayBuffer, step: int) -> None:
+        """Update the env model, model replay buffer and SAC.
 
-    def generate_rollout(self, real_data: Experience, step: int) -> None:
-        """Generate rollout and buffer it."""
-        raise NotImplementedError("Not implemented")
-
-    def train_sac(self, real_data: Experience, step: int) -> None:
-        """Train the policy network with mixed data.
+        Steps:
+        1. train all env models with real replay buffer
+        2. use random model to generate rollout
+            - 2.1 get rollout_num samples from real replay
+            - 2.2 run rollout_len(epoch) steps for each sample
+            - 2.3 buffer the model replay
+        3. train the SAC with mixed data in update_num_per_epoch steps
+            - 3.1 sample from the model replay with changed batch_rate_of_model_sample
+            - 3.2 sample from the real replay with (1 - batch_rate_of_model_sample)
+            - 3.3 train the SAC with mixed data
 
         Args:
-            real_data: The experience from real data. It will be mixed with model data inside.
+            env_buffer: The experience from real data.
             step: The current step.
         """
-        raise NotImplementedError("Not implemented")
+        # 1. train all env models
+        loss_stats = self._model_env.train(
+            dataloader=env_buffer.dataloader(
+                batch_size=self._config.model_based_config.train.batch_size,
+                shuffle=True,
+                num_workers=2,
+                pin_memory=True,
+            ),
+        )
+        self._writer.log_stats(
+            data={k: v[0] for k, v in loss_stats.items()},
+            step=step,
+            log_interval=self._config.log_interval,
+        )
+
+        # 2. use random model to generate rollout and buffer it
+        rollouts = self._model_env.generate_rollouts(
+            real_data=env_buffer.sample(self._config.rollout_num),
+            rollout_len=int(self._config.rollout_len(step)),
+        )
+        self._model_buffer.add_experience(rollouts)
+
+        # 3. train the SAC with mixed data
+        model_data_num = int(
+            self._config.batch_size * self._config.batch_rate_of_model_sample(step)
+        )
+        real_data_num = self._config.batch_size - model_data_num
+        for _ in range(self._config.update_num_per_epoch):
+            model_data = self._model_buffer.sample(model_data_num)
+            real_data = env_buffer.sample(real_data_num)
+            mixed_data = merge_experiences([model_data, real_data])
+
+            self._sac_pod.update(experience=mixed_data.to_old_experience(), step=step)

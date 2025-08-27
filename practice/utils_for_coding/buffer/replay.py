@@ -21,6 +21,23 @@ class ReplayBuffer:
         """
         self._buffer = BufferTorch(capacity)
 
+    def add_experience(self, experience: Experience) -> Tensor:
+        """Add an experience to the buffer.
+
+        Args:
+            experience: The experience to add
+
+        Returns:
+            Indices where the data was written
+        """
+        return self.add_batch(
+            states=experience.states,
+            actions=experience.actions,
+            rewards=experience.rewards,
+            next_states=experience.next_states,
+            dones=experience.dones,
+        )
+
     def add_batch(
         self,
         states: Tensor | NDArray[Any],
