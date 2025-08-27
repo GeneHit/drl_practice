@@ -1,40 +1,10 @@
-from dataclasses import dataclass
 from typing import Any, Generator, Union
 
 import numpy as np
 import torch
 from numpy.typing import NDArray
 
-
-# TODO: remove this class and use ExperienceBase instead
-@dataclass(frozen=True, kw_only=True)
-class Experience:
-    """
-    The experience of the agent for one or a batch of steps.
-
-    Attributes:
-        states:      State at the start [batch, state_dim]
-        actions:     Action taken        [batch, action_dim]
-        rewards:     Reward received     [batch]
-        next_states: Next state          [batch, state_dim]
-        dones:       Done mask (0/1)     [batch]
-    """
-
-    states: torch.Tensor
-    actions: torch.Tensor
-    rewards: torch.Tensor
-    next_states: torch.Tensor
-    dones: torch.Tensor
-
-    def to(self, device: torch.device, dtype: torch.dtype | None = None) -> "Experience":
-        """Move all tensors to a device and/or dtype."""
-        return Experience(
-            states=self.states.to(device, dtype),
-            actions=self.actions.to(device, dtype),
-            rewards=self.rewards.to(device, dtype),
-            next_states=self.next_states.to(device, dtype),
-            dones=self.dones.to(device, dtype),
-        )
+from practice.utils_for_coding.buffer import Experience
 
 
 class ReplayBuffer:
