@@ -2,14 +2,13 @@ import copy
 import random
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Optional
 
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
 from torch.utils.data import DataLoader
 
-from practice.utils_for_coding.buffer import Experience
 from practice.utils_for_coding.network_utils import MLP
 
 
@@ -38,7 +37,6 @@ class ModelBasedConfig:
     done_threshold: float = 0.5
     log_std_bounds: tuple[float, float] = (-5.0, 2.0)
     eps: float = 1e-6
-    rollout_mode: Literal["random", "mean"] = "random"
 
 
 class EnvModel(nn.Module):
@@ -88,7 +86,7 @@ class ModelBasedEnv:
     """A model-based environment wrapper that holds an ensemble (list) of dynamics models."""
 
     def __init__(self, model: EnvModel, cfg: ModelBasedConfig) -> None:
-        self.models = [model, *[copy.deepcopy(model) for _ in range(cfg.num_models - 1)]]
+        self.models = [model, *[copy.deepcopy(model) for _ in range(cfg.num_models - 2)]]
         self._optimizers = [
             torch.optim.AdamW(
                 model.parameters(), lr=cfg.train.lr, weight_decay=cfg.train.weight_decay
@@ -98,12 +96,8 @@ class ModelBasedEnv:
         self.cfg = cfg
 
         # Infer state/action dims from the first model (all models should match).
-        m0 = self.models[0]
-        assert hasattr(m0, "state_dim") and hasattr(m0, "action_dim"), (
-            "Each model must expose state_dim and action_dim."
-        )
-        self.state_dim = int(m0.state_dim)
-        self.action_dim = int(m0.action_dim)
+        self.state_dim = int(model.state_dim)
+        self.action_dim = int(model.action_dim)
 
         # Normalization buffers (set via set_normalizer or set_rollout_context).
         self.mu_in: Optional[torch.Tensor] = None  # shape (state_dim + action_dim,)
@@ -112,11 +106,9 @@ class ModelBasedEnv:
         self.std_out: Optional[torch.Tensor] = None
 
         # Rollout selector
-        self.rollout_mode: Literal["random", "mean"] = cfg.rollout_mode
-        self.rollout_index: int = 0
+        self.rollout_model_index: int = 0
 
-    @torch.no_grad()
-    def set_normalizer(
+    def _set_normalizer(
         self,
         mu_in: torch.Tensor,
         std_in: torch.Tensor,
@@ -132,22 +124,7 @@ class ModelBasedEnv:
 
     def set_rollout_model(self) -> None:
         """Choose which model(s) to use for rollout."""
-        if self.rollout_mode == "random":
-            self.rollout_index = random.randint(0, self.cfg.num_models - 1)
-
-    def set_rollout_context(
-        self,
-        mu_in: torch.Tensor,
-        std_in: torch.Tensor,
-        mu_out: torch.Tensor,
-        std_out: torch.Tensor,
-    ) -> None:
-        """Convenience method to set BOTH normalizer and rollout model at once.
-
-        You should call this before starting a new rollout phase.
-        """
-        self.set_normalizer(mu_in, std_in, mu_out, std_out)
-        self.set_rollout_model()
+        self.rollout_model_index = random.randint(0, self.cfg.num_models - 1)
 
     @torch.no_grad()
     def step(
@@ -165,18 +142,6 @@ class ModelBasedEnv:
             done:       (B, 1) in {0., 1.}
         """
         assert state.ndim == 2 and action.ndim == 2, "state/action must be (B, D)"
-        device = state.device
-
-        # Lazy default normalizer if not set (identity stats).
-        if self.mu_in is None:
-            in_dim = self.state_dim + self.action_dim
-            out_dim = self.state_dim + 1
-            self.set_normalizer(
-                mu_in=torch.zeros(in_dim, device=device),
-                std_in=torch.ones(in_dim, device=device),
-                mu_out=torch.zeros(out_dim, device=device),
-                std_out=torch.ones(out_dim, device=device),
-            )
 
         # Type narrowing for normalizer tensors
         assert (
@@ -184,23 +149,13 @@ class ModelBasedEnv:
             and self.std_in is not None
             and self.mu_out is not None
             and self.std_out is not None
-        )
+        ), "Normalizer not set, should call train() first"
 
         x = torch.cat([state, action], dim=-1)
         x_norm = (x - self.mu_in) / self.std_in
         s_norm, a_norm = x_norm[:, : self.state_dim], x_norm[:, self.state_dim :]
 
-        # Select model outputs according to rollout_mode
-        if self.rollout_mode == "random":
-            mean, log_std, done_logit = self.models[self.rollout_index](s_norm, a_norm)
-        elif self.rollout_mode == "mean":
-            outs = [m(s_norm, a_norm) for m in self.models]
-            means = torch.stack([o[0] for o in outs], dim=0).mean(0)
-            log_stds = torch.stack([o[1] for o in outs], dim=0).mean(0)
-            done_logits = torch.stack([o[2] for o in outs], dim=0).mean(0)
-            mean, log_std, done_logit = means, log_stds, done_logits
-        else:
-            raise ValueError(f"Unknown rollout_mode: {self.rollout_mode}")
+        mean, log_std, done_logit = self.models[self.rollout_model_index](s_norm, a_norm)
 
         # Stabilize log_std and sample/mean in normalized space
         log_std = torch.clamp(log_std, self.cfg.log_std_bounds[0], self.cfg.log_std_bounds[1])
@@ -227,8 +182,4 @@ class ModelBasedEnv:
 
         Returns a dict of training/validation losses per epoch (averaged across models).
         """
-        raise NotImplementedError("Not implemented")
-
-    def generate_rollouts(self, real_data: Experience, rollout_len: int) -> Experience:
-        """Generate rollouts."""
         raise NotImplementedError("Not implemented")

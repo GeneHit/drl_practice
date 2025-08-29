@@ -10,7 +10,7 @@ from practice.base.env_typing import ActTypeC, ObsType
 from practice.base.trainer import TrainerBase
 from practice.exercise9_sac.sac_exercise import SACConfig, _SACPod
 from practice.exercise12_mbpo.model_based_env import EnvModel, ModelBasedConfig, ModelBasedEnv
-from practice.utils_for_coding.buffer import ReplayBuffer
+from practice.utils_for_coding.buffer import Experience, ReplayBuffer
 from practice.utils_for_coding.buffer.data_type import merge_experiences
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.scheduler_utils import ScheduleBase
@@ -211,9 +211,8 @@ class _MBPOPod:
         )
 
         # 2. use random model to generate rollout and buffer it
-        rollouts = self._model_env.generate_rollouts(
-            real_data=env_buffer.sample(self._config.rollout_num),
-            rollout_len=int(self._config.rollout_len(step)),
+        rollouts = self._generate_rollouts(
+            states=env_buffer.sample(self._config.rollout_num).states, step=step
         )
         self._model_buffer.add_experience(rollouts)
 
@@ -228,3 +227,40 @@ class _MBPOPod:
             mixed_data = merge_experiences([model_data, real_data])
 
             self._sac_pod.update(experience=mixed_data, step=step)
+
+    def _generate_rollouts(self, states: torch.Tensor, step: int) -> Experience:
+        """Generate rollouts.
+
+        Args:
+            exp: The initial experience to generate rollouts.
+            step: The current step.
+
+        Returns:
+            The rollouts.
+        """
+        rollout_len = int(self._config.rollout_len(step))
+        rollouts: list[Experience] = []
+        rollout_num = states.shape[0]
+
+        for i in range(rollout_num):
+            state = states[i : i + 1]
+            self._model_env.set_rollout_model()
+
+            for _ in range(rollout_len):
+                action = self._sac_pod.action_torch(state=state)
+                next_state, reward, done = self._model_env.step(state, action)
+                rollouts.append(
+                    Experience(
+                        states=state,
+                        actions=action,
+                        rewards=reward,
+                        next_states=next_state,
+                        dones=done,
+                    )
+                )
+
+                state = next_state
+                if done.squeeze(-1).any().item():
+                    break
+
+        return merge_experiences(rollouts)

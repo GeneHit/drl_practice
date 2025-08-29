@@ -270,6 +270,16 @@ class _SACPod:
         """Get the alpha value with no gradient."""
         return self._log_alpha.exp().detach()
 
+    @torch.no_grad()
+    def action_torch(self, state: torch.Tensor) -> torch.Tensor:
+        """Get the action for rollout.
+
+        Returns:
+            action: The deterministic action.
+        """
+        a, _ = self._actor.sample(state)
+        return a
+
     def action(self, state: NDArray[ObsType], step: int) -> NDArray[ActTypeC]:
         """Sample an action from the actor network.
 
