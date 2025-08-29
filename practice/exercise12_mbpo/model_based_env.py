@@ -86,27 +86,27 @@ class ModelBasedEnv:
     """A model-based environment wrapper that holds an ensemble (list) of dynamics models."""
 
     def __init__(self, model: EnvModel, cfg: ModelBasedConfig) -> None:
-        self.models = [model, *[copy.deepcopy(model) for _ in range(cfg.num_models - 2)]]
+        self._models = [model, *[copy.deepcopy(model) for _ in range(cfg.num_models - 2)]]
         self._optimizers = [
             torch.optim.AdamW(
                 model.parameters(), lr=cfg.train.lr, weight_decay=cfg.train.weight_decay
             )
-            for model in self.models
+            for model in self._models
         ]
-        self.cfg = cfg
+        self._cfg = cfg
 
         # Infer state/action dims from the first model (all models should match).
-        self.state_dim = int(model.state_dim)
-        self.action_dim = int(model.action_dim)
+        self._state_dim = int(model.state_dim)
+        self._action_dim = int(model.action_dim)
 
         # Normalization buffers (set via set_normalizer or set_rollout_context).
-        self.mu_in: Optional[torch.Tensor] = None  # shape (state_dim + action_dim,)
-        self.std_in: Optional[torch.Tensor] = None
-        self.mu_out: Optional[torch.Tensor] = None  # shape (state_dim + 1,) for [Δs, r]
-        self.std_out: Optional[torch.Tensor] = None
+        self._mu_in: Optional[torch.Tensor] = None  # shape (state_dim + action_dim,)
+        self._std_in: Optional[torch.Tensor] = None
+        self._mu_out: Optional[torch.Tensor] = None  # shape (state_dim + 1,) for [Δs, r]
+        self._std_out: Optional[torch.Tensor] = None
 
         # Rollout selector
-        self.rollout_model_index: int = 0
+        self._rollout_model_index: int = 0
 
     def _set_normalizer(
         self,
@@ -116,15 +116,15 @@ class ModelBasedEnv:
         std_out: torch.Tensor,
     ) -> None:
         """Set z-score stats for inputs [s,a] and outputs [Δs,r]."""
-        device = next(self.models[0].parameters()).device
-        self.mu_in = mu_in.to(device)
-        self.std_in = std_in.clamp_min(self.cfg.eps).to(device)
-        self.mu_out = mu_out.to(device)
-        self.std_out = std_out.clamp_min(self.cfg.eps).to(device)
+        device = next(self._models[0].parameters()).device
+        self._mu_in = mu_in.to(device)
+        self._std_in = std_in.clamp_min(self._cfg.eps).to(device)
+        self._mu_out = mu_out.to(device)
+        self._std_out = std_out.clamp_min(self._cfg.eps).to(device)
 
     def set_rollout_model(self) -> None:
         """Choose which model(s) to use for rollout."""
-        self.rollout_model_index = random.randint(0, self.cfg.num_models - 1)
+        self._rollout_model_index = random.randint(0, self._cfg.num_models - 1)
 
     @torch.no_grad()
     def step(
@@ -145,32 +145,32 @@ class ModelBasedEnv:
 
         # Type narrowing for normalizer tensors
         assert (
-            self.mu_in is not None
-            and self.std_in is not None
-            and self.mu_out is not None
-            and self.std_out is not None
+            self._mu_in is not None
+            and self._std_in is not None
+            and self._mu_out is not None
+            and self._std_out is not None
         ), "Normalizer not set, should call train() first"
 
         x = torch.cat([state, action], dim=-1)
-        x_norm = (x - self.mu_in) / self.std_in
-        s_norm, a_norm = x_norm[:, : self.state_dim], x_norm[:, self.state_dim :]
+        x_norm = (x - self._mu_in) / self._std_in
+        s_norm, a_norm = x_norm[:, : self._state_dim], x_norm[:, self._state_dim :]
 
-        mean, log_std, done_logit = self.models[self.rollout_model_index](s_norm, a_norm)
+        mean, log_std, done_logit = self._models[self._rollout_model_index](s_norm, a_norm)
 
         # Stabilize log_std and sample/mean in normalized space
-        log_std = torch.clamp(log_std, self.cfg.log_std_bounds[0], self.cfg.log_std_bounds[1])
+        log_std = torch.clamp(log_std, self._cfg.log_std_bounds[0], self._cfg.log_std_bounds[1])
         if not deterministic:
             y_norm = Normal(mean, log_std.exp()).rsample()
         else:
             y_norm = mean
 
         # Denormalize [Δs, r]
-        y = y_norm * self.std_out + self.mu_out
-        delta_s = y[:, : self.state_dim]
-        reward = y[:, self.state_dim : self.state_dim + 1]
+        y = y_norm * self._std_out + self._mu_out
+        delta_s = y[:, : self._state_dim]
+        reward = y[:, self._state_dim : self._state_dim + 1]
 
         next_state = state + delta_s
-        done = (torch.sigmoid(done_logit) > self.cfg.done_threshold).to(torch.bool)
+        done = (torch.sigmoid(done_logit) > self._cfg.done_threshold).to(torch.bool)
         return next_state, reward, done
 
     def train(self, dataloader: DataLoader[dict[str, torch.Tensor]]) -> dict[str, list[float]]:
