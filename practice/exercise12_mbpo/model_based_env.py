@@ -31,6 +31,11 @@ class TrainConfig:
     early_stop_patience: int = 10
     """The patience for early stopping."""
 
+    dataloader_num_workers: int = 0
+    """The number of workers for the dataloader."""
+    dataloader_pin_memory: bool = False
+    """Whether to pin the memory for the dataloader."""
+
 
 @dataclass(frozen=True, kw_only=True)
 class ModelBasedConfig:
@@ -91,7 +96,7 @@ class ModelBasedEnv:
     """A model-based environment wrapper that holds an ensemble (list) of dynamics models."""
 
     def __init__(self, model: EnvModel, cfg: ModelBasedConfig) -> None:
-        self._models = [model, *[copy.deepcopy(model) for _ in range(cfg.num_models - 2)]]
+        self._models = [model, *[copy.deepcopy(model) for _ in range(cfg.num_models - 1)]]
         self._optimizers = [
             torch.optim.AdamW(
                 model.parameters(), lr=cfg.train.lr, weight_decay=cfg.train.weight_decay
@@ -180,7 +185,7 @@ class ModelBasedEnv:
 
         # calculate mean and std for outputs [Δs,r]
         delta_states = exp.next_states - exp.states
-        outputs = torch.cat([delta_states, exp.rewards], dim=-1)
+        outputs = torch.cat([delta_states, exp.rewards.unsqueeze(-1)], dim=-1)
         mu_out = outputs.mean(dim=0)
         std_out = outputs.std(dim=0, unbiased=False)
 
@@ -212,7 +217,7 @@ class ModelBasedEnv:
         a_norm = x_norm[:, self._state_dim :]
 
         delta_s = exp.next_states - exp.states
-        y = torch.cat([delta_s, exp.rewards], dim=-1)
+        y = torch.cat([delta_s, exp.rewards.unsqueeze(-1)], dim=-1)
         y_norm = (y - self._mu_out) / self._std_out
         return s_norm, a_norm, y_norm
 
@@ -241,7 +246,7 @@ class ModelBasedEnv:
 
             loss_delta = self._gauss_nll(mean_d, log_d, delta_t)
             loss_reward = self._gauss_nll(mean_r, log_r, reward_t)
-            loss_done = bce(done_logit, val_exp.dones)
+            loss_done = bce(done_logit, val_exp.dones.float().unsqueeze(-1))
             loss_total = (
                 self._cfg.train.loss_weight_delta * loss_delta
                 + self._cfg.train.loss_weight_reward * loss_reward
@@ -280,7 +285,7 @@ class ModelBasedEnv:
         loss_delta = self._gauss_nll(mean_d, log_d, delta_t)
         loss_reward = self._gauss_nll(mean_r, log_r, reward_t)
         bce = torch.nn.BCEWithLogitsLoss(reduction="mean")
-        loss_done = bce(done_logit, exp.dones)
+        loss_done = bce(done_logit, exp.dones.float().unsqueeze(-1))
 
         loss_total = (
             self._cfg.train.loss_weight_delta * loss_delta
@@ -333,14 +338,14 @@ class ModelBasedEnv:
                 self._cfg.train.batch_size,
                 ratio=1 - self._cfg.train.buffer_ratio_for_val,
                 shuffle=True,
-                num_workers=2,
-                pin_memory=True,
+                num_workers=self._cfg.train.dataloader_num_workers,
+                pin_memory=self._cfg.train.dataloader_pin_memory,
             )
 
             total_list, delta_list, reward_list, done_list = [], [], [], []
 
             for batch in loader:
-                exp = Experience.from_kwargs(**batch)
+                exp = Experience.from_kwargs(**batch).to(self._device)
 
                 for model, opt in zip(self._models, self._optimizers):
                     exp_m = _bootstrap_exp(exp) if self._cfg.train.bootstrap else exp

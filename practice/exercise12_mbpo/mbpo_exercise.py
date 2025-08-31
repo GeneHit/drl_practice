@@ -227,11 +227,16 @@ class _MBPOPod:
         )
         real_data_num = self._config.batch_size - model_data_num
         for _ in range(self._config.update_num_per_epoch):
-            model_data = self._model_buffer.sample(model_data_num)
-            real_data = env_buffer.sample(real_data_num)
-            mixed_data = merge_experiences([model_data, real_data])
+            experiences = []
+            if model_data_num > 0 and len(self._model_buffer) >= model_data_num:
+                experiences.append(self._model_buffer.sample(model_data_num))
+            if real_data_num > 0:
+                data_num = real_data_num if experiences else self._config.batch_size
+                experiences.append(env_buffer.sample(data_num))
 
-            self._sac_pod.update(experience=mixed_data, step=step)
+            if experiences:
+                mixed_data = merge_experiences(experiences)
+                self._sac_pod.update(experience=mixed_data, step=step)
 
     def _generate_rollouts(self, states: torch.Tensor, step: int) -> Experience:
         """Generate rollouts.
@@ -243,12 +248,13 @@ class _MBPOPod:
         Returns:
             The rollouts.
         """
+        states_m = states.to(self._config.device)
         rollout_len = int(self._config.model_rollout_config.rollout_len(step))
         rollouts: list[Experience] = []
         rollout_num = states.shape[0]
 
         for i in range(rollout_num):
-            state = states[i : i + 1]
+            state = states_m[i : i + 1]
             self._model_env.set_rollout_model()
 
             for _ in range(rollout_len):
