@@ -196,18 +196,12 @@ class _MBPOPod:
             step: The current step.
         """
         # 1. train all env models
-        loss_stats = self._model_env.train(
-            dataloader=env_buffer.dataloader(
-                batch_size=self._config.model_based_config.train.batch_size,
-                shuffle=True,
-                num_workers=2,
-                pin_memory=True,
-            ),
-        )
+        loss_stats = self._model_env.train(buffer=env_buffer)
         self._writer.log_stats(
-            data={k: v[0] for k, v in loss_stats.items()},
+            data={"model_loss/" + k: v[-1] for k, v in loss_stats.items()},
             step=step,
             log_interval=self._config.log_interval,
+            blocked=False,
         )
 
         # 2. use random model to generate rollout and buffer it

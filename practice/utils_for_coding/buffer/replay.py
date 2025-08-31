@@ -106,6 +106,7 @@ class ReplayBuffer:
         self,
         batch_size: int,
         *,
+        ratio: float = 1.0,
         shuffle: bool = True,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -121,6 +122,7 @@ class ReplayBuffer:
 
         Args:
             batch_size: Size of each batch
+            ratio: Ratio of the buffer to sample from
             shuffle: Whether to shuffle the data
             num_workers: Number of workers for data loading
             pin_memory: Whether to pin memory for data loading
@@ -131,6 +133,7 @@ class ReplayBuffer:
         """
         return self._buffer.dataloader(
             batch_size=batch_size,
+            ratio=ratio,
             shuffle=shuffle,
             num_workers=num_workers,
             pin_memory=pin_memory,

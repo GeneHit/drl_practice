@@ -82,6 +82,7 @@ class BufferBase(ABC):
         self,
         batch_size: int,
         *,
+        ratio: float = 1.0,
         shuffle: bool = True,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -105,6 +106,8 @@ class BufferBase(ABC):
 
             def __iter__(self) -> Iterator[dict[str, Tensor]]:
                 n = len(self._buf)
+                if ratio < 1.0:
+                    n = int(n * ratio)
                 if shuffle:
                     order = torch.randperm(n, device=device, dtype=torch.int64)
                 else:
