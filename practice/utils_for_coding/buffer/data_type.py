@@ -57,7 +57,7 @@ class Experience:
         )
 
 
-def merge_experiences(exps: Sequence[Experience]) -> Experience:
+def merge_experiences(exps: Sequence[Experience], cpu: bool = False) -> Experience:
     """Merge a sequence of experiences into one experience."""
     exps = list(exps)
     if not exps:
@@ -67,11 +67,19 @@ def merge_experiences(exps: Sequence[Experience]) -> Experience:
     states, actions, rewards, next_states, dones = zip(
         *((e.states, e.actions, e.rewards, e.next_states, e.dones) for e in exps)
     )
-
-    return Experience(
+    exp = Experience(
         states=torch.cat(list(states), dim=0),
         actions=torch.cat(list(actions), dim=0),
         rewards=torch.cat(list(rewards), dim=0),
         next_states=torch.cat(list(next_states), dim=0),
         dones=torch.cat(list(dones), dim=0),
     )
+    if cpu:
+        exp = Experience(
+            states=exp.states.cpu(),
+            actions=exp.actions.cpu(),
+            rewards=exp.rewards.cpu(),
+            next_states=exp.next_states.cpu(),
+            dones=exp.dones.cpu(),
+        )
+    return exp

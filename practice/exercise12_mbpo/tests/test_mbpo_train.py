@@ -28,7 +28,7 @@ def _minimal_mbpo_config(temp_output_dir: Path) -> MBPOConfig:
     )
     env_config = replace(
         config.env_config,
-        vector_env_num=2,  # minimal parallel envs
+        vector_env_num=1,  # minimal parallel envs
         use_multi_processing=False,
     )
     # Reduce model-based config for faster testing
@@ -48,7 +48,7 @@ def _minimal_mbpo_config(temp_output_dir: Path) -> MBPOConfig:
     model_rollout_config = replace(
         config.model_rollout_config,
         rollout_num=2,  # fewer rollouts
-        replay_buffer_capacity=128,  # smaller buffer
+        replay_buffer_capacity=32,  # smaller buffer
     )
     # total_steps = total_steps // vector_env_num = 64 // 2 = 32
     minimal_config = replace(
@@ -59,8 +59,9 @@ def _minimal_mbpo_config(temp_output_dir: Path) -> MBPOConfig:
         replay_buffer_capacity=128,  # smaller buffer for testing
         eval_episodes=2,
         eval_video_num=1,
-        train_interval=4,  # train less frequently for testing
-        update_num_per_epoch=2,  # fewer updates per epoch
+        sac_update_interval=4,
+        update_num_per_epoch=1,  # fewer updates per epoch
+        model_update_interval=8,
         env_config=env_config,
         artifact_config=artifact_config,
         model_based_config=model_based_config,

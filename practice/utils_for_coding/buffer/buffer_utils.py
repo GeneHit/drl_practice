@@ -287,7 +287,7 @@ class BufferTorch(BufferBase):
             # Wrap-around writing
             return self._write_wraparound(batch_data, batch_size, old_ptr)
 
-    def sample(self, batch_size: int) -> dict[str, Tensor]:
+    def sample(self, batch_size: int, latest: bool = False) -> dict[str, Tensor]:
         """Sample a random batch from the buffer.
 
         Args:
@@ -297,7 +297,17 @@ class BufferTorch(BufferBase):
             dictionary containing sampled torch tensors
         """
         assert self._size >= batch_size > 0, f"Buffer size {self._size}, but required {batch_size}"
-        idxs = torch.randint(0, self._size, (batch_size,), dtype=torch.int64)
+        if not latest:
+            idxs = torch.randint(
+                0, self._size, (batch_size,), dtype=torch.int64, device=self._device
+            )
+        else:
+            # generate continuous indices in [ptr-batch_size, ptr) and map to [0, self._size)
+            idxs = torch.arange(
+                self._ptr - batch_size, self._ptr, dtype=torch.int64, device=self._device
+            )
+            idxs = idxs % self._size
+
         return self.sample_by_idxs(idxs)
 
     def sample_by_idxs(self, idxs: NDArray[np.int64] | Tensor) -> dict[str, Tensor]:

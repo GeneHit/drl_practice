@@ -25,8 +25,8 @@ from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> MBPOConfig:
-    # timestep = total_steps // vector_env_num = 600000 // 6 = 100000
-    total_steps = 600_000
+    # timestep = total_steps // vector_env_num = 60000 // 6 = 10000
+    total_steps = 60_000
     return MBPOConfig(
         device=get_device("cpu"),
         total_steps=total_steps,
@@ -34,7 +34,7 @@ def get_app_config() -> MBPOConfig:
         learning_rate=3e-4,
         critic_lr=3e-4,
         gamma=0.995,
-        replay_buffer_capacity=int(total_steps * 0.8),
+        replay_buffer_capacity=int(total_steps * 0.2),
         batch_size=256,
         update_start_step=5000,
         max_action=1.0,
@@ -46,23 +46,25 @@ def get_app_config() -> MBPOConfig:
         target_entropy=-2.0,  # -6 = - action_dimension
         log_std_min=-7.0,
         log_std_max=2.0,
-        use_layer_norm=True,
-        train_interval=2,
-        update_num_per_epoch=10,
+        use_layer_norm=False,
+        sac_update_interval=1,
+        update_num_per_epoch=1,
+        use_model_based_env=True,
+        model_update_interval=250,
         model_rollout_config=ModelRolloutConfig(
             rollout_num=10,
-            rollout_len=LinearSchedule(v0=1, v1=6, t1=int(0.8 * total_steps)),
-            replay_buffer_capacity=int(total_steps * 0.5),
-            batch_rate_of_sample=LinearSchedule(v0=0.05, v1=0.25, t1=int(0.9 * total_steps)),
+            rollout_len=LinearSchedule(v0=1, v1=4, t1=int(0.8 * total_steps)),
+            replay_buffer_capacity=int(total_steps * 0.4),
+            batch_rate_of_sample=LinearSchedule(v0=0.15, v1=0.3, t1=int(0.8 * total_steps)),
         ),
         model_based_config=ModelBasedConfig(
-            num_models=7,
+            num_models=3,
             model_hidden_sizes=(256, 256),
             done_threshold=0.5,
             log_std_bounds=(-5.0, 2.0),
             eps=1e-6,
             train=TrainConfig(
-                epochs=50,
+                epochs=20,
                 batch_size=256,
                 lr=1e-3,
                 weight_decay=1e-6,
@@ -70,8 +72,10 @@ def get_app_config() -> MBPOConfig:
                 loss_weight_reward=1.0,
                 loss_weight_done=1.0,
                 buffer_ratio_for_val=0.1,
-                early_stop_patience=10,
+                early_stop_patience=6,
                 bootstrap=True,
+                dataloader_num_workers=0,
+                dataloader_pin_memory=False,
             ),
         ),
         eval_episodes=50,

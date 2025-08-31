@@ -13,7 +13,7 @@ the next state and reward given the current state and action.
 ## Files
 ## Commands
 Train the model (change `reacher` to `pusher` if needed)
-```
+```bash
 python practice/cli.py --config practice/exercise12_mbpo/config_reacher.py
 ```
 

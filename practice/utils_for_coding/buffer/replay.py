@@ -78,16 +78,17 @@ class ReplayBuffer:
             dones=dones,
         )
 
-    def sample(self, batch_size: int) -> Experience:
+    def sample(self, batch_size: int, latest: bool = False) -> Experience:
         """Sample a random batch of experiences from the buffer.
 
         Args:
             batch_size: Number of experiences to sample
+            latest: Whether to sample the latest experiences
 
         Returns:
             Experience object containing sampled data as torch tensors
         """
-        batch_data = self._buffer.sample(batch_size)
+        batch_data = self._buffer.sample(batch_size, latest=latest)
         return Experience.from_kwargs(**batch_data)
 
     def sample_by_idxs(self, idxs: Tensor) -> Experience:

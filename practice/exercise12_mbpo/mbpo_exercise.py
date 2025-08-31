@@ -38,11 +38,17 @@ class ModelRolloutConfig:
 class MBPOConfig(SACConfig):
     """The configuration for the MBPO algorithm."""
 
-    train_interval: int
-    """The interval of training the env model and SAC."""
+    sac_update_interval: int
+    """The interval of training the SAC."""
 
     update_num_per_epoch: int
     """The update number of the SAC every epoch."""
+
+    use_model_based_env: bool
+    """Whether to use the model-based environment."""
+
+    model_update_interval: int
+    """The interval of training the env model."""
 
     model_based_config: ModelBasedConfig
     """The configuration for the model-based environment."""
@@ -146,7 +152,7 @@ class MBPOTrainer(TrainerBase):
             episode_steps += writer.log_episode_stats_if_has(infos, episode_steps)
 
             # Training updates
-            if step >= start_step and step % self._config.train_interval == 0:
+            if step >= start_step:
                 if len(env_buffer) < self._config.batch_size:
                     continue
 
@@ -182,6 +188,7 @@ class _MBPOPod:
             ),
             writer=writer,
         )
+        self._once_trained = False
 
     def action(self, state: NDArray[ObsType], step: int) -> NDArray[ActTypeC]:
         """Get actions for all environments."""
@@ -205,23 +212,34 @@ class _MBPOPod:
             env_buffer: The experience from real data.
             step: The current step.
         """
-        # 1. train all env models
-        loss_stats = self._model_env.train(buffer=env_buffer)
-        self._writer.log_stats(
-            data={"model_loss/" + k: v[-1] for k, v in loss_stats.items()},
-            step=step,
-            log_interval=self._config.log_interval,
-            blocked=False,
-        )
+        # 1. train the env model
+        if self._config.use_model_based_env and (
+            step % self._config.model_update_interval == 0 or not self._once_trained
+        ):
+            loss_stats = self._model_env.train(buffer=env_buffer)
+            self._once_trained = True
+            self._writer.log_stats(
+                data={"model_loss/" + k: v[-1] for k, v in loss_stats.items()},
+                step=step,
+                log_interval=self._config.log_interval,
+                blocked=False,
+            )
 
         # 2. use random model to generate rollout and buffer it
-        rollouts = self._generate_rollouts(
-            states=env_buffer.sample(self._config.model_rollout_config.rollout_num).states,
-            step=step,
-        )
-        self._model_buffer.add_experience(rollouts)
+        if self._config.use_model_based_env:
+            self._model_env.set_normalizer(env_buffer)
+            rollouts = self._generate_rollouts(
+                states=env_buffer.sample(
+                    self._config.model_rollout_config.rollout_num,
+                    latest=True,
+                ).states,
+                step=step,
+            )
+            self._model_buffer.add_experience(rollouts)
 
         # 3. train the SAC with mixed data
+        if step % self._config.sac_update_interval != 0:
+            return
         model_data_num = int(
             self._config.batch_size * self._config.model_rollout_config.batch_rate_of_sample(step)
         )
@@ -230,13 +248,11 @@ class _MBPOPod:
             experiences = []
             if model_data_num > 0 and len(self._model_buffer) >= model_data_num:
                 experiences.append(self._model_buffer.sample(model_data_num))
-            if real_data_num > 0:
-                data_num = real_data_num if experiences else self._config.batch_size
-                experiences.append(env_buffer.sample(data_num))
+            data_num = real_data_num if experiences else self._config.batch_size
+            experiences.append(env_buffer.sample(data_num))
 
-            if experiences:
-                mixed_data = merge_experiences(experiences)
-                self._sac_pod.update(experience=mixed_data, step=step)
+            mixed_data = merge_experiences(experiences)
+            self._sac_pod.update(experience=mixed_data, step=step)
 
     def _generate_rollouts(self, states: torch.Tensor, step: int) -> Experience:
         """Generate rollouts.
@@ -274,4 +290,4 @@ class _MBPOPod:
                 if done.squeeze(-1).any().item():
                     break
 
-        return merge_experiences(rollouts)
+        return merge_experiences(rollouts, cpu=True)

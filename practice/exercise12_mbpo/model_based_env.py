@@ -155,7 +155,9 @@ class ModelBasedEnv:
         x_norm = (x - self._mu_in) / self._std_in
         s_norm, a_norm = x_norm[:, : self._state_dim], x_norm[:, self._state_dim :]
 
-        mean, log_std, done_logit = self._models[self._rollout_model_index](s_norm, a_norm)
+        model = self._models[self._rollout_model_index]
+        model.eval()
+        mean, log_std, done_logit = model(s_norm, a_norm)
 
         # Stabilize log_std and sample/mean in normalized space
         log_std = torch.clamp(log_std, self._cfg.log_std_bounds[0], self._cfg.log_std_bounds[1])
@@ -167,14 +169,14 @@ class ModelBasedEnv:
         # Denormalize [Δs, r]
         y = y_norm * self._std_out + self._mu_out
         delta_s = y[:, : self._state_dim]
-        reward = y[:, self._state_dim : self._state_dim + 1]
+        reward = y[:, self._state_dim]
 
         next_state = state + delta_s
-        done = (torch.sigmoid(done_logit) > self._cfg.done_threshold).to(torch.bool)
+        done = (torch.sigmoid(done_logit) > self._cfg.done_threshold).to(torch.bool)[:, 0]
         return next_state, reward, done
 
-    def _get_and_set_normalizer(self, buffer: ReplayBuffer) -> None:
-        """Get and set z-score stats for inputs [s,a] and outputs [Δs,r]."""
+    def set_normalizer(self, buffer: ReplayBuffer) -> None:
+        """Set z-score stats for inputs [s,a] and outputs [Δs,r]."""
         # get all data from buffer
         exp = buffer.sample(len(buffer))
 
@@ -309,7 +311,7 @@ class ModelBasedEnv:
         Returns a dict of training/validation losses per epoch (averaged across models).
         """
         # set normalizer for later rollout generation (call step() after training)
-        self._get_and_set_normalizer(buffer)
+        self.set_normalizer(buffer)
 
         # build val split
         val_exp = _build_val_split(buffer, self._cfg.train.buffer_ratio_for_val).to(self._device)
