@@ -18,29 +18,37 @@ from practice.utils_for_coding.writer_utils import CustomWriter
 
 
 @dataclass(kw_only=True, frozen=True)
+class ModelRolloutConfig:
+    """The configuration for the model-based rollout."""
+
+    rollout_num: int
+    """The number of the model-based rollout."""
+
+    rollout_len: ScheduleBase
+    """The length of the model-based rollout."""
+
+    replay_buffer_capacity: int
+    """The capacity of the model-based rollout replay buffer."""
+
+    batch_rate_of_sample: ScheduleBase
+    """The batch rate of the model sample."""
+
+
+@dataclass(kw_only=True, frozen=True)
 class MBPOConfig(SACConfig):
     """The configuration for the MBPO algorithm."""
 
     train_interval: int
     """The interval of training the env model and SAC."""
 
-    rollout_num: int
-    """The rollout number of the model-based environment every epoch."""
-
-    rollout_len: ScheduleBase
-    """The generated rollout length of the model-based environment every epoch."""
-
     update_num_per_epoch: int
     """The update number of the SAC every epoch."""
-
-    batch_rate_of_model_sample: ScheduleBase
-    """The batch rate of the model sample."""
 
     model_based_config: ModelBasedConfig
     """The configuration for the model-based environment."""
 
-    model_replay_buffer_capacity: int
-    """The capacity of the model replay buffer."""
+    model_rollout_config: ModelRolloutConfig
+    """The configuration for the model-based rollout."""
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -156,7 +164,9 @@ class _MBPOPod:
         self._ctx = ctx
         self._writer = writer
 
-        self._model_buffer = ReplayBuffer(capacity=config.model_replay_buffer_capacity)
+        self._model_buffer = ReplayBuffer(
+            capacity=config.model_rollout_config.replay_buffer_capacity
+        )
         self._model_env = ModelBasedEnv(model=ctx.env_model, cfg=config.model_based_config)
         self._sac_pod = _SACPod(
             config=config,
@@ -206,13 +216,14 @@ class _MBPOPod:
 
         # 2. use random model to generate rollout and buffer it
         rollouts = self._generate_rollouts(
-            states=env_buffer.sample(self._config.rollout_num).states, step=step
+            states=env_buffer.sample(self._config.model_rollout_config.rollout_num).states,
+            step=step,
         )
         self._model_buffer.add_experience(rollouts)
 
         # 3. train the SAC with mixed data
         model_data_num = int(
-            self._config.batch_size * self._config.batch_rate_of_model_sample(step)
+            self._config.batch_size * self._config.model_rollout_config.batch_rate_of_sample(step)
         )
         real_data_num = self._config.batch_size - model_data_num
         for _ in range(self._config.update_num_per_epoch):
@@ -232,7 +243,7 @@ class _MBPOPod:
         Returns:
             The rollouts.
         """
-        rollout_len = int(self._config.rollout_len(step))
+        rollout_len = int(self._config.model_rollout_config.rollout_len(step))
         rollouts: list[Experience] = []
         rollout_num = states.shape[0]
 

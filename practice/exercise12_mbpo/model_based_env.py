@@ -17,13 +17,14 @@ from practice.utils_for_coding.network_utils import MLP
 class TrainConfig:
     """Training config for dynamics models."""
 
-    epoches: int = 50
+    epochs: int = 50
     batch_size: int = 256
     lr: float = 1e-3
     weight_decay: float = 1e-6
     loss_weight_delta: float = 1.0  # weight for Δs NLL
     loss_weight_reward: float = 1.0  # weight for r NLL
     loss_weight_done: float = 1.0  # weight for BCE(done)
+    bootstrap: bool = True
 
     buffer_ratio_for_val: float = 0.1
     """The ratio of the buffer to sample from for validation."""
@@ -36,10 +37,11 @@ class ModelBasedConfig:
     """Config consumed by ModelBasedEnv (includes TrainConfig)."""
 
     num_models: int
-    train: TrainConfig
+    model_hidden_sizes: tuple[int, ...]
     done_threshold: float = 0.5
     log_std_bounds: tuple[float, float] = (-5.0, 2.0)
     eps: float = 1e-6
+    train: TrainConfig
 
 
 class EnvModel(nn.Module):
@@ -326,7 +328,7 @@ class ModelBasedEnv:
         patience = self._cfg.train.early_stop_patience
 
         # train multiple epochs
-        for _ in range(self._cfg.train.epoches):
+        for _ in range(self._cfg.train.epochs):
             loader = buffer.dataloader(
                 self._cfg.train.batch_size,
                 ratio=1 - self._cfg.train.buffer_ratio_for_val,
@@ -341,7 +343,8 @@ class ModelBasedEnv:
                 exp = Experience.from_kwargs(**batch)
 
                 for model, opt in zip(self._models, self._optimizers):
-                    t, dlt, rwd, dn = self._train_one_batch(model, opt, exp)
+                    exp_m = _bootstrap_exp(exp) if self._cfg.train.bootstrap else exp
+                    t, dlt, rwd, dn = self._train_one_batch(model, opt, exp_m)
                     total_list.append(t)
                     delta_list.append(dlt)
                     reward_list.append(rwd)
@@ -399,3 +402,15 @@ def _build_val_split(buffer: ReplayBuffer, val_ratio: float) -> Experience:
     assert n_val > 0
     idxs = torch.randint(N - n_val, N, (n_val,))
     return buffer.sample_by_idxs(idxs)
+
+
+def _bootstrap_exp(exp: Experience) -> Experience:
+    n = exp.states.shape[0]
+    idx = torch.randint(0, n, (n,), device=exp.states.device)
+    return Experience(
+        states=exp.states.index_select(0, idx),
+        actions=exp.actions.index_select(0, idx),
+        rewards=exp.rewards.index_select(0, idx),
+        next_states=exp.next_states.index_select(0, idx),
+        dones=exp.dones.index_select(0, idx),
+    )
