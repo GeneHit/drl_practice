@@ -43,7 +43,7 @@ def get_app_config() -> MBPOConfig:
         alpha=0.2,
         auto_tune_alpha=True,
         alpha_lr=3e-4,
-        target_entropy=-2.0,  # -6 = - action_dimension
+        target_entropy=-2.0,  # = - action_dimension
         log_std_min=-7.0,
         log_std_max=2.0,
         use_layer_norm=False,
@@ -88,10 +88,8 @@ def get_app_config() -> MBPOConfig:
         ),
         artifact_config=ArtifactConfig(
             trainer_type=MBPOTrainer,
-            output_dir="results/exercise12_mbpo/reacher/",
+            output_dir="results/exercise12_mbpo/reacher_used/",
             save_result=True,
-            fps=30,
-            fps_skip=3,
             repo_id="MBPO-ReacherV5",
             algorithm_name="MBPO",
             extra_tags=("model-based", "pytorch", "sac"),

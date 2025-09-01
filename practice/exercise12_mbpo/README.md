@@ -10,7 +10,13 @@ the next state and reward given the current state and action.
 2. **Generate Synthetic Data**: using the learned model.
 3. **Train the Policy**: using both real experience and the synthetic data from the model.
 
+
 ## Files
+- `mbpo_exercise.py`: the main MBPO `EXERCISE`.
+- `model_based_env.py`: the env model and model env.
+- `config_reacher.py`: Configuration file for Reacher-v5 environment
+
+
 ## Commands
 Train the model (change `reacher` to `pusher` if needed)
 ```bash
@@ -19,16 +25,16 @@ python practice/cli.py --config practice/exercise12_mbpo/config_reacher.py
 
 Play with trained model and generate video
 ```bash
-python practice/cli.py --config practice/exercise12_mbpo/config_ddp_reacher.py --mode play
+python practice/cli.py --config practice/exercise12_mbpo/config_reacher.py --mode play
 ```
 
 Push to hub
 ```bash
 # generate video and push to hub
-python practice/cli.py --config practice/exercise12_mbpo/config_ddp_reacher.py --mode push_to_hub --username myuser
+python practice/cli.py --config practice/exercise12_mbpo/config_reacher.py --mode push_to_hub --username myuser
 
 # only push to hub
-python practice/cli.py --config practice/exercise12_mbpo/config_ddp_reacher.py --mode push_to_hub --username myuser --skip_play
+python practice/cli.py --config practice/exercise12_mbpo/config_reacher.py --mode push_to_hub --username myuser --skip_play
 ```
 
 Run the comprehensive test suite:
@@ -36,8 +42,6 @@ Run the comprehensive test suite:
 # Run all tests
 python -m pytest practice/exercise12_mbpo/tests/ -v
 ```
-
-## Parameter Tuning
 
 
 ## More for MBPO
