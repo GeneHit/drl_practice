@@ -8,6 +8,7 @@ import pytest
 from practice.exercise12_mbpo.config_reacher import generate_context, get_app_config
 from practice.exercise12_mbpo.mbpo_exercise import MBPOConfig
 from practice.utils.env_utils import get_device
+from practice.utils.play_utils import play_and_generate_video_generic
 from practice.utils.train_utils import train_and_evaluate_network
 
 
@@ -58,7 +59,7 @@ def _minimal_mbpo_config(temp_output_dir: Path) -> MBPOConfig:
         batch_size=8,  # smaller batch size for testing
         replay_buffer_capacity=128,  # smaller buffer for testing
         eval_episodes=2,
-        eval_video_num=1,
+        eval_video_num=None,
         sac_update_interval=4,
         update_num_per_epoch=1,  # fewer updates per epoch
         model_update_interval=8,
@@ -76,6 +77,7 @@ def test_mbpo_trainer_basic_flow(temp_output_dir: Path) -> None:
     context = generate_context(config)
     try:
         train_and_evaluate_network(config=config, ctx=context)
+        play_and_generate_video_generic(config=config, ctx=context, save_video=False)
     finally:
         # Clean up environments
         # For vector envs, use train_env and eval_env directly
