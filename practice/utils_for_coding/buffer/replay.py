@@ -21,6 +21,23 @@ class ReplayBuffer:
         """
         self._buffer = BufferTorch(capacity)
 
+    def add_experience(self, experience: Experience) -> Tensor:
+        """Add an experience to the buffer.
+
+        Args:
+            experience: The experience to add
+
+        Returns:
+            Indices where the data was written
+        """
+        return self.add_batch(
+            states=experience.states,
+            actions=experience.actions,
+            rewards=experience.rewards,
+            next_states=experience.next_states,
+            dones=experience.dones,
+        )
+
     def add_batch(
         self,
         states: Tensor | NDArray[Any],
@@ -61,16 +78,17 @@ class ReplayBuffer:
             dones=dones,
         )
 
-    def sample(self, batch_size: int) -> Experience:
+    def sample(self, batch_size: int, latest: bool = False) -> Experience:
         """Sample a random batch of experiences from the buffer.
 
         Args:
             batch_size: Number of experiences to sample
+            latest: Whether to sample the latest experiences
 
         Returns:
             Experience object containing sampled data as torch tensors
         """
-        batch_data = self._buffer.sample(batch_size)
+        batch_data = self._buffer.sample(batch_size, latest=latest)
         return Experience.from_kwargs(**batch_data)
 
     def sample_by_idxs(self, idxs: Tensor) -> Experience:
@@ -89,6 +107,7 @@ class ReplayBuffer:
         self,
         batch_size: int,
         *,
+        ratio: float = 1.0,
         shuffle: bool = True,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -104,6 +123,7 @@ class ReplayBuffer:
 
         Args:
             batch_size: Size of each batch
+            ratio: Ratio of the buffer to sample from
             shuffle: Whether to shuffle the data
             num_workers: Number of workers for data loading
             pin_memory: Whether to pin memory for data loading
@@ -114,6 +134,7 @@ class ReplayBuffer:
         """
         return self._buffer.dataloader(
             batch_size=batch_size,
+            ratio=ratio,
             shuffle=shuffle,
             num_workers=num_workers,
             pin_memory=pin_memory,

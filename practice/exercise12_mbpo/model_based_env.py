@@ -1,17 +1,15 @@
-import math
+import copy
 import random
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Sized, cast
+from typing import Optional
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 from torch.distributions import Normal
-from torch.nn import functional as F
-from torch.utils.data import DataLoader, TensorDataset, random_split
-from torch.utils.data import Dataset as TorchDataset
-from torch.utils.data.dataset import Subset
 
+from practice.utils_for_coding.buffer import Experience, ReplayBuffer
 from practice.utils_for_coding.network_utils import MLP
 
 
@@ -26,9 +24,17 @@ class TrainConfig:
     loss_weight_delta: float = 1.0  # weight for Δs NLL
     loss_weight_reward: float = 1.0  # weight for r NLL
     loss_weight_done: float = 1.0  # weight for BCE(done)
-    val_ratio: float = 0.1
+    bootstrap: bool = True
+
+    buffer_ratio_for_val: float = 0.1
+    """The ratio of the buffer to sample from for validation."""
     early_stop_patience: int = 10
-    bootstrap: bool = True  # bootstrap per model (with replacement)
+    """The patience for early stopping."""
+
+    dataloader_num_workers: int = 0
+    """The number of workers for the dataloader."""
+    dataloader_pin_memory: bool = False
+    """Whether to pin the memory for the dataloader."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -36,11 +42,11 @@ class ModelBasedConfig:
     """Config consumed by ModelBasedEnv (includes TrainConfig)."""
 
     num_models: int
-    train: TrainConfig
+    model_hidden_sizes: tuple[int, ...]
     done_threshold: float = 0.5
     log_std_bounds: tuple[float, float] = (-5.0, 2.0)
     eps: float = 1e-6
-    rollout_mode: Literal["random", "mean"] = "random"
+    train: TrainConfig
 
 
 class EnvModel(nn.Module):
@@ -89,73 +95,46 @@ class EnvModel(nn.Module):
 class ModelBasedEnv:
     """A model-based environment wrapper that holds an ensemble (list) of dynamics models."""
 
-    def __init__(self, models: list[nn.Module], cfg: ModelBasedConfig) -> None:
-        assert len(models) > 0, "At least one model is required."
-        self.models: list[nn.Module] = models
-        self.cfg = cfg
+    def __init__(self, model: EnvModel, cfg: ModelBasedConfig) -> None:
+        self._models = [model, *[copy.deepcopy(model) for _ in range(cfg.num_models - 1)]]
+        self._optimizers = [
+            torch.optim.AdamW(
+                model.parameters(), lr=cfg.train.lr, weight_decay=cfg.train.weight_decay
+            )
+            for model in self._models
+        ]
+        self._cfg = cfg
 
         # Infer state/action dims from the first model (all models should match).
-        m0 = self.models[0]
-        assert hasattr(m0, "state_dim") and hasattr(m0, "action_dim"), (
-            "Each model must expose state_dim and action_dim."
-        )
-        m0_any = cast(Any, m0)
-        self.state_dim = int(m0_any.state_dim)
-        self.action_dim = int(m0_any.action_dim)
+        self._state_dim = int(model.state_dim)
+        self._action_dim = int(model.action_dim)
 
         # Normalization buffers (set via set_normalizer or set_rollout_context).
-        self.mu_in: Optional[torch.Tensor] = None  # shape (state_dim + action_dim,)
-        self.std_in: Optional[torch.Tensor] = None
-        self.mu_out: Optional[torch.Tensor] = None  # shape (state_dim + 1,) for [Δs, r]
-        self.std_out: Optional[torch.Tensor] = None
+        self._mu_in: Optional[Tensor] = None  # shape (state_dim + action_dim,)
+        self._std_in: Optional[Tensor] = None
+        self._mu_out: Optional[Tensor] = None  # shape (state_dim + 1,) for [Δs, r]
+        self._std_out: Optional[Tensor] = None
 
         # Rollout selector
-        self.rollout_mode: Literal["random", "mean"] = cfg.rollout_mode
-        self.rollout_index: int = 0
-
-    @torch.no_grad()
-    def set_normalizer(
-        self,
-        mu_in: torch.Tensor,
-        std_in: torch.Tensor,
-        mu_out: torch.Tensor,
-        std_out: torch.Tensor,
-    ) -> None:
-        """Set z-score stats for inputs [s,a] and outputs [Δs,r]."""
-        device = next(self.models[0].parameters()).device
-        self.mu_in = mu_in.to(device)
-        self.std_in = std_in.clamp_min(self.cfg.eps).to(device)
-        self.mu_out = mu_out.to(device)
-        self.std_out = std_out.clamp_min(self.cfg.eps).to(device)
+        self._rollout_model_index: int = 0
+        self._device = next(self._models[0].parameters()).device
 
     def set_rollout_model(self) -> None:
         """Choose which model(s) to use for rollout."""
-        if self.rollout_mode == "random":
-            self.rollout_index = random.randint(0, len(self.models) - 1)
-
-    def set_rollout_context(
-        self,
-        mu_in: torch.Tensor,
-        std_in: torch.Tensor,
-        mu_out: torch.Tensor,
-        std_out: torch.Tensor,
-    ) -> None:
-        """Convenience method to set BOTH normalizer and rollout model at once.
-
-        You should call this before starting a new rollout phase.
-        """
-        self.set_normalizer(mu_in, std_in, mu_out, std_out)
-        self.set_rollout_model()
+        self._rollout_model_index = random.randint(0, self._cfg.num_models - 1)
 
     @torch.no_grad()
     def step(
-        self, state: torch.Tensor, action: torch.Tensor, deterministic: bool = False
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, state: Tensor, action: Tensor, deterministic: bool = False
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Predict (next_state, reward, done) using the selected rollout model(s).
 
         Args:
             state:  (B, state_dim)
             action: (B, action_dim)
+            deterministic: whether to sample or use mean for rollout
+                if True, use mean for rollout
+                if False, sample from the distribution
 
         Returns:
             next_state: (B, state_dim)
@@ -163,278 +142,282 @@ class ModelBasedEnv:
             done:       (B, 1) in {0., 1.}
         """
         assert state.ndim == 2 and action.ndim == 2, "state/action must be (B, D)"
-        device = state.device
-
-        # Lazy default normalizer if not set (identity stats).
-        if self.mu_in is None:
-            in_dim = self.state_dim + self.action_dim
-            out_dim = self.state_dim + 1
-            self.set_normalizer(
-                mu_in=torch.zeros(in_dim, device=device),
-                std_in=torch.ones(in_dim, device=device),
-                mu_out=torch.zeros(out_dim, device=device),
-                std_out=torch.ones(out_dim, device=device),
-            )
 
         # Type narrowing for normalizer tensors
         assert (
-            self.mu_in is not None
-            and self.std_in is not None
-            and self.mu_out is not None
-            and self.std_out is not None
-        )
+            self._mu_in is not None
+            and self._std_in is not None
+            and self._mu_out is not None
+            and self._std_out is not None
+        ), "Normalizer not set, should call train() first"
 
         x = torch.cat([state, action], dim=-1)
-        x_norm = (x - self.mu_in) / self.std_in
-        s_norm, a_norm = x_norm[:, : self.state_dim], x_norm[:, self.state_dim :]
+        x_norm = (x - self._mu_in) / self._std_in
+        s_norm, a_norm = x_norm[:, : self._state_dim], x_norm[:, self._state_dim :]
 
-        # Select model outputs according to rollout_mode
-        if self.rollout_mode == "random":
-            mean, log_std, done_logit = self.models[self.rollout_index](s_norm, a_norm)
-        elif self.rollout_mode == "mean":
-            outs = [m(s_norm, a_norm) for m in self.models]
-            means = torch.stack([o[0] for o in outs], dim=0).mean(0)
-            log_stds = torch.stack([o[1] for o in outs], dim=0).mean(0)
-            done_logits = torch.stack([o[2] for o in outs], dim=0).mean(0)
-            mean, log_std, done_logit = means, log_stds, done_logits
-        else:
-            raise ValueError(f"Unknown rollout_mode: {self.rollout_mode}")
+        model = self._models[self._rollout_model_index]
+        model.eval()
+        mean, log_std, done_logit = model(s_norm, a_norm)
 
         # Stabilize log_std and sample/mean in normalized space
-        log_std = torch.clamp(log_std, self.cfg.log_std_bounds[0], self.cfg.log_std_bounds[1])
+        log_std = torch.clamp(log_std, self._cfg.log_std_bounds[0], self._cfg.log_std_bounds[1])
         if not deterministic:
             y_norm = Normal(mean, log_std.exp()).rsample()
         else:
             y_norm = mean
 
         # Denormalize [Δs, r]
-        y = y_norm * self.std_out + self.mu_out
-        delta_s = y[:, : self.state_dim]
-        reward = y[:, self.state_dim : self.state_dim + 1]
+        y = y_norm * self._std_out + self._mu_out
+        delta_s = y[:, : self._state_dim]
+        reward = y[:, self._state_dim]
 
         next_state = state + delta_s
-        done = (torch.sigmoid(done_logit) > self.cfg.done_threshold).to(torch.bool)
+        done = (torch.sigmoid(done_logit) > self._cfg.done_threshold).to(torch.bool)[:, 0]
         return next_state, reward, done
 
-    def train(
-        self,
-        states: torch.Tensor,  # (N, state_dim)
-        actions: torch.Tensor,  # (N, action_dim)
-        rewards: torch.Tensor,  # (N, 1)
-        next_states: torch.Tensor,  # (N, state_dim)
-        dones: torch.Tensor,  # (N, 1)
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        progress: bool = True,
-    ) -> dict[str, list[float]]:
+    def set_normalizer(self, buffer: ReplayBuffer) -> None:
+        """Set z-score stats for inputs [s,a] and outputs [Δs,r]."""
+        # get all data from buffer
+        exp = buffer.sample(len(buffer))
+
+        # calculate mean and std for inputs [s,a]
+        inputs = torch.cat([exp.states, exp.actions], dim=-1)
+        mu_in = inputs.mean(dim=0)
+        std_in = inputs.std(dim=0, unbiased=False)
+
+        # calculate mean and std for outputs [Δs,r]
+        delta_states = exp.next_states - exp.states
+        outputs = torch.cat([delta_states, exp.rewards.unsqueeze(-1)], dim=-1)
+        mu_out = outputs.mean(dim=0)
+        std_out = outputs.std(dim=0, unbiased=False)
+
+        # Set z-score stats for inputs [s,a] and outputs [Δs,r]
+        self._mu_in = mu_in.to(self._device)
+        self._std_in = std_in.clamp_min(self._cfg.eps).to(self._device)
+        self._mu_out = mu_out.to(self._device)
+        self._std_out = std_out.clamp_min(self._cfg.eps).to(self._device)
+
+    def _gauss_nll(self, mean: Tensor, log_std: Tensor, target: Tensor) -> Tensor:
+        """Diagonal Gaussian NLL (mean over batch & dims) in normalized space."""
+        log_std = torch.clamp(log_std, self._cfg.log_std_bounds[0], self._cfg.log_std_bounds[1])
+        var = (log_std.exp()) ** 2
+        nll = 0.5 * (((target - mean) ** 2) / var + 2.0 * log_std)
+        return nll.mean()
+
+    def _normalize_io(self, exp: Experience) -> tuple[Tensor, Tensor, Tensor]:
+        """Return (s_norm, a_norm, y_norm) where y_norm is normalized [Δs, r]."""
+        assert (
+            self._mu_in is not None
+            and self._std_in is not None
+            and self._mu_out is not None
+            and self._std_out is not None
+        )
+
+        x = torch.cat([exp.states, exp.actions], dim=-1)
+        x_norm = (x - self._mu_in) / self._std_in
+        s_norm = x_norm[:, : self._state_dim]
+        a_norm = x_norm[:, self._state_dim :]
+
+        delta_s = exp.next_states - exp.states
+        y = torch.cat([delta_s, exp.rewards.unsqueeze(-1)], dim=-1)
+        y_norm = (y - self._mu_out) / self._std_out
+        return s_norm, a_norm, y_norm
+
+    @torch.no_grad()
+    def _validate_epoch(self, val_exp: Experience) -> tuple[float, float, float, float]:
+        """Return (total, delta, reward, done) validation loss averages (averaged across models)."""
+        s_norm, a_norm, y_norm = self._normalize_io(val_exp)
+
+        delta_t = y_norm[:, : self._state_dim]
+        reward_t = y_norm[:, self._state_dim : self._state_dim + 1]
+
+        bce = torch.nn.BCEWithLogitsLoss(reduction="mean")
+
+        totals = []
+        deltas = []
+        rewards = []
+        dones = []
+        for model in self._models:
+            model.eval()
+            mean, log_std, done_logit = model(s_norm, a_norm)
+
+            mean_d = mean[:, : self._state_dim]
+            mean_r = mean[:, self._state_dim : self._state_dim + 1]
+            log_d = log_std[:, : self._state_dim]
+            log_r = log_std[:, self._state_dim : self._state_dim + 1]
+
+            loss_delta = self._gauss_nll(mean_d, log_d, delta_t)
+            loss_reward = self._gauss_nll(mean_r, log_r, reward_t)
+            loss_done = bce(done_logit, val_exp.dones.float().unsqueeze(-1))
+            loss_total = (
+                self._cfg.train.loss_weight_delta * loss_delta
+                + self._cfg.train.loss_weight_reward * loss_reward
+                + self._cfg.train.loss_weight_done * loss_done
+            )
+
+            totals.append(loss_total.item())
+            deltas.append(loss_delta.item())
+            rewards.append(loss_reward.item())
+            dones.append(loss_done.item())
+
+        return (
+            float(torch.tensor(totals).mean().item()),
+            float(torch.tensor(deltas).mean().item()),
+            float(torch.tensor(rewards).mean().item()),
+            float(torch.tensor(dones).mean().item()),
+        )
+
+    def _train_one_batch(
+        self, model: nn.Module, opt: torch.optim.Optimizer, exp: Experience
+    ) -> tuple[float, float, float, float]:
+        """Train one model on one batch, return (total, delta, reward, done) loss scalars."""
+        model.train()
+
+        s_norm, a_norm, y_norm = self._normalize_io(exp)
+        delta_t = y_norm[:, : self._state_dim]
+        reward_t = y_norm[:, self._state_dim : self._state_dim + 1]
+
+        mean, log_std, done_logit = model(s_norm, a_norm)
+
+        mean_d = mean[:, : self._state_dim]
+        mean_r = mean[:, self._state_dim : self._state_dim + 1]
+        log_d = log_std[:, : self._state_dim]
+        log_r = log_std[:, self._state_dim : self._state_dim + 1]
+
+        loss_delta = self._gauss_nll(mean_d, log_d, delta_t)
+        loss_reward = self._gauss_nll(mean_r, log_r, reward_t)
+        bce = torch.nn.BCEWithLogitsLoss(reduction="mean")
+        loss_done = bce(done_logit, exp.dones.float().unsqueeze(-1))
+
+        loss_total = (
+            self._cfg.train.loss_weight_delta * loss_delta
+            + self._cfg.train.loss_weight_reward * loss_reward
+            + self._cfg.train.loss_weight_done * loss_done
+        )
+
+        opt.zero_grad(set_to_none=True)
+        loss_total.backward()
+        opt.step()
+
+        return (loss_total.item(), loss_delta.item(), loss_reward.item(), loss_done.item())
+
+    def train(self, buffer: ReplayBuffer) -> dict[str, list[float]]:
         """Train ALL models using Gaussian NLL for [Δs,r] and BCE for done.
 
         - Computes z-score stats from the real dataset and sets them.
         - Supports validation split and early stopping.
         - If an optimizer is provided, it should include ALL models' params; otherwise, one is created.
+
         Returns a dict of training/validation losses per epoch (averaged across models).
         """
-        device = next(self.models[0].parameters()).device
-        states, actions, rewards, next_states, dones = [
-            t.to(device) for t in (states, actions, rewards, next_states, dones)
-        ]
-        N, sdim = states.shape
-        assert sdim == self.state_dim, "state_dim mismatch."
+        # set normalizer for later rollout generation (call step() after training)
+        self.set_normalizer(buffer)
 
-        # 1) Compute z-score stats and cache them
-        delta_states = next_states - states
-        X_in = torch.cat([states, actions], dim=-1)  # (N, s+a)
-        Y_out = torch.cat([delta_states, rewards], dim=-1)  # (N, s+1)
-        mu_in, std_in = X_in.mean(0), X_in.std(0).clamp_min(self.cfg.eps)
-        mu_out, std_out = Y_out.mean(0), Y_out.std(0).clamp_min(self.cfg.eps)
-        self.set_normalizer(mu_in, std_in, mu_out, std_out)
+        # build val split
+        val_exp = _build_val_split(buffer, self._cfg.train.buffer_ratio_for_val).to(self._device)
 
-        # Pre-normalize data for faster training
-        assert (
-            self.mu_in is not None
-            and self.std_in is not None
-            and self.mu_out is not None
-            and self.std_out is not None
-        )
-        Xn = (X_in - self.mu_in) / self.std_in
-        Yn = (Y_out - self.mu_out) / self.std_out
+        # history
+        hist: dict[str, list[float]] = {
+            "train_total": [],
+            "train_delta": [],
+            "train_reward": [],
+            "train_done": [],
+            "val_total": [],
+            "val_delta": [],
+            "val_reward": [],
+            "val_done": [],
+        }
 
-        full_ds: TorchDataset[tuple[torch.Tensor, ...]] = TensorDataset(
-            Xn[:, :sdim],  # s_norm
-            Xn[:, sdim:],  # a_norm
-            Yn[:, :sdim],  # Δs_norm
-            Yn[:, sdim:],  # r_norm
-            dones,  # done (0/1)
-        )
-        # Validation split
-        if self.cfg.train.val_ratio > 0.0 and N >= 10:
-            n_val = max(1, int(N * self.cfg.train.val_ratio))
-            n_train = N - n_val
-            train_ds: TorchDataset[tuple[torch.Tensor, ...]]
-            val_ds: Optional[TorchDataset[tuple[torch.Tensor, ...]]]
-            train_ds, val_ds = random_split(
-                full_ds, [n_train, n_val], generator=torch.Generator(device="cpu")
-            )
-        else:
-            train_ds = full_ds
-            val_ds = None
+        # early stopping state
+        best_val = float("inf")
+        best_states = [copy.deepcopy(m.state_dict()) for m in self._models]
+        bad_epochs = 0
+        patience = self._cfg.train.early_stop_patience
 
-        # Optimizer
-        if optimizer is None:
-            params = []
-            for m in self.models:
-                params += list(m.parameters())
-            optimizer = torch.optim.AdamW(
-                params, lr=self.cfg.train.lr, weight_decay=self.cfg.train.weight_decay
+        # train multiple epochs
+        for _ in range(self._cfg.train.epochs):
+            loader = buffer.dataloader(
+                self._cfg.train.batch_size,
+                ratio=1 - self._cfg.train.buffer_ratio_for_val,
+                shuffle=True,
+                num_workers=self._cfg.train.dataloader_num_workers,
+                pin_memory=self._cfg.train.dataloader_pin_memory,
             )
 
-        def make_loader(
-            ds: TorchDataset[tuple[torch.Tensor, ...]],
-        ) -> DataLoader[tuple[torch.Tensor, ...]]:
-            return DataLoader(
-                ds, batch_size=self.cfg.train.batch_size, shuffle=True, drop_last=False
-            )
+            total_list, delta_list, reward_list, done_list = [], [], [], []
 
-        # Prepare per-model bootstrap loaders
-        def bootstrap_indices(n_items: int) -> torch.Tensor:
-            return torch.randint(0, n_items, (n_items,), device="cpu")
+            for batch in loader:
+                exp = Experience.from_kwargs(**batch).to(self._device)
 
-        train_len = len(cast(Sized, train_ds))
-        base_train_indices = torch.arange(train_len)
+                for model, opt in zip(self._models, self._optimizers):
+                    exp_m = _bootstrap_exp(exp) if self._cfg.train.bootstrap else exp
+                    t, dlt, rwd, dn = self._train_one_batch(model, opt, exp_m)
+                    total_list.append(t)
+                    delta_list.append(dlt)
+                    reward_list.append(rwd)
+                    done_list.append(dn)
 
-        if val_ds is not None:
-            val_len = len(cast(Sized, val_ds))
-            base_val_indices = torch.arange(val_len)
-        else:
-            base_val_indices = None
+            # record training mean
+            hist["train_total"].append(float(torch.tensor(total_list).mean().item()))
+            hist["train_delta"].append(float(torch.tensor(delta_list).mean().item()))
+            hist["train_reward"].append(float(torch.tensor(reward_list).mean().item()))
+            hist["train_done"].append(float(torch.tensor(done_list).mean().item()))
 
-        per_model_train_loaders: list[DataLoader[tuple[torch.Tensor, ...]]] = []
-        per_model_val_loaders: list[Optional[DataLoader[tuple[torch.Tensor, ...]]]] = []
-        for _ in range(len(self.models)):
-            if self.cfg.train.bootstrap and not isinstance(train_ds, TensorDataset):
-                idx = bootstrap_indices(len(base_train_indices))
-                tr_subset: TorchDataset[tuple[torch.Tensor, ...]] = Subset(
-                    train_ds, base_train_indices[idx].tolist()
-                )
-            else:
-                if isinstance(train_ds, TensorDataset):
-                    tr_subset = cast(TorchDataset[tuple[torch.Tensor, ...]], train_ds)
+            # validate
+            vt, vd, vr, vdn = self._validate_epoch(val_exp)
+            hist["val_total"].append(vt)
+            hist["val_delta"].append(vd)
+            hist["val_reward"].append(vr)
+            hist["val_done"].append(vdn)
+
+            # early stopping
+            current_val = vt
+            if not (current_val != current_val):  # filter NaN
+                if current_val + 1e-8 < best_val:
+                    best_val = current_val
+                    best_states = [copy.deepcopy(m.state_dict()) for m in self._models]
+                    bad_epochs = 0
                 else:
-                    tr_subset = Subset(train_ds, base_train_indices.tolist())
-            per_model_train_loaders.append(make_loader(tr_subset))
+                    bad_epochs += 1
 
-            if val_ds is not None:
-                if base_val_indices is not None:
-                    val_subset: TorchDataset[tuple[torch.Tensor, ...]] = Subset(
-                        val_ds, base_val_indices.tolist()
-                    )
-                else:
-                    val_subset = cast(TorchDataset[tuple[torch.Tensor, ...]], val_ds)
-                per_model_val_loaders.append(make_loader(val_subset))
-            else:
-                per_model_val_loaders.append(None)
+                if bad_epochs >= patience:
+                    for m, sd in zip(self._models, best_states):
+                        m.load_state_dict(sd)
+                    return hist
 
-        # Loss helpers
-        def gauss_nll(
-            target: torch.Tensor, mean: torch.Tensor, log_std: torch.Tensor
-        ) -> torch.Tensor:
-            log_std = torch.clamp(log_std, self.cfg.log_std_bounds[0], self.cfg.log_std_bounds[1])
-            var = log_std.exp().pow(2).clamp_min(1e-12)
-            return 0.5 * (((target - mean) ** 2) / var + 2 * log_std).sum(dim=1).mean()
+        # roll back to best
+        if best_val < float("inf"):
+            for m, sd in zip(self._models, best_states):
+                m.load_state_dict(sd)
 
-        @torch.no_grad()
-        def eval_model(
-            m: nn.Module, loader: Optional[DataLoader[tuple[torch.Tensor, ...]]]
-        ) -> float:
-            if loader is None:
-                return 0.0
-            m.eval()
-            acc = 0.0
-            cnt = 0
-            for sb, ab, dsn, rn, db in loader:
-                mean, log_std, done_logit = m(sb, ab)
-                loss = (
-                    self.cfg.train.loss_weight_delta
-                    * gauss_nll(dsn, mean[:, :sdim], log_std[:, :sdim])
-                    + self.cfg.train.loss_weight_reward
-                    * gauss_nll(rn, mean[:, sdim:], log_std[:, sdim:])
-                    + self.cfg.train.loss_weight_done
-                    * F.binary_cross_entropy_with_logits(done_logit, db)
-                )
-                acc += loss.item()
-                cnt += 1
-            return acc / max(1, cnt)
+        return hist
 
-        logs: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
-        best_val = math.inf
-        patience = self.cfg.train.early_stop_patience
-        best_state: Optional[dict[str, torch.Tensor]] = None
 
-        # Train for epochs (iterate each model per epoch)
-        for ep in range(self.cfg.train.epochs):
-            tl_list, vl_list = [], []
-            for k, m in enumerate(self.models):
-                m.train()
-                train_loader = per_model_train_loaders[k]
-                val_loader = (
-                    per_model_val_loaders[k] if per_model_val_loaders[k] is not None else None
-                )
+def _build_val_split(buffer: ReplayBuffer, val_ratio: float) -> Experience:
+    """Build a validation set tensor.
 
-                acc = 0.0
-                cnt = 0
-                for sb, ab, dsn, rn, db in train_loader:
-                    mean, log_std, done_logit = m(sb, ab)
-                    loss = (
-                        self.cfg.train.loss_weight_delta
-                        * gauss_nll(dsn, mean[:, :sdim], log_std[:, :sdim])
-                        + self.cfg.train.loss_weight_reward
-                        * gauss_nll(rn, mean[:, sdim:], log_std[:, sdim:])
-                        + self.cfg.train.loss_weight_done
-                        * F.binary_cross_entropy_with_logits(done_logit, db)
-                    )
-                    optimizer.zero_grad(set_to_none=True)
-                    loss.backward()
-                    optimizer.step()
-                    acc += loss.item()
-                    cnt += 1
-                tl = acc / max(1, cnt)
-                vl = eval_model(m, val_loader) if val_loader is not None else tl
-                tl_list.append(tl)
-                vl_list.append(vl)
+    Args:
+        buffer: The buffer to sample from.
+        val_ratio: The ratio of the buffer to sample from for validation. It will use the
+            [1-val_ratio, 1] part of the buffer for validation.
 
-            tl_mean, vl_mean = (
-                float(torch.tensor(tl_list).mean()),
-                float(torch.tensor(vl_list).mean()),
-            )
-            logs["train_loss"].append(tl_mean)
-            logs["val_loss"].append(vl_mean)
-            if progress:
-                print(
-                    f"[Dynamics-Ensemble][epoch {ep + 1:03d}] train={tl_mean:.4f} val={vl_mean:.4f}"
-                )
+    Returns:
+        The validation set.
+    """
+    N = len(buffer)
+    n_val = max(1, int(N * val_ratio)) if N > 1 else 0
+    assert n_val > 0
+    idxs = torch.randint(N - n_val, N, (n_val,))
+    return buffer.sample_by_idxs(idxs)
 
-            # Early stopping on ensemble-mean val loss
-            if vl_mean < best_val - 1e-6:
-                best_val = vl_mean
-                patience = self.cfg.train.early_stop_patience
-                # snapshot all models
-                best_state = {
-                    f"m{k}.{n}": p.detach().cpu().clone()
-                    for k, m in enumerate(self.models)
-                    for n, p in m.state_dict().items()
-                }
-            else:
-                patience -= 1
-                if patience <= 0:
-                    break
 
-        # Load best snapshot
-        if best_state is not None:
-            with torch.no_grad():
-                for k, m in enumerate(self.models):
-                    sd = {
-                        n.split(".", 1)[1]: best_state[f"m{k}.{n.split('.', 1)[1]}"]
-                        for n in m.state_dict().keys()
-                    }
-                    m.load_state_dict(sd)
-
-        return logs
+def _bootstrap_exp(exp: Experience) -> Experience:
+    n = exp.states.shape[0]
+    idx = torch.randint(0, n, (n,), device=exp.states.device)
+    return Experience(
+        states=exp.states.index_select(0, idx),
+        actions=exp.actions.index_select(0, idx),
+        rewards=exp.rewards.index_select(0, idx),
+        next_states=exp.next_states.index_select(0, idx),
+        dones=exp.dones.index_select(0, idx),
+    )

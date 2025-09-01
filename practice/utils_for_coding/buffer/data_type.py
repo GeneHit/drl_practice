@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 import torch
 from numpy.typing import NDArray
@@ -55,3 +55,31 @@ class Experience:
             next_states=batch_data["next_states"],
             dones=batch_data["dones"],
         )
+
+
+def merge_experiences(exps: Sequence[Experience], cpu: bool = False) -> Experience:
+    """Merge a sequence of experiences into one experience."""
+    exps = list(exps)
+    if not exps:
+        raise ValueError("exps is empty")
+
+    # collect all fields
+    states, actions, rewards, next_states, dones = zip(
+        *((e.states, e.actions, e.rewards, e.next_states, e.dones) for e in exps)
+    )
+    exp = Experience(
+        states=torch.cat(list(states), dim=0),
+        actions=torch.cat(list(actions), dim=0),
+        rewards=torch.cat(list(rewards), dim=0),
+        next_states=torch.cat(list(next_states), dim=0),
+        dones=torch.cat(list(dones), dim=0),
+    )
+    if cpu:
+        exp = Experience(
+            states=exp.states.cpu(),
+            actions=exp.actions.cpu(),
+            rewards=exp.rewards.cpu(),
+            next_states=exp.next_states.cpu(),
+            dones=exp.dones.cpu(),
+        )
+    return exp
