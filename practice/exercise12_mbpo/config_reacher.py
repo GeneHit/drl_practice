@@ -6,6 +6,12 @@ from torch.optim import Adam
 
 from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
+from practice.core.utils.dist_utils import get_device
+from practice.core.utils.env_utils import (
+    get_env_from_config,
+    verify_env_with_continuous_action,
+    verify_vector_env_with_continuous_action,
+)
 from practice.exercise9_sac.sac_exercise import SACActor
 from practice.exercise12_mbpo.mbpo_exercise import (
     MBPOConfig,
@@ -14,12 +20,6 @@ from practice.exercise12_mbpo.mbpo_exercise import (
     ModelRolloutConfig,
 )
 from practice.exercise12_mbpo.model_based_env import EnvModel, ModelBasedConfig, TrainConfig
-from practice.utils.dist_utils import get_device
-from practice.utils.env_utils import (
-    get_env_from_config,
-    verify_env_with_continuous_action,
-    verify_vector_env_with_continuous_action,
-)
 from practice.utils_for_coding.network_utils import DoubleQCritic
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 

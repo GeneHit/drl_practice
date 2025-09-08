@@ -3,9 +3,9 @@ from torch.optim import Adam
 
 from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.core.base.context import ContextBase
+from practice.core.utils.env_utils import get_device, get_env_from_config
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
-from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 

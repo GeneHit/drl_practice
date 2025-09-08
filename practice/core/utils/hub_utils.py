@@ -8,8 +8,8 @@ from huggingface_hub import HfApi, snapshot_download
 from huggingface_hub.repocard import metadata_eval_result, metadata_save
 
 from practice.core.base.config import ArtifactConfig, BaseConfig
+from practice.core.utils.cli_utils import get_utc_time_str
 from practice.exercise1_q.q_trainer_exercise import QTableTrainer
-from practice.utils.cli_utils import get_utc_time_str
 
 
 def push_to_hub_generic(config: BaseConfig, env: gym.Env[Any, Any], username: str) -> None:

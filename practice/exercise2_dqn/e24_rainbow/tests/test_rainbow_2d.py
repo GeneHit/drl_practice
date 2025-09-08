@@ -25,11 +25,11 @@ import pytest
 import torch
 from gymnasium.spaces import Discrete
 
+from practice.core.utils.env_utils import get_device
+from practice.core.utils.play_utils import play_and_generate_video_generic
+from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise2_dqn.e24_rainbow.config_lunar_2d import generate_context, get_app_config
 from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowConfig
-from practice.utils.env_utils import get_device
-from practice.utils.play_utils import play_and_generate_video_generic
-from practice.utils.train_utils import train_and_evaluate_network
 
 
 @pytest.fixture

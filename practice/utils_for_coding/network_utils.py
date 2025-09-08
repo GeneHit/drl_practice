@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from practice.utils.dist_utils import unwrap_model
+from practice.core.utils.dist_utils import unwrap_model
 
 
 def init_weights(layer: nn.Module) -> None:

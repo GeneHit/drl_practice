@@ -5,8 +5,8 @@ from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
 from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.core.base.context import ContextBase
+from practice.core.utils.env_utils import get_device, get_env_from_config
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
-from practice.utils.env_utils import get_device, get_env_from_config
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 

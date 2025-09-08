@@ -4,16 +4,16 @@ import torch.optim as optim
 
 from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
-from practice.exercise9_sac.sac_exercise import (
-    SACActor,
-    SACConfig,
-    SACTrainer,
-)
-from practice.utils.env_utils import (
+from practice.core.utils.env_utils import (
     get_device,
     get_env_from_config,
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
+)
+from practice.exercise9_sac.sac_exercise import (
+    SACActor,
+    SACConfig,
+    SACTrainer,
 )
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import DoubleQCritic

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Type
 
 import torch
 
-from practice.utils.dist_utils import get_world_size
+from practice.core.utils.dist_utils import get_world_size
 
 # reason: https://github.com/python/mypy/issues/11000
 if TYPE_CHECKING:

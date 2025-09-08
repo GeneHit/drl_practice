@@ -17,10 +17,10 @@ sys.path.insert(0, str(project_root))
 
 # below has to be imported after sys.path.insert(0, str(project_root))
 from practice.core.base.context import ContextBase  # noqa: E402
-from practice.utils.cli_utils import get_utc_time_str, load_config_module  # noqa: E402
-from practice.utils.hub_utils import push_to_hub_generic  # noqa: E402
-from practice.utils.play_utils import play_and_generate_video_generic  # noqa: E402
-from practice.utils.train_utils import train_and_evaluate_network  # noqa: E402
+from practice.core.utils.cli_utils import get_utc_time_str, load_config_module  # noqa: E402
+from practice.core.utils.hub_utils import push_to_hub_generic  # noqa: E402
+from practice.core.utils.play_utils import play_and_generate_video_generic  # noqa: E402
+from practice.core.utils.train_utils import train_and_evaluate_network  # noqa: E402
 
 
 def _create_parser() -> argparse.ArgumentParser:

@@ -31,6 +31,8 @@ import pytest
 import torch
 
 from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.utils.env_utils import get_device
+from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.config_mountain_car import generate_context, get_app_config
 from practice.exercise4_curiosity.curiosity_exercise import (
@@ -42,8 +44,6 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
     EnhancedReinforceTrainer,
 )
-from practice.utils.env_utils import get_device
-from practice.utils.train_utils import train_and_evaluate_network
 from practice.utils_for_coding.baseline_utils import ConstantBaseline
 from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
 

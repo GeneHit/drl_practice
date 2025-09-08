@@ -5,9 +5,9 @@ from torch import nn
 
 from practice.core.base.config import BaseConfig
 from practice.core.base.context import ContextBase
+from practice.core.utils.dist_utils import is_distributed
+from practice.core.utils.eval_utils import evaluate_and_save_results
 from practice.exercise1_q.q_table_exercise import QTable
-from practice.utils.dist_utils import is_distributed
-from practice.utils.eval_utils import evaluate_and_save_results
 
 
 def train_and_evaluate_network(config: BaseConfig, ctx: ContextBase) -> None:

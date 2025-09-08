@@ -6,11 +6,11 @@ from typing import Generator
 import pytest
 import torch
 
+from practice.core.utils.env_utils import get_device
+from practice.core.utils.play_utils import play_and_generate_video_generic
+from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise2_dqn.dqn_exercise import DQNConfig
 from practice.exercise2_dqn.e23_dueling_dqn.config_lunar_1d import generate_context, get_app_config
-from practice.utils.env_utils import get_device
-from practice.utils.play_utils import play_and_generate_video_generic
-from practice.utils.train_utils import train_and_evaluate_network
 
 
 @pytest.fixture

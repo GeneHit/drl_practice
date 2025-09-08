@@ -11,10 +11,10 @@ from torch import nn
 from tqdm import tqdm
 
 from practice.core.base.config import BaseConfig
+from practice.core.utils.cli_utils import get_utc_time_str
+from practice.core.utils.dist_utils import unwrap_model
+from practice.core.utils.env_utils import dump_env_wrappers
 from practice.exercise1_q.q_table_exercise import QTable
-from practice.utils.cli_utils import get_utc_time_str
-from practice.utils.dist_utils import unwrap_model
-from practice.utils.env_utils import dump_env_wrappers
 from practice.utils_for_coding.network_utils import save_model
 from practice.utils_for_coding.numpy_tensor_utils import get_tensor_expanding_axis
 

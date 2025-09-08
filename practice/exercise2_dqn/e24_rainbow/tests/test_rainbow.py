@@ -43,6 +43,9 @@ from torch.optim import Adam
 
 from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.core.base.context import ContextBase
+from practice.core.utils.env_utils import get_device, get_env_from_config
+from practice.core.utils.play_utils import play_and_generate_video_generic
+from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.exercise2_dqn.e24_rainbow.network import NoisyLinear, RainbowNet
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer, PERBufferConfig
@@ -50,9 +53,6 @@ from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import (
     RainbowConfig,
     _categorical_projection,
 )
-from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils.play_utils import play_and_generate_video_generic
-from practice.utils.train_utils import train_and_evaluate_network
 from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
 from practice.utils_for_coding.scheduler_utils import LinearSchedule
 
