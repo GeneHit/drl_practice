@@ -19,8 +19,8 @@ from practice.core.utils.env_utils import (
 )
 from practice.exercise4_curiosity.curiosity_exercise import RND1DNetworkConfig, RNDRewardConfig
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import ConstantSchedule, LinearSchedule
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import ConstantSchedule, LinearSchedule
 
 
 def get_app_config() -> ContPPOConfig:

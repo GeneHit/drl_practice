@@ -38,7 +38,7 @@ from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise1_q.config_taxi import generate_context
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.exercise1_q.q_trainer_exercise import QTableConfig, QTableTrainer
-from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
+from practice.utils.scheduler_utils import ExponentialSchedule
 
 
 @pytest.fixture

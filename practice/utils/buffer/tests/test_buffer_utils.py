@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 
-from practice.utils_for_coding.buffer.buffer_utils import BufferNP, BufferTorch
+from practice.utils.buffer.buffer_utils import BufferNP, BufferTorch
 
 
 class TestBufferNP:

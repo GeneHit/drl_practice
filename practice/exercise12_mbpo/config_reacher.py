@@ -20,8 +20,8 @@ from practice.exercise12_mbpo.mbpo_exercise import (
     ModelRolloutConfig,
 )
 from practice.exercise12_mbpo.model_based_env import EnvModel, ModelBasedConfig, TrainConfig
-from practice.utils_for_coding.network_utils import DoubleQCritic
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.network_utils import DoubleQCritic
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> MBPOConfig:

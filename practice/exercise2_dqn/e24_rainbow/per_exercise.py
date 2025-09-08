@@ -7,7 +7,7 @@ import torch
 from numpy.typing import NDArray
 
 from practice.exercise2_dqn.e24_rainbow.sum_tree import SumTree
-from practice.utils_for_coding.replay_buffer_utils import Buffer
+from practice.utils.replay_buffer_utils import Buffer
 
 
 @dataclass(frozen=True, kw_only=True)

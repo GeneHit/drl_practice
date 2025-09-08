@@ -15,9 +15,9 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceTrainer,
     ReinforceContext,
 )
-from practice.utils_for_coding.baseline_utils import ConstantBaseline
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.baseline_utils import ConstantBaseline
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> EnhancedReinforceConfig:

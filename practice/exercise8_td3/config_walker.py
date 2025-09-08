@@ -15,9 +15,9 @@ from practice.exercise8_td3.td3_exercise import (
     TD3Config,
     TD3Trainer,
 )
-from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import DoubleQCritic
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.context_utils import ACContext
+from practice.utils.network_utils import DoubleQCritic
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> TD3Config:

@@ -8,8 +8,8 @@ from practice.core.base.context import ContextBase
 from practice.core.base.env_typing import ActType
 from practice.core.base.trainer import TrainerBase
 from practice.exercise1_q.q_table_exercise import ObsType
-from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import CustomWriter
+from practice.utils.scheduler_utils import ScheduleBase
+from practice.utils.writer_utils import CustomWriter
 
 # Type alias for single environment
 EnvType = gym.Env[ObsType, ActType]

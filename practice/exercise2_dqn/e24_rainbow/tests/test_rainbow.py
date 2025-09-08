@@ -53,8 +53,8 @@ from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import (
     RainbowConfig,
     _categorical_projection,
 )
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def generate_test_context(config: RainbowConfig) -> ContextBase:

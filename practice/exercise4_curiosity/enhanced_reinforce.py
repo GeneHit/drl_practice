@@ -11,12 +11,12 @@ from practice.core.base.context import ContextBase
 from practice.core.base.env_typing import ActType, ObsType
 from practice.core.base.rewarder import RewardBase, RewardConfig
 from practice.core.base.trainer import TrainerBase
-from practice.utils_for_coding.baseline_utils import (
+from practice.utils.baseline_utils import (
     BaselineBase,
     ConstantBaseline,
 )
-from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import CustomWriter
+from practice.utils.scheduler_utils import ScheduleBase
+from practice.utils.writer_utils import CustomWriter
 
 
 @dataclass(kw_only=True, frozen=True)

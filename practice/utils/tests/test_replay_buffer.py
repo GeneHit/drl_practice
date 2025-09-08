@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 import torch
 
-from practice.utils_for_coding.buffer import Experience
-from practice.utils_for_coding.replay_buffer_utils import Buffer, ReplayBuffer
+from practice.utils.buffer import Experience
+from practice.utils.replay_buffer_utils import Buffer, ReplayBuffer
 
 
 class TestBuffer:

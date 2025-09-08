@@ -44,8 +44,8 @@ from practice.exercise4_curiosity.enhanced_reinforce import (
     EnhancedReinforceConfig,
     EnhancedReinforceTrainer,
 )
-from practice.utils_for_coding.baseline_utils import ConstantBaseline
-from practice.utils_for_coding.scheduler_utils import ConstantSchedule, ExponentialSchedule
+from practice.utils.baseline_utils import ConstantBaseline
+from practice.utils.scheduler_utils import ConstantSchedule, ExponentialSchedule
 
 
 @pytest.fixture

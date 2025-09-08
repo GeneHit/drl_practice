@@ -10,8 +10,8 @@ from practice.exercise3_reinforce.reinforce_exercise import (
     ReinforceConfig,
     ReinforceTrainer,
 )
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> ReinforceConfig:

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from practice.utils_for_coding.baseline_utils import (
+from practice.utils.baseline_utils import (
     ConstantBaseline,
     OptimalConstantBaseline,
     TimeDependentBaseline,

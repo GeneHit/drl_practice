@@ -39,7 +39,7 @@ from practice.exercise3_reinforce.reinforce_exercise import (
     ReinforceConfig,
     ReinforceTrainer,
 )
-from practice.utils_for_coding.scheduler_utils import ConstantSchedule
+from practice.utils.scheduler_utils import ConstantSchedule
 
 
 @pytest.fixture

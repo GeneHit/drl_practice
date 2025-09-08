@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from practice.utils_for_coding.scheduler_utils import (
+from practice.utils.scheduler_utils import (
     ConstantSchedule,
     ExponentialSchedule,
     LinearSchedule,

@@ -6,7 +6,7 @@ from practice.core.base.context import ContextBase
 from practice.core.utils.env_utils import get_device, get_env_from_config
 from practice.exercise5_a2c.a2c_gae_exercise import A2CTrainer, ActorCritic
 from practice.exercise6_a3c.a3c_exercise import A3CConfig
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> A3CConfig:

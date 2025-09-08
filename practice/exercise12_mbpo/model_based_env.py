@@ -9,8 +9,8 @@ import torch.nn as nn
 from torch import Tensor
 from torch.distributions import Normal
 
-from practice.utils_for_coding.buffer import Experience, ReplayBuffer
-from practice.utils_for_coding.network_utils import MLP
+from practice.utils.buffer import Experience, ReplayBuffer
+from practice.utils.network_utils import MLP
 
 
 @dataclass(frozen=True, kw_only=True)

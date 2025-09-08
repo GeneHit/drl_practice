@@ -15,8 +15,8 @@ from practice.exercise9_sac.sac_exercise import (
     SACConfig,
     SACTrainer,
 )
-from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import DoubleQCritic
+from practice.utils.context_utils import ACContext
+from practice.utils.network_utils import DoubleQCritic
 
 
 def get_app_config() -> SACConfig:

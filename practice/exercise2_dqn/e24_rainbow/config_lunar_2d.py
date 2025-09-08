@@ -8,8 +8,8 @@ from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.exercise2_dqn.e24_rainbow.config_lunar_1d import schedule_beta_increment
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBufferConfig
 from practice.exercise2_dqn.e24_rainbow.rainbow_exercise import RainbowConfig, RainbowNet
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import ConstantSchedule
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import ConstantSchedule
 
 
 def get_app_config() -> RainbowConfig:

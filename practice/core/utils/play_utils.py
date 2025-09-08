@@ -12,7 +12,7 @@ from practice.core.base.config import BaseConfig
 from practice.core.base.context import ContextBase
 from practice.core.utils.eval_utils import get_action
 from practice.exercise1_q.q_table_exercise import QTable
-from practice.utils_for_coding.network_utils import load_model
+from practice.utils.network_utils import load_model
 
 
 def play_and_generate_video_generic(

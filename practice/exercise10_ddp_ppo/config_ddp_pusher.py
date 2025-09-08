@@ -18,8 +18,8 @@ from practice.core.utils.env_utils import (
     verify_vector_env_with_continuous_action,
 )
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> ContPPOConfig:

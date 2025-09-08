@@ -15,11 +15,11 @@ from practice.core.base.rewarder import RewardBase, RewardConfig
 from practice.core.base.trainer import TrainerBase
 from practice.core.utils.dist_utils import unwrap_model
 from practice.exercise7_ppo.ppo_exercise import _RolloutBuffer, _StepData
-from practice.utils_for_coding.network_utils import MLP, LogStdHead, init_weights
-from practice.utils_for_coding.numpy_tensor_utils import np2tensor, tensor2np_1d
-from practice.utils_for_coding.rollout_utils import get_good_transition_mask
-from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import CustomWriter
+from practice.utils.network_utils import MLP, LogStdHead, init_weights
+from practice.utils.numpy_tensor_utils import np2tensor, tensor2np_1d
+from practice.utils.rollout_utils import get_good_transition_mask
+from practice.utils.scheduler_utils import ScheduleBase
+from practice.utils.writer_utils import CustomWriter
 
 
 class ContACNet(nn.Module):

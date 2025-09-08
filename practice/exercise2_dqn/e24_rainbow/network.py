@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 
 from practice.core.base.env_typing import ActType
-from practice.utils_for_coding.network_utils import MLP
-from practice.utils_for_coding.numpy_tensor_utils import argmax_action
+from practice.utils.network_utils import MLP
+from practice.utils.numpy_tensor_utils import argmax_action
 
 
 class NoisyLinear(nn.Module):
