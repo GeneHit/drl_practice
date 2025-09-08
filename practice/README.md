@@ -81,4 +81,4 @@ tensorboard --logdir=results/exercise3_reinforce/cartpole/tensorboard
 
 ## Other
 
-[CLI_README](./infos/CLI_README.md): the design document for the command cli.
+[CLI_README](./docs/CLI_README.md): the design document for the command cli.
