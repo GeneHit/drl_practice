@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from tqdm import tqdm
 
-from practice.base.config import BaseConfig
+from practice.core.base.config import BaseConfig
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.utils.cli_utils import get_utc_time_str
 from practice.utils.dist_utils import unwrap_model

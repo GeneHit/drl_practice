@@ -30,7 +30,7 @@ from typing import Generator
 import pytest
 import torch
 
-from practice.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.exercise3_reinforce.config_cartpole import generate_context
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,

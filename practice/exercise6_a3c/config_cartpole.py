@@ -1,8 +1,8 @@
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.context import ContextBase
 from practice.exercise5_a2c.a2c_gae_exercise import A2CTrainer, ActorCritic
 from practice.exercise6_a3c.a3c_exercise import A3CConfig
 from practice.utils.env_utils import get_device, get_env_from_config

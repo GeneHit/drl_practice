@@ -26,9 +26,9 @@ import pytest
 import torch
 import torch.nn as nn
 
-from practice.base.config import ArtifactConfig, BaseConfig, EnvConfig
-from practice.base.context import ContextBase
-from practice.base.trainer import TrainerBase
+from practice.core.base.config import ArtifactConfig, BaseConfig, EnvConfig
+from practice.core.base.context import ContextBase
+from practice.core.base.trainer import TrainerBase
 from practice.utils.play_utils import _load_model_from_config, play_and_generate_video_generic
 
 

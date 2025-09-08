@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
-from practice.base.config import BaseConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import BaseConfig
+from practice.core.base.context import ContextBase
 
 
 def load_config_module(config_path: str, mode: str) -> tuple[BaseConfig, ContextBase]:

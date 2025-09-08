@@ -4,8 +4,8 @@ from typing import cast
 
 from torch.optim import Adam
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.env_typing import EnvsTypeC, EnvTypeC
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
 from practice.exercise9_sac.sac_exercise import SACActor
 from practice.exercise12_mbpo.mbpo_exercise import (
     MBPOConfig,

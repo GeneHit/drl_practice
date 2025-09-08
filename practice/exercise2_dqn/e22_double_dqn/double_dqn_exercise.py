@@ -3,8 +3,8 @@ import torch
 import torch.nn.functional as F
 from numpy.typing import NDArray
 
-from practice.base.context import ContextBase
-from practice.base.env_typing import ActType, ObsType
+from practice.core.base.context import ContextBase
+from practice.core.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import BasicDQNPod, DQNConfig
 from practice.utils_for_coding.writer_utils import CustomWriter
 

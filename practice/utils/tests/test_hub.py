@@ -26,8 +26,8 @@ from unittest.mock import Mock, patch
 import pytest
 import torch
 
-from practice.base.config import ArtifactConfig, BaseConfig, EnvConfig
-from practice.base.trainer import TrainerBase
+from practice.core.base.config import ArtifactConfig, BaseConfig, EnvConfig
+from practice.core.base.trainer import TrainerBase
 from practice.utils.hub_utils import push_model_to_hub, push_to_hub_generic
 
 

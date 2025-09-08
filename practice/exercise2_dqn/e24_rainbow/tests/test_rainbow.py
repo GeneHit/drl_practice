@@ -41,8 +41,8 @@ import torch
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.context import ContextBase
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.exercise2_dqn.e24_rainbow.network import NoisyLinear, RainbowNet
 from practice.exercise2_dqn.e24_rainbow.per_exercise import PERBuffer, PERBufferConfig

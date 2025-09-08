@@ -35,7 +35,7 @@ from typing import Generator
 import pytest
 import torch
 
-from practice.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.exercise2_dqn.config_lunar_1d import generate_context
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer

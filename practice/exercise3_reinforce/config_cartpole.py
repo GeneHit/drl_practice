@@ -2,8 +2,8 @@ import gymnasium as gym
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.context import ContextBase
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     ReinforceConfig,

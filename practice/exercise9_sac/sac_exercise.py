@@ -9,9 +9,9 @@ import torch.nn as nn
 from numpy.typing import NDArray
 from tqdm import tqdm
 
-from practice.base.config import BaseConfig
-from practice.base.env_typing import ActTypeC, ObsType
-from practice.base.trainer import TrainerBase
+from practice.core.base.config import BaseConfig
+from practice.core.base.env_typing import ActTypeC, ObsType
+from practice.core.base.trainer import TrainerBase
 from practice.utils_for_coding.buffer import Experience
 from practice.utils_for_coding.context_utils import ACContext
 from practice.utils_for_coding.network_utils import MLP, init_weights, soft_update

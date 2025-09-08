@@ -11,9 +11,9 @@ from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 from torch import Tensor
 
-from practice.base.config import BaseConfig
-from practice.base.context import ContextBase
-from practice.base.env_typing import ActType, ObsType
+from practice.core.base.config import BaseConfig
+from practice.core.base.context import ContextBase
+from practice.core.base.env_typing import ActType, ObsType
 from practice.utils_for_coding.network_utils import init_weights
 from practice.utils_for_coding.numpy_tensor_utils import argmax_action
 from practice.utils_for_coding.replay_buffer_utils import ReplayBuffer

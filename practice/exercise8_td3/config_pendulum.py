@@ -2,8 +2,8 @@ from typing import cast
 
 import torch.optim as optim
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.env_typing import EnvsTypeC, EnvTypeC
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
 from practice.exercise8_td3.td3_exercise import (
     TD3Actor,
     TD3Config,

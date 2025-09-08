@@ -44,7 +44,7 @@ from practice.utils_for_coding.scheduler_utils import ExponentialSchedule
 @pytest.fixture
 def test_config() -> QTableConfig:
     """Create a test configuration based on taxi config with reduced parameters."""
-    from practice.base.config import ArtifactConfig, EnvConfig
+    from practice.core.base.config import ArtifactConfig, EnvConfig
     from practice.utils.env_utils import get_device
 
     device = get_device()

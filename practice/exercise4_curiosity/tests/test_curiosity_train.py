@@ -30,7 +30,7 @@ from typing import Generator
 import pytest
 import torch
 
-from practice.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.config import ArtifactConfig, EnvConfig
 from practice.exercise3_reinforce.reinforce_exercise import Reinforce1DNet
 from practice.exercise4_curiosity.config_mountain_car import generate_context, get_app_config
 from practice.exercise4_curiosity.curiosity_exercise import (

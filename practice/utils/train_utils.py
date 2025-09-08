@@ -3,8 +3,8 @@ import time
 import torch.distributed as dist
 from torch import nn
 
-from practice.base.config import BaseConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import BaseConfig
+from practice.core.base.context import ContextBase
 from practice.exercise1_q.q_table_exercise import QTable
 from practice.utils.dist_utils import is_distributed
 from practice.utils.eval_utils import evaluate_and_save_results

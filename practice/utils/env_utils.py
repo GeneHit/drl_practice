@@ -8,8 +8,8 @@ import torch
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
 
-from practice.base.config import EnvConfig
-from practice.base.env_typing import ActType, EnvsType, EnvsTypeC, EnvType, EnvTypeC
+from practice.core.base.config import EnvConfig
+from practice.core.base.env_typing import ActType, EnvsType, EnvsTypeC, EnvType, EnvTypeC
 
 ObsInt: TypeAlias = np.uint8
 

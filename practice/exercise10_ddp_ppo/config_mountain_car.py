@@ -3,9 +3,9 @@ from typing import cast
 import torch.nn as nn
 from torch.optim import Adam, lr_scheduler
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
-from practice.base.env_typing import EnvsTypeC, EnvTypeC
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.context import ContextBase
+from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
 from practice.exercise4_curiosity.curiosity_exercise import RND1DNetworkConfig, RNDRewardConfig
 from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
 from practice.utils.dist_utils import (

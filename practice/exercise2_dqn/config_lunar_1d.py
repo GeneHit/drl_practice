@@ -1,8 +1,8 @@
 from gymnasium.spaces import Discrete
 from torch.optim import Adam
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.context import ContextBase
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, QNet1D
 from practice.exercise2_dqn.dqn_trainer import DQNTrainer
 from practice.utils.env_utils import get_device, get_env_from_config
