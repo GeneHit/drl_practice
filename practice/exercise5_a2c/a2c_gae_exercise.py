@@ -9,14 +9,14 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 from tqdm import tqdm
 
-from practice.base.config import BaseConfig
-from practice.base.context import ContextBase
-from practice.base.env_typing import ActType, ObsType
-from practice.base.trainer import TrainerBase
-from practice.utils_for_coding.network_utils import MLP, init_weights
-from practice.utils_for_coding.numpy_tensor_utils import argmax_action
-from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import CustomWriter
+from practice.core.base.config import BaseConfig
+from practice.core.base.context import ContextBase
+from practice.core.base.env_typing import ActType, ObsType
+from practice.core.base.trainer import TrainerBase
+from practice.utils.network_utils import MLP, init_weights
+from practice.utils.numpy_tensor_utils import argmax_action
+from practice.utils.scheduler_utils import ScheduleBase
+from practice.utils.writer_utils import CustomWriter
 
 
 class ActorCritic(nn.Module):

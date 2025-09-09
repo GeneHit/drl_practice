@@ -3,12 +3,12 @@ from gymnasium.spaces import Discrete
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.context import ContextBase
+from practice.core.utils.env_utils import get_device, get_env_from_config
 from practice.exercise7_ppo.ppo_exercise import ActorCritic, PPOConfig, PPOTrainer
-from practice.utils.env_utils import get_device, get_env_from_config
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> PPOConfig:

@@ -5,16 +5,16 @@ import torch
 from numpy.typing import NDArray
 from tqdm import tqdm
 
-from practice.base.context import ContextBase
-from practice.base.env_typing import ActTypeC, ObsType
-from practice.base.trainer import TrainerBase
+from practice.core.base.context import ContextBase
+from practice.core.base.env_typing import ActTypeC, ObsType
+from practice.core.base.trainer import TrainerBase
 from practice.exercise9_sac.sac_exercise import SACConfig, _SACPod
 from practice.exercise12_mbpo.model_based_env import EnvModel, ModelBasedConfig, ModelBasedEnv
-from practice.utils_for_coding.buffer import Experience, ReplayBuffer
-from practice.utils_for_coding.buffer.data_type import merge_experiences
-from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import CustomWriter
+from practice.utils.buffer import Experience, ReplayBuffer
+from practice.utils.buffer.data_type import merge_experiences
+from practice.utils.context_utils import ACContext
+from practice.utils.scheduler_utils import ScheduleBase
+from practice.utils.writer_utils import CustomWriter
 
 
 @dataclass(kw_only=True, frozen=True)

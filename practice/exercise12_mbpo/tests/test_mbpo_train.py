@@ -5,11 +5,11 @@ from typing import Generator
 
 import pytest
 
+from practice.core.utils.env_utils import get_device
+from practice.core.utils.play_utils import play_and_generate_video_generic
+from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise12_mbpo.config_reacher import generate_context, get_app_config
 from practice.exercise12_mbpo.mbpo_exercise import MBPOConfig
-from practice.utils.env_utils import get_device
-from practice.utils.play_utils import play_and_generate_video_generic
-from practice.utils.train_utils import train_and_evaluate_network
 
 
 @pytest.fixture

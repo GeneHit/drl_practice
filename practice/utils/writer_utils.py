@@ -4,7 +4,7 @@ from typing import Any
 from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 
-from practice.utils.env_utils import extract_episode_data_from_infos
+from practice.core.utils.env_utils import extract_episode_data_from_infos
 
 
 class CustomWriter:

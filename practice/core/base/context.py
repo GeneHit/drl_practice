@@ -6,7 +6,7 @@ import torch.nn as nn
 from gymnasium.spaces import Box, Discrete
 from torch.optim.lr_scheduler import LRScheduler
 
-from practice.base.env_typing import EnvsType, EnvsTypeC, EnvType, EnvTypeC
+from practice.core.base.env_typing import EnvsType, EnvsTypeC, EnvType, EnvTypeC
 from practice.exercise1_q.q_table_exercise import QTable
 
 

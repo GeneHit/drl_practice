@@ -6,10 +6,10 @@ from torch.multiprocessing import Process, Queue
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
-from practice.base.context import ContextBase
+from practice.core.base.context import ContextBase
+from practice.core.utils.env_utils import get_env_from_config
+from practice.core.utils.eval_utils import evaluate_and_save_results
 from practice.exercise5_a2c.a2c_gae_exercise import A2CConfig, A2CTrainer, ActorCritic
-from practice.utils.env_utils import get_env_from_config
-from practice.utils.eval_utils import evaluate_and_save_results
 
 
 @dataclass(frozen=True, kw_only=True)

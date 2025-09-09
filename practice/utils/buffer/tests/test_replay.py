@@ -6,7 +6,7 @@ import torch
 from numpy.typing import NDArray
 from torch import Tensor
 
-from practice.utils_for_coding.buffer.replay import ReplayBuffer
+from practice.utils.buffer.replay import ReplayBuffer
 
 
 class TestReplayBuffer:

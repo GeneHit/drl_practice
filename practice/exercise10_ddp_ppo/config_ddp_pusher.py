@@ -3,23 +3,23 @@ from typing import cast
 import torch.nn as nn
 from torch.optim import Adam
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.context import ContextBase
-from practice.base.env_typing import EnvsTypeC, EnvTypeC
-from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
-from practice.utils.dist_utils import (
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.context import ContextBase
+from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
+from practice.core.utils.dist_utils import (
     auto_init_distributed,
     get_device,
     get_world_size,
     is_main_process,
 )
-from practice.utils.env_utils import (
+from practice.core.utils.env_utils import (
     get_env_from_config,
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.network_utils import load_checkpoint_if_exists
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.exercise10_ddp_ppo.ppo_rnd_exercise import ContACNet, ContPPOConfig, ContPPOTrainer
+from practice.utils.network_utils import load_checkpoint_if_exists
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> ContPPOConfig:

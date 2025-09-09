@@ -9,16 +9,16 @@ from numpy.typing import NDArray
 from torch import Tensor, nn
 from tqdm import tqdm
 
-from practice.base.config import BaseConfig
-from practice.base.env_typing import ActTypeC, ObsType
-from practice.base.trainer import TrainerBase
-from practice.utils_for_coding.buffer import Experience
-from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import MLP, soft_update
-from practice.utils_for_coding.numpy_tensor_utils import as_tensor_on, tensor2np_1d
-from practice.utils_for_coding.replay_buffer_utils import ReplayBuffer
-from practice.utils_for_coding.scheduler_utils import ScheduleBase
-from practice.utils_for_coding.writer_utils import CustomWriter
+from practice.core.base.config import BaseConfig
+from practice.core.base.env_typing import ActTypeC, ObsType
+from practice.core.base.trainer import TrainerBase
+from practice.utils.buffer import Experience
+from practice.utils.context_utils import ACContext
+from practice.utils.network_utils import MLP, soft_update
+from practice.utils.numpy_tensor_utils import as_tensor_on, tensor2np_1d
+from practice.utils.replay_buffer_utils import ReplayBuffer
+from practice.utils.scheduler_utils import ScheduleBase
+from practice.utils.writer_utils import CustomWriter
 
 
 class TD3Actor(nn.Module):

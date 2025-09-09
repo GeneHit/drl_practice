@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
-from practice.base.context import ContextBase
+from practice.core.base.context import ContextBase
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -56,7 +56,7 @@ python -m pytest practice/exercise5_a2c/tests/ -v
     - use a common ExponentialLR for value, policy and shared_layers.
 
 The training log of a [mean_reward: 499.94, std_reward: 0.42]
-![alt text](../infos/e5_a2c_cartpole.png)
+![alt text](../docs/e5_a2c_cartpole.png)
 
 ### LunarLander
 1. different value_loss_coef

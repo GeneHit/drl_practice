@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from practice.utils_for_coding.buffer import Experience
+from practice.utils.buffer import Experience
 
 
 class ReplayBuffer:

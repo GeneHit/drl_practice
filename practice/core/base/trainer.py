@@ -6,8 +6,8 @@ from typing import TypeAlias
 
 import numpy as np
 
-from practice.base.config import BaseConfig
-from practice.base.context import ContextBase
+from practice.core.base.config import BaseConfig
+from practice.core.base.context import ContextBase
 
 ActType: TypeAlias = np.int64
 

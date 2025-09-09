@@ -2,22 +2,22 @@ from typing import cast
 
 import torch.optim as optim
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.env_typing import EnvsTypeC, EnvTypeC
-from practice.exercise8_td3.td3_exercise import (
-    TD3Actor,
-    TD3Config,
-    TD3Trainer,
-)
-from practice.utils.env_utils import (
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
+from practice.core.utils.env_utils import (
     get_device,
     get_env_from_config,
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import DoubleQCritic
-from practice.utils_for_coding.scheduler_utils import LinearSchedule
+from practice.exercise8_td3.td3_exercise import (
+    TD3Actor,
+    TD3Config,
+    TD3Trainer,
+)
+from practice.utils.context_utils import ACContext
+from practice.utils.network_utils import DoubleQCritic
+from practice.utils.scheduler_utils import LinearSchedule
 
 
 def get_app_config() -> TD3Config:

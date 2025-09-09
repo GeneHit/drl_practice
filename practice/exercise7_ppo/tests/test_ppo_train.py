@@ -5,9 +5,9 @@ from typing import Generator
 
 import pytest
 
+from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise7_ppo.config_cartpole import generate_context, get_app_config
 from practice.exercise7_ppo.ppo_exercise import PPOConfig
-from practice.utils.train_utils import train_and_evaluate_network
 
 
 @pytest.fixture

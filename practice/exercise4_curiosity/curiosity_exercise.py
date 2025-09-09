@@ -7,9 +7,9 @@ import torch.nn as nn
 import torch.optim
 from numpy.typing import NDArray
 
-from practice.base.rewarder import RewardBase, RewardConfig
-from practice.utils_for_coding.network_utils import MLP
-from practice.utils_for_coding.scheduler_utils import ScheduleBase
+from practice.core.base.rewarder import RewardBase, RewardConfig
+from practice.utils.network_utils import MLP
+from practice.utils.scheduler_utils import ScheduleBase
 
 
 class RNDNetwork1D(nn.Module):

@@ -8,12 +8,12 @@ from gymnasium.spaces import Discrete
 from numpy.typing import NDArray
 from torch import Tensor
 
-from practice.base.context import ContextBase
-from practice.base.env_typing import ActType, ObsType
+from practice.core.base.context import ContextBase
+from practice.core.base.env_typing import ActType, ObsType
 from practice.exercise2_dqn.dqn_exercise import DQNConfig, DQNPod
 from practice.exercise2_dqn.e24_rainbow.network import RainbowNet
 from practice.exercise2_dqn.e24_rainbow.per_exercise import NStepReplay, PERBuffer, PERBufferConfig
-from practice.utils_for_coding.writer_utils import CustomWriter
+from practice.utils.writer_utils import CustomWriter
 
 
 @dataclass(kw_only=True, frozen=True)

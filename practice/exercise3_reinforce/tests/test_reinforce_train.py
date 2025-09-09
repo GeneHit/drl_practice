@@ -30,16 +30,16 @@ from typing import Generator
 import pytest
 import torch
 
-from practice.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.utils.env_utils import get_device
+from practice.core.utils.train_utils import train_and_evaluate_network
 from practice.exercise3_reinforce.config_cartpole import generate_context
 from practice.exercise3_reinforce.reinforce_exercise import (
     Reinforce1DNet,
     ReinforceConfig,
     ReinforceTrainer,
 )
-from practice.utils.env_utils import get_device
-from practice.utils.train_utils import train_and_evaluate_network
-from practice.utils_for_coding.scheduler_utils import ConstantSchedule
+from practice.utils.scheduler_utils import ConstantSchedule
 
 
 @pytest.fixture

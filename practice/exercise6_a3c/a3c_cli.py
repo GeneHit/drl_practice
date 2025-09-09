@@ -9,8 +9,8 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # below has to be imported after sys.path.insert(0, str(project_root))
+from practice.core.utils.cli_utils import get_utc_time_str  # noqa: E402
 from practice.exercise6_a3c.a3c_exercise import A3CConfig, a3c_train  # noqa: E402
-from practice.utils.cli_utils import get_utc_time_str  # noqa: E402
 
 
 def _load_config_module(config_path: str) -> A3CConfig:

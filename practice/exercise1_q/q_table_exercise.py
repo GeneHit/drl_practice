@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from practice.base.env_typing import ActType
+from practice.core.base.env_typing import ActType
 
 # Type alias for discrete observations
 ObsType: TypeAlias = np.int64

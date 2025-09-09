@@ -2,21 +2,21 @@ from typing import cast
 
 import torch.optim as optim
 
-from practice.base.config import ArtifactConfig, EnvConfig
-from practice.base.env_typing import EnvsTypeC, EnvTypeC
-from practice.exercise9_sac.sac_exercise import (
-    SACActor,
-    SACConfig,
-    SACTrainer,
-)
-from practice.utils.env_utils import (
+from practice.core.base.config import ArtifactConfig, EnvConfig
+from practice.core.base.env_typing import EnvsTypeC, EnvTypeC
+from practice.core.utils.env_utils import (
     get_device,
     get_env_from_config,
     verify_env_with_continuous_action,
     verify_vector_env_with_continuous_action,
 )
-from practice.utils_for_coding.context_utils import ACContext
-from practice.utils_for_coding.network_utils import DoubleQCritic
+from practice.exercise9_sac.sac_exercise import (
+    SACActor,
+    SACConfig,
+    SACTrainer,
+)
+from practice.utils.context_utils import ACContext
+from practice.utils.network_utils import DoubleQCritic
 
 
 def get_app_config() -> SACConfig:
