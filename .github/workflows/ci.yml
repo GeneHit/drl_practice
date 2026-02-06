@@ -53,6 +53,7 @@ jobs:
           source .venv/bin/activate
           uv pip sync requirements.lock --extra-index-url https://download.pytorch.org/whl/cpu
 
+      # 安装当前包（如果有），以便 mypy 和 pytest 能正确识别模块
       - name: Install package in editable mode
         run: |
           source .venv/bin/activate
@@ -66,5 +67,4 @@ jobs:
       - name: Run pytest
         run: |
           source .venv/bin/activate
-          export PYTHONPATH=$PYTHONPATH:$(pwd)
           pytest .
