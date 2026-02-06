@@ -25,19 +25,17 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: "0.10.0"  # 固定版本，避免意外的 breaking changes
+          enable-cache: true  # 启用内置缓存功能
 
-      # 缓存 Mypy 和 uv 缓存,加速检查
-      - name: Cache Mypy and uv
+      # 缓存 Mypy
+      - name: Cache Mypy
         uses: actions/cache@v4
         with:
-          path: |
-            .mypy_cache
-            ~/.cache/uv
-          key: test-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
-          # 增加回退 key，少重新构建
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
           restore-keys: |
-            test-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-
-            test-${{ runner.os }}-
+            mypy-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-
+            mypy-${{ runner.os }}-
 
       # 动态生成锁文件，避免需要列出所有隐式依赖给 uv
       - name: Generate lockfile (compile)
