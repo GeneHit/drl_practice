@@ -58,6 +58,7 @@ jobs:
           source .venv/bin/activate
           uv pip install -e .
 
+      # 运行 mypy
       - name: Run mypy
         run: |
           source .venv/bin/activate
