@@ -72,6 +72,7 @@ jobs:
           source .venv/bin/activate
           mypy .
 
+      # 运行 pytest
       - name: Run pytest
         run: |
           source .venv/bin/activate
