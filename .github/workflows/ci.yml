@@ -26,6 +26,7 @@ jobs:
         with:
           version: "0.10.0"  # 固定版本，避免意外的 breaking changes
           enable-cache: true  # 启用内置缓存功能
+          cache-dependency-glob: "requirements.txt"  # 使用 requirements.txt 作为缓存键
 
       # 缓存 Mypy
       - name: Cache Mypy
