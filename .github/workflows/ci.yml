@@ -51,7 +51,7 @@ jobs:
         run: |
           uv venv .venv -p 3.12
           source .venv/bin/activate
-          uv pip sync requirements.lock
+          uv pip sync requirements.lock --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Install package in editable mode
         run: |
