@@ -45,11 +45,19 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/cpu \
             -o requirements.lock
 
-      # 用 uv 创建虚拟环境并同步依赖（替代 pip install）
+      # 缓存虚拟环境（可选，但能显著加速）
+      - name: Cache virtual environment
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements.lock') }}
+
+      # 用 uv 创建虚拟环境并同步依赖（仅在缓存未命中时）
       - name: Create venv & sync deps (uv)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
           uv venv .venv -p 3.12
-          source .venv/bin/activate
           uv pip sync requirements.lock --extra-index-url https://download.pytorch.org/whl/cpu
 
       # 安装当前包（如果有），以便 mypy 和 pytest 能正确识别模块
